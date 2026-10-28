@@ -142,6 +142,18 @@ export function whiskerLean(balance: number): number {
   return Math.sign(balance) * 0.5 * (1 - Math.exp(-Math.abs(balance) / WHISKER_SCALE));
 }
 
+/**
+ * Quanto está aceso um lado dos bigodes (0 a 1) a meio da animação de a até z, sendo v o valor atual;
+ * side +1 é a esquerda (quem vê) e −1 a direita. Ao crescer de 0 até z acende ao mesmo ritmo; ao voltar de
+ * a até 0 apaga-se; se fica do mesmo lado, continua aceso.
+ */
+export function lit(v: number, a: number, z: number, side: 1 | -1): number {
+  const sv = v * side, sa = a * side, sz = z * side;
+  if (sv <= 0) return 0;
+  if (sa > 0 && sz > 0) return 1;
+  return Math.min(1, sv / Math.max(sa, sz));
+}
+
 /** Meses livres desenhados: 12 meses, cheios até à parte inteira e o seguinte com a fração. */
 export const yearFill = (free: number) => Array.from({ length: 12 }, (_, j) => Math.max(0, Math.min(1, free - j)));
 

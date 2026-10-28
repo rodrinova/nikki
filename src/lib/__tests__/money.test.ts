@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { eur, monthClose, monthSpend, normalMonth, pace, pairBalance, parseAmount, partOf, toU, whiskerLean, yearFill, type Expense, type Transfer } from '../money';
+import { eur, lit, monthClose, monthSpend, normalMonth, pace, pairBalance, parseAmount, partOf, toU, whiskerLean, yearFill, type Expense, type Transfer } from '../money';
 import { addDays, daysInMonth, monthWeeks, nextMonth, prevMonth, toDateStr, weekOf, weekdayName } from '../dates';
 
 const R = 'rodrigo', I = 'ines';
@@ -114,6 +114,18 @@ describe('bigodes das contas a dois', () => {
     expect(whiskerLean(toU(10)) > 0 && whiskerLean(toU(10)) < whiskerLean(toU(100))).toBe(true); // sempre a crescer
     expect(whiskerLean(toU(2000))).toBeLessThan(0.5); // não chega ao limite
     expect(whiskerLean(toU(2000))).toBeCloseTo(0.5, 5);
+  });
+});
+
+describe('bigodes acesos', () => {
+  it('acendem ao crescer, apagam ao voltar ao meio e mudam de lado', () => {
+    expect(lit(0.1, 0, 0.2, 1)).toBeCloseTo(0.5, 10); // a meio do crescimento, meio acesos
+    expect(lit(0.2, 0, 0.2, 1)).toBe(1);
+    expect(lit(0.2, 0, 0.2, -1)).toBe(0); // o outro lado fica apagado
+    expect(lit(0.05, 0.2, 0, 1)).toBeCloseTo(0.25, 10); // a apagar até ao equilíbrio
+    expect(lit(0.15, 0.3, 0.1, 1)).toBe(1); // continua do mesmo lado: aceso
+    expect(lit(-0.1, 0.2, -0.2, -1)).toBeCloseTo(0.5, 10); // passou para o outro lado
+    expect(lit(0, 0, 0, 1)).toBe(0);
   });
 });
 
