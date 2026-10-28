@@ -75,7 +75,7 @@ export function People() {
         const ratio_a = (a === me!.id ? mine : 100 - mine) / 100;
         const { error } = await supabase.from('share_ratios').upsert({ household_id: house!.id, profile_a: a, profile_b: b, ratio_a, updated_at: new Date().toISOString() });
         if (error) { toast(error.message); return; }
-        close(); toast(`Partilha: ${me!.name} ${mine}% · ${partner!.name} ${100 - mine}%`); reload();
+        close(); toast(`Partilha: ${me!.name} ${mine}% · ${partner!.name} ${100 - mine}%`, { ok: true }); reload();
       }
       return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -124,7 +124,7 @@ export function Profile() {
     e.preventDefault();
     if (!name.trim() || !me) return;
     const { error } = await supabase.from('profiles').update({ name: name.trim() }).eq('id', me.id);
-    if (error) toast(error.message); else { toast('Nome guardado.'); reload(); }
+    if (error) toast(error.message); else { toast('Nome guardado.', { ok: true }); reload(); }
   }
   return (
     <>

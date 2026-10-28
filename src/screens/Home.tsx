@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { store } from '@/lib/store';
 import { useSession } from '@/data/session';
@@ -6,9 +6,12 @@ import { useHouse } from '@/data/house';
 import { useOverlays } from '@/ui/overlays';
 import { Icon } from '@/ui/Icon';
 import { Wordmark } from '@/brand/Wordmark';
-import { eur } from '@/lib/money';
+import { ArcIcon } from '@/ui/Arc';
+import { Poster } from '@/ui/Poster';
+import { How, Year } from '@/ui/Year';
+import { eur, monthClose } from '@/lib/money';
 import { addDays, dayLabel, monthName, todayStr } from '@/lib/dates';
-import { ExpenseSheet, useLedger, useMonth } from './Money';
+import { ExpenseSheet, INVEST, useLedger, useMonth } from './Money';
 import { InviteForm } from './People';
 
 export function Top({ title, right }: { title: string; right?: ReactNode }) {
@@ -97,8 +100,8 @@ function Now() {
   );
 }
 
-function Widget({ to, ic, v, l, d }: { to: string; ic: string; v: string; l: string; d: string }) {
-  return <Link className="tile w press" to={to} aria-label={l}><span className="ic"><Icon n={ic} /></span><span><span className="l">{v}</span><span className="s det">{l} · {d}</span></span></Link>;
+function Widget({ to, ic, v, l, d }: { to: string; ic: string | ReactNode; v: string; l: string; d: string }) {
+  return <Link className="tile w press" to={to} aria-label={l}><span className="ic">{typeof ic === 'string' ? <Icon n={ic} /> : ic}</span><span><span className="l">{v}</span><span className="s det">{l} · {d}</span></span></Link>;
 }
 
 export function Hub() {
@@ -109,17 +112,48 @@ export function Hub() {
   return (
     <>
       <p className="l" style={{ paddingTop: 8 }}>{hello()}, {me?.name}.</p>
+      <MonthClose />
       <FirstSteps />
       <Now />
       <div className="widgets">
         <Widget to="/em-breve/agenda" ic="cal" v="—" l="Próximo" d="nada marcado" />
         <Widget to="/em-breve/casa" ic="bell" v={String(open.length)} l="Avisos" d={open[0] ? `${open[0].title}, ${dayLabel(open[0].due_on)}` : 'tudo em dia'} />
         {partner && L
-          ? <Widget to="/contas" ic="heart" v={`${eur(Math.abs(L.v))} €`} l="Contas a dois" d={L.even ? 'em equilíbrio' : L.v > 0 ? 'adiantaste mais' : `${partner.name} adiantou mais`} />
+          ? <Widget to="/contas" ic={<ArcIcon t={L.t} even={L.even} />} v={`${eur(Math.abs(L.v))} €`} l="Contas a dois" d={L.even ? 'em equilíbrio' : L.v > 0 ? 'adiantaste mais' : `${partner.name} adiantou mais`} />
           : <Widget to="/dinheiro" ic="coins" v={`${eur(m.total, 0)} €`} l={monthName(m.key)[0].toUpperCase() + monthName(m.key).slice(1)} d={m.pace.fresh ? 'primeiro mês' : `${Math.abs(m.pace.pct)}% ${m.pace.pct >= 0 ? 'acima' : 'abaixo'} do habitual`} />}
         <Widget to="/em-breve/objetivos" ic="target" v="—" l="Objetivos" d="propostos no fim do 1.º mês" />
       </div>
     </>
+  );
+}
+
+const cap = (t: string) => t[0].toUpperCase() + t.slice(1);
+
+/**
+ * Fecho do mês em voz alta: na primeira visita ao início depois de um mês acabar, um cartaz com a tua parte
+ * desse mês comparada com o teu normal. Aparece uma vez por mês e por pessoa.
+ */
+function MonthClose() {
+  const { me, partner, house } = useSession();
+  const { expenses } = useHouse();
+  const key = `nikki_closed_${house?.id}_${me?.id}`;
+  const [seen, setSeen] = useState(() => store.get(key));
+  const c = useMemo(() => (expenses.loading || !me ? null : monthClose(expenses.rows.filter((e) => e.category !== INVEST), me.id, todayStr())), [expenses.rows, expenses.loading, me]);
+  const done = useCallback(() => { if (c) { store.set(key, c.key); setSeen(c.key); } }, [c, key]);
+  if (!c || seen === c.key) return null;
+  const name = monthName(c.key);
+  const band = c.pct === null ? 'Primeiro mês completo' : c.pct === 0 ? 'Igual ao teu normal' : `${Math.abs(c.pct)}% ${c.pct < 0 ? 'abaixo' : 'acima'} do teu normal`;
+  return (
+    <Poster
+      lines={[name.toUpperCase(), 'FECHOU.']}
+      band={band}
+      foot={`${partner ? 'A tua parte' : 'Total'} em ${name} · ${eur(c.total, 0)} €`}
+      how={c.normal
+        ? <How><p className="s">{eur(c.total)} € em {name} ÷ {eur(c.normal)} € do teu normal = {(c.total / c.normal).toFixed(2).replace('.', ',')}.</p><p className="s">O normal é a média dos meses completos antes de {name}, até 6.</p></How>
+        : <p className="s">A partir de agora, cada mês compara-se com o teu normal.</p>}
+      share={`${cap(name)} fechou: ${band.toLowerCase()}. Contas feitas na NIKKI.`}
+      onClose={done}
+    />
   );
 }
 
@@ -143,7 +177,17 @@ const SOON: Record<string, [string, string]> = {
 };
 export function Soon({ k }: { k: string }) {
   const [t, d] = SOON[k] ?? ['Em breve', ''];
-  return (<><Top title={t} /><p className="l">Chega na próxima fase.</p><p className="s" style={{ fontSize: 'var(--t-m)' }}>{d}</p></>);
+  return (
+    <>
+      <Top title={t} />
+      <p className="l">Chega na próxima fase.</p>
+      <p className="s" style={{ fontSize: 'var(--t-m)' }}>{d}</p>
+      {k === 'patrimonio' && <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <Year free={0} label="Meses livres: 0 de 12" />
+        <span className="s">Meses livres · 0 de 12. Cada mês do ano pinta-se quando o rendimento dos investimentos já o paga.</span>
+      </div>}
+    </>
+  );
 }
 
 const STORY = [
@@ -162,6 +206,11 @@ export function Story() {
       <div style={{ color: 'var(--ink)', padding: '16px 0 8px' }}><Wordmark h={48} draw alive /></div>
       <h1 className="l">Quem é a NIKKI</h1>
       <div className="story">{STORY.map((p) => <p key={p.slice(0, 12)}>{p}</p>)}<p className="sign">A NIKKI manda. Nós agradecemos.</p></div>
+      <div className="tile" style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 14, color: 'var(--ink)' }}>
+        <Wordmark h={20} />
+        <p className="s">O nome é o logótipo. O primeiro K está espelhado e os dois K são mais pequenos: as hastes são os olhos e as pernas finas são os bigodes. No resto da app fica só a cara.</p>
+        <button className="btn quiet press" style={{ alignSelf: 'flex-start' }} onClick={() => dispatchEvent(new Event('nikki:intro'))}>Ver a abertura outra vez</button>
+      </div>
     </>
   );
 }

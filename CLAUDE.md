@@ -10,4 +10,5 @@
 - Migrações: `supabase/migrations/`, idempotentes, testadas com `supabase/tests/*` numa base local antes de ir para o Supabase.
 - Nunca mexer nas tabelas `public.*` (app antiga).
 - Preferência do Rodrigo: sempre que houver mudanças visíveis, publicar o HTML para ele ver (`npm run demo` → artefacto «NIKKI app»; o protótipo em thenikki/prototypes/nikki-hub.html → artefacto «NIKKI»).
+- Marca: depois da abertura (`src/brand/Intro.tsx`, primeira abertura de cada dia) usa-se só a cara (`Face`), não a palavra; `Wordmark` fica para a entrada e para a história. Setas com o ângulo dos bigodes (`Icon`: back, arrow, chev). Avisos de algo gravado: `toast(msg, { ok: true })` (a cara pisca o olho).
 - Modo de demonstração: `src/lib/demo.ts` imita o supabase-js em memória; manter em dia quando a app usar novas tabelas ou funções.

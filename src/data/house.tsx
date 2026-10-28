@@ -1,4 +1,4 @@
-import { createContext, useContext, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, type ReactNode } from 'react';
 import { useLive } from './live';
 import { useSession } from './session';
 import type { Expense, Transfer } from '@/lib/money';
@@ -13,12 +13,16 @@ export interface DeadlineRow { id: string; title: string; due_on: string; amount
 function useHouseData() {
   const { house } = useSession();
   const h = house?.id;
-  return {
+  const d = {
     expenses: useLive<ExpenseRow>('expenses', h, 'id, paid_by, other_id, amount, split, payer_share, spent_on, category, created_by, note, created_at', { column: 'spent_on', ascending: false }),
     transfers: useLive<TransferRow>('transfers', h, 'id, from_id, to_id, amount, made_on, created_by', { column: 'made_on', ascending: false }),
     shop: useLive<ShopItem>('shopping_items', h, 'id, name, aisle, done, done_by, created_by, created_at', { column: 'created_at' }),
     deadlines: useLive<DeadlineRow>('deadlines', h, 'id, title, due_on, amount, paid_at', { column: 'due_on' }),
   };
+  // Voltar a ler tudo (puxar para atualizar).
+  const { expenses: e, transfers: t, shop: s, deadlines: dl } = d;
+  const reloadAll = useCallback(() => Promise.all([e.reload(), t.reload(), s.reload(), dl.reload()]), [e.reload, t.reload, s.reload, dl.reload]);
+  return { ...d, reloadAll };
 }
 
 const Ctx = createContext<ReturnType<typeof useHouseData> | null>(null);

@@ -1,10 +1,12 @@
+// Setas e voltar com o ângulo dos bigodes da marca (57,4° com a horizontal): o único ângulo das setas na app.
 const P: Record<string, string> = {
   home: '<path d="M4 11.5 12 5l8 6.5V19a1 1 0 0 1-1 1h-4.5v-5h-5v5H5a1 1 0 0 1-1-1z"/>',
   grid: '<rect x="4" y="4" width="6.5" height="6.5" rx="1.2"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.2"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.2"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.2"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
   ask: '<path d="M12 3.5 13.8 9 19.5 10.8 13.8 12.6 12 18.2 10.2 12.6 4.5 10.8 10.2 9z"/><path d="M18.5 16.5l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7z"/>',
-  back: '<path d="M15 6l-6 6 6 6"/>',
-  arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>',
+  back: '<path d="M13.16 5.5 9 12l4.16 6.5"/>',
+  arrow: '<path d="M5 12h14M14.84 5.5 19 12l-4.16 6.5"/>',
+  chev: '<path d="M9.94 5.5 14.1 12l-4.16 6.5"/>',
   check: '<path d="M6 12.5l4 4 8-9"/>',
   coins: '<ellipse cx="12" cy="7" rx="7" ry="3"/><path d="M5 7v5c0 1.7 3.1 3 7 3s7-1.3 7-3V7M5 12v5c0 1.7 3.1 3 7 3s7-1.3 7-3v-5"/>',
   heart: '<path d="M12 19.5s-7-4.4-7-9.6A3.9 3.9 0 0 1 12 7.7a3.9 3.9 0 0 1 7 2.2c0 5.2-7 9.6-7 9.6z"/>',

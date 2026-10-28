@@ -1,7 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { Face } from '@/brand/Face';
 
 // Folhas (bottom sheets) e avisos (toasts), partilhados por toda a app.
-interface Overlays { open: (node: ReactNode) => void; close: () => void; toast: (msg: string) => void; isOpen: boolean; sheet: ReactNode }
+// Um aviso de algo gravado (ok) traz a cara da NIKKI a piscar o olho.
+interface Overlays { open: (node: ReactNode) => void; close: () => void; toast: (msg: string, o?: { ok?: boolean }) => void; isOpen: boolean; sheet: ReactNode }
 const Ctx = createContext<Overlays | null>(null);
 export const useOverlays = () => {
   const c = useContext(Ctx);
@@ -11,13 +13,13 @@ export const useOverlays = () => {
 
 export function OverlayProvider({ children }: { children: ReactNode }) {
   const [sheet, setSheet] = useState<ReactNode>(null);
-  const [toasts, setToasts] = useState<{ id: number; msg: string }[]>([]);
+  const [toasts, setToasts] = useState<{ id: number; msg: string; ok?: boolean }[]>([]);
   const n = useRef(0);
   const close = useCallback(() => setSheet(null), []);
   const open = useCallback((node: ReactNode) => setSheet(node), []);
-  const toast = useCallback((msg: string) => {
+  const toast = useCallback((msg: string, o?: { ok?: boolean }) => {
     const id = ++n.current;
-    setToasts((t) => [...t.slice(-1), { id, msg }]);
+    setToasts((t) => [...t.slice(-1), { id, msg, ok: o?.ok }]);
     setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 2800);
   }, []);
 
@@ -32,7 +34,7 @@ export function OverlayProvider({ children }: { children: ReactNode }) {
     <Ctx.Provider value={{ open, close, toast, isOpen: !!sheet, sheet }}>
       {children}
       <div className="toast-root" role="status" aria-live="polite">
-        {toasts.map((t) => <div className="toast" key={t.id}><span>{t.msg}</span></div>)}
+        {toasts.map((t) => <div className="toast" key={t.id}>{t.ok && <Face h={14} mode="wink" />}<span>{t.msg}</span></div>)}
       </div>
     </Ctx.Provider>
   );

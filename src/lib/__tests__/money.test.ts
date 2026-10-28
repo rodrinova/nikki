@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { eur, monthSpend, normalMonth, pace, pairBalance, parseAmount, partOf, toU, type Expense, type Transfer } from '../money';
+import { arcT, eur, monthClose, monthSpend, normalMonth, pace, pairBalance, parseAmount, partOf, toU, yearFill, type Expense, type Transfer } from '../money';
 import { addDays, daysInMonth, prevMonth, toDateStr } from '../dates';
 
 const R = 'rodrigo', I = 'ines';
@@ -77,6 +77,53 @@ describe('mês, normal e ritmo', () => {
     const m = monthSpend(sample, I, '2026-10');
     expect(m.total).toBe(toU(30) + 5_000_000 + 2_400_000 + 617_500 + 2_340_000);
     expect(m.byCat[0][0]).toBe('Supermercado');
+  });
+});
+
+describe('fecho do mês', () => {
+  const hist = [
+    ex({ spent_on: '2026-07-10', amount: '300.00' }),
+    ex({ spent_on: '2026-08-05', amount: '500.00' }),
+    ex({ spent_on: '2026-09-12', amount: '352.00' }),
+    ex({ spent_on: '2026-10-03', amount: '999.00' }),
+  ];
+  it('compara o mês anterior com o normal até aí, sem o contar', () => {
+    const c = monthClose(hist, R, '2026-10-28')!;
+    expect(c.key).toBe('2026-09');
+    expect(c.total).toBe(toU(352));
+    expect(c.normal).toBe(toU(400)); // julho e agosto
+    expect(c.pct).toBe(-12);
+  });
+  it('primeiro mês completo: sem normal para comparar', () => {
+    const c = monthClose([hist[2]], R, '2026-10-02')!;
+    expect(c.normal).toBeNull();
+    expect(c.pct).toBeNull();
+  });
+  it('sem nada no mês anterior não há fecho', () => {
+    expect(monthClose([hist[3]], R, '2026-10-28')).toBeNull();
+    expect(monthClose(hist, I, '2026-10-28')).toBeNull();
+  });
+});
+
+describe('arco das contas a dois', () => {
+  it('meio em equilíbrio, para o lado de quem adiantou mais, com limite', () => {
+    expect(arcT(0)).toBe(0.5);
+    expect(arcT(400)).toBe(0.5); // menos de meio cêntimo
+    expect(arcT(toU(150))).toBeCloseTo(0.5 - 0.42 * (1 - Math.exp(-1)), 10); // 63% do caminho
+    expect(arcT(-toU(150))).toBeCloseTo(0.5 + 0.42 * (1 - Math.exp(-1)), 10);
+    expect(arcT(toU(10)) < 0.5 && arcT(toU(10)) > arcT(toU(100))).toBe(true); // sempre a afastar-se
+    expect(arcT(toU(100000))).toBeGreaterThan(0.08); // nunca chega à ponta
+    expect(arcT(toU(100000))).toBeCloseTo(0.08, 6);
+  });
+});
+
+describe('meses livres', () => {
+  it('cheios até à parte inteira e o seguinte com a fração', () => {
+    const y = yearFill(3.4);
+    expect(y.slice(0, 5).map((v) => +v.toFixed(2))).toEqual([1, 1, 1, 0.4, 0]);
+    expect(y).toHaveLength(12);
+    expect(yearFill(14).every((v) => v === 1)).toBe(true);
+    expect(yearFill(0).every((v) => v === 0)).toBe(true);
   });
 });
 

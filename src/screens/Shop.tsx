@@ -48,7 +48,7 @@ export function Shop() {
     const ids = done.map((i) => i.id);
     shop.setRows((r) => r.filter((x) => !x.done));
     const { error } = await supabase.from('shopping_items').delete().in('id', ids);
-    if (error) { shop.reload(); toast(error.message); } else toast(`${ids.length} riscados limpos.`);
+    if (error) { shop.reload(); toast(error.message); } else toast(`${ids.length} riscados limpos.`, { ok: true });
   }
 
   const groups = ORDER.map((a) => [a, shop.rows.filter((i) => i.aisle === a)] as const).filter(([, l]) => l.length);

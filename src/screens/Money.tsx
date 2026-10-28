@@ -5,12 +5,13 @@ import { useSession } from '@/data/session';
 import { useHouse, type ExpenseRow } from '@/data/house';
 import { useOverlays } from '@/ui/overlays';
 import { Icon } from '@/ui/Icon';
-import { eur, monthSpend, normalMonth, pace, pairBalance, parseAmount, toU, type Split } from '@/lib/money';
+import { Arc } from '@/ui/Arc';
+import { arcT, eur, monthSpend, normalMonth, pace, pairBalance, parseAmount, toU, type Split } from '@/lib/money';
 import { addDays, dayLabel, monthKey, monthName, todayStr } from '@/lib/dates';
 import { Hint, Top, useSeen } from './Home';
 
 export const CATEGORIES = ['Supermercado', 'Restaurantes', 'Casa', 'Contas', 'Carros', 'Lazer', 'Saúde', 'Roupa', 'Viagens', 'Future Me'];
-const INVEST = 'Future Me'; // investir não é gasto
+export const INVEST = 'Future Me'; // investir não é gasto
 
 /** "Do Rodrigo", "Da Inês"… sem saber o género, "De Marta". */
 export const ofName = (n: string) => `De ${n}`;
@@ -37,7 +38,7 @@ export function useLedger() {
     const even = Math.abs(v) < 500; // menos de meio cêntimo
     const who = v > 0 ? me : partner;
     const lead = even ? 'Em equilíbrio' : v > 0 ? 'Adiantaste mais' : `${partner.name} adiantou mais`;
-    return { v, even, who, lead };
+    return { v, even, who, lead, t: arcT(v) };
   }, [expenses.rows, transfers.rows, me, partner]);
 }
 
@@ -153,7 +154,7 @@ export function ExpenseSheet() {
     setBusy(false);
     if (error) return setErr(error.message);
     close();
-    toast(`${eur(toU(v))} € · ${cat} · ${dayLabel(spent_on)}${partner ? ' · ' + (split === 'shared' ? 'partilhada' : split === 'mine' ? 'minha' : ofName(partner.name).toLowerCase()) : ''}`);
+    toast(`${eur(toU(v))} € · ${cat} · ${dayLabel(spent_on)}${partner ? ' · ' + (split === 'shared' ? 'partilhada' : split === 'mine' ? 'minha' : ofName(partner.name).toLowerCase()) : ''}`, { ok: true });
   }
 
   const chip = (on: boolean, txt: string, f: () => void) => <button type="button" className="press" aria-pressed={on} onClick={f} key={txt}>{txt}</button>;
@@ -215,8 +216,8 @@ export function Ledger() {
       <Top title="Contas a dois" />
       <div className="swap"><p className="xl">{eur(Math.abs(L.v))}<small>€</small></p><p className="s" style={{ marginTop: 8 }}>{L.even ? 'Esforço distribuído como combinado' : `${L.lead} do que o combinado`}</p></div>
       <Hint show={seen < 3}>{`Quanto cada um adiantou face ao combinado (${pct}/${100 - pct}). Não é uma dívida: serve para distribuírem o esforço.`}</Hint>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <div className="effort" role="img" aria-label={`Pagaste ${Math.round(a)}% das partilhadas; combinado ${pct}%.`}><i style={{ width: `${a.toFixed(1)}%`, background: me.color }} /><i style={{ flex: 1, background: partner.color }} /><b style={{ left: `${pct}%` }} /></div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <Arc t={L.t} even={L.even} me={me} other={partner} label={L.even ? 'Em equilíbrio: o ponto está no meio do arco.' : `${L.lead}: o ponto está do lado de ${L.v > 0 ? 'ti' : partner.name}.`} />
         <div className="s" style={{ display: 'flex', justifyContent: 'space-between' }}><span>Tu {Math.round(a)}%</span><span>combinado {pct}/{100 - pct}</span><span>{partner.name} {100 - Math.round(a)}%</span></div>
       </div>
       <div className="tile card rows">
@@ -248,7 +249,7 @@ export function TransferSheet() {
     const f = from === 'me' ? me! : partner!, t = from === 'me' ? partner! : me!;
     const { error } = await supabase.from('transfers').insert({ household_id: house!.id, from_id: f.id, to_id: t.id, amount: v, created_by: me!.id });
     if (error) return setErr(error.message);
-    close(); toast(`Transferência registada: ${f.id === me!.id ? 'tu' : f.name} → ${t.id === me!.id ? 'tu' : t.name}, ${eur(toU(v))} €.`);
+    close(); toast(`Transferência registada: ${f.id === me!.id ? 'tu' : f.name} → ${t.id === me!.id ? 'tu' : t.name}, ${eur(toU(v))} €.`, { ok: true });
   }
   return (
     <form onSubmit={save} autoComplete="off" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>

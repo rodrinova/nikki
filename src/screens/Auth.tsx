@@ -113,7 +113,7 @@ export function Onboarding() {
     } else {
       const { error } = await supabase.rpc('accept_invite', { invite: code.trim() });
       if (error) return setErr(error.message === 'convite expirado' ? 'Este convite expirou. Pede outro.' : 'Código inválido.');
-      await reload(); toast('Convite aceite.'); nav('/');
+      await reload(); toast('Convite aceite.', { ok: true }); nav('/');
     }
   }
 
@@ -142,7 +142,7 @@ export function Onboarding() {
     <section className="ob">{steps}<h1 className="l">Convidar</h1>
       <p className="s" style={{ fontSize: 'var(--t-m)' }}>Vives com alguém? Cada pessoa recebe um convite e cria o seu login. Se vives sozinho, salta este passo.</p>
       {hid && <InviteForm householdId={hid} />}
-      <button className="btn wide press" onClick={async () => { await reload(); toast(`Casa criada. Bem-vindo, ${name.trim()}.`); nav('/'); }}>Entrar <Icon n="arrow" s={20} /></button>
+      <button className="btn wide press" onClick={async () => { await reload(); toast(`Casa criada. Bem-vindo, ${name.trim()}.`, { ok: true }); nav('/'); }}>Entrar <Icon n="arrow" s={20} /></button>
     </section>
   );
 }
@@ -170,7 +170,7 @@ export function usePendingInvite() {
     store.remove(PENDING_INVITE);
     supabase.rpc('accept_invite', { invite: t }).then(({ error }) => {
       if (error) toast(error.message === 'convite já usado' ? 'Esse convite já foi usado.' : 'O convite não é válido ou expirou.');
-      else { toast('Convite aceite. Bem-vindo à casa.'); reload(); }
+      else { toast('Convite aceite. Bem-vindo à casa.', { ok: true }); reload(); }
     });
   }, [session, reload, toast]);
 }
