@@ -6,7 +6,7 @@
 - Datas: só `src/lib/dates.ts` (locais). Nunca `toISOString().slice(0, 10)`.
 - Linguagem: sem "deves"; equipa ("adiantou mais", "contas a dois"). Partilha: Minha · Partilhada · De <nome>.
 - Leituras de tabelas da casa: `useLive` (paginado + tempo real com sufixo aleatório no canal). Exceção: a presença nas Compras (`src/data/presence.ts`) usa um canal com o mesmo nome para os dois e fecha com atraso para sobreviver ao StrictMode.
-- Eventos privados dos outros só por `rpc('busy_slots')` (sem título); a tabela `events` não os devolve.
+- Eventos «só para mim» (coluna `private`) dos outros só por `rpc('busy_slots')`, sem título; a app mostra «<nome> tem planos». Nunca «privado» nem «ocupado» no ecrã.
 - Escritas otimistas onde há lista (compras); erros com aviso.
 - Migrações: `supabase/migrations/`, idempotentes, testadas com `supabase/tests/*` numa base local antes de ir para o Supabase.
 - Nunca mexer nas tabelas `public.*` (app antiga).

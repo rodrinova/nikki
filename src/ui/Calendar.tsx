@@ -17,7 +17,7 @@ const dot = (it: CalItem, k: number) => <i key={k} className={`k-${it.kind}`} st
 /**
  * Agenda no início, no lugar do widget Próximo: a semana, que abre no mês com um toque no título ou a
  * deslizar para baixo (e fecha a deslizar para cima). Um ponto por coisa: da casa a tinta, de cada um na
- * sua cor, ocupado em contorno, prazos a laranja. O dia escolhido mostra a lista por baixo.
+ * sua cor, «tem planos» (os só para si do outro) em contorno, prazos a laranja. O dia escolhido mostra a lista por baixo.
  */
 export function Calendar({ items, to }: { items: CalItem[]; to: string }) {
   const today = todayStr();

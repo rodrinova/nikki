@@ -101,7 +101,7 @@ function Now() {
   );
 }
 
-/** A agenda no início: eventos da casa, os teus e os do outro (os privados dele só como «ocupado») e os prazos. */
+/** A agenda no início: eventos da casa, os teus e os do outro (os «só para mim» dele aparecem como «Inês tem planos») e os prazos. */
 function HomeCalendar() {
   const { me, members } = useSession();
   const { events, busy, deadlines } = useHouse();
@@ -115,7 +115,7 @@ function HomeCalendar() {
     }
     for (const b of busy.rows) {
       const o = who(b.owner_id);
-      out.push({ day: toDateStr(new Date(b.starts_at)), time: b.all_day ? null : hm(b.starts_at), title: 'Ocupado', kind: 'busy', color: o?.color, note: o?.name ?? '' });
+      out.push({ day: toDateStr(new Date(b.starts_at)), time: b.all_day ? null : hm(b.starts_at), title: `${o?.name ?? 'Alguém'} tem planos`, kind: 'busy', color: o?.color, note: '' });
     }
     for (const d of deadlines.rows) if (!d.paid_at) out.push({ day: d.due_on, time: null, title: d.title, kind: 'due', note: d.amount ? `Prazo · ${eur(Number(d.amount) * 100_000)} €` : 'Prazo' });
     return out;
@@ -142,7 +142,7 @@ export function Hub() {
       <div className="widgets">
         <Widget to="/em-breve/casa" ic="bell" v={String(open.length)} l="Avisos" d={open[0] ? `${open[0].title}, ${dayLabel(open[0].due_on)}` : 'tudo em dia'} />
         {partner && L
-          ? <Widget to="/contas" ic={<Whiskers h={22} lean={L.lean} even={L.even} />} v={`${eur(Math.abs(L.v))} €`} l="Contas a dois" d={L.even ? 'em equilíbrio' : L.v > 0 ? 'adiantaste mais' : `${partner.name} adiantou mais`} />
+          ? <Widget to="/contas" ic={<Whiskers h={22} lean={L.lean} enter={false} />} v={`${eur(Math.abs(L.v))} €`} l="Contas a dois" d={L.even ? 'em equilíbrio' : L.v > 0 ? 'adiantaste mais' : `${partner.name} adiantou mais`} />
           : <Widget to="/dinheiro" ic="coins" v={`${eur(m.total, 0)} €`} l={monthName(m.key)[0].toUpperCase() + monthName(m.key).slice(1)} d={m.pace.fresh ? 'primeiro mês' : `${Math.abs(m.pace.pct)}% ${m.pace.pct >= 0 ? 'acima' : 'abaixo'} do habitual`} />}
         <Widget to="/em-breve/objetivos" ic="target" v="—" l="Objetivos" d="propostos no fim do 1.º mês" wide />
       </div>

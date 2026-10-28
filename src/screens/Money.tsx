@@ -218,7 +218,7 @@ export function Ledger() {
       <Hint show={seen < 3}>{`Quanto cada um adiantou face ao combinado (${pct}/${100 - pct}). Não é uma dívida: serve para distribuírem o esforço.`}</Hint>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         <div style={{ display: 'grid', placeItems: 'center', padding: '8px 0 4px', color: 'var(--ink)' }}>
-          <Whiskers h={112} lean={L.lean} even={L.even} label={L.even ? 'Em equilíbrio: os bigodes estão iguais, como no logótipo.' : `${L.lead}: os bigodes do lado de ${L.v > 0 ? 'ti' : partner.name} estão maiores.`} />
+          <Whiskers h={112} lean={L.lean} label={L.even ? 'Em equilíbrio: os bigodes estão iguais, como no logótipo.' : `${L.lead}: os bigodes do lado de ${L.v > 0 ? 'ti' : partner.name} estão maiores e a laranja.`} />
         </div>
         <div className="s" style={{ display: 'flex', justifyContent: 'space-between' }}><span>Tu {Math.round(a)}%</span><span>combinado {pct}/{100 - pct}</span><span>{partner.name} {100 - Math.round(a)}%</span></div>
       </div>

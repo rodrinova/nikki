@@ -14,7 +14,7 @@ export interface EventRow { id: string; title: string; starts_at: string; ends_a
 export interface BusyRow { id: string; starts_at: string; ends_at: string | null; all_day: boolean; owner_id: string }
 
 /**
- * Eventos privados dos outros, só com a hora (a base nunca devolve o título; a app mostra «ocupado»).
+ * Eventos «só para mim» dos outros, só com a hora (a base nunca devolve o título; a app mostra «Inês tem planos»).
  * Lê de dois meses atrás a seis à frente e volta a ler quando os eventos mudam.
  */
 function useBusy(h: string | undefined, events: unknown) {

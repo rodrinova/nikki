@@ -44,7 +44,7 @@ function seed() {
     db.shopping_items.push({ id: uid(), household_id: H, name: n, aisle: a, done: false, done_by: null, done_at: null, created_by: R, created_at: today + 'T08:00:00Z' });
   db.deadlines.push({ id: uid(), household_id: H, title: 'Revisão do Mini', due_on: addDays(today, 2), amount: '210.00', paid_at: null });
   db.deadlines.push({ id: uid(), household_id: H, title: 'IUC do Golf', due_on: addDays(today, 4), amount: '148.37', paid_at: null });
-  // Agenda: da casa (sem dono), de cada um e dois privados (o outro só os vê como «ocupado»).
+  // Agenda: da casa (sem dono), de cada um e dois «só para mim» (o outro vê «Rodrigo tem planos»).
   const ev = (o: number, hm: string, title: string, owner: string | null, priv = false) => {
     const d = parseDate(addDays(today, o)), [h, m] = hm.split(':').map(Number);
     d.setHours(h, m);
@@ -204,7 +204,7 @@ export function createDemoClient() {
         return { data: i.household_id, error: null };
       }
       if (name === 'busy_slots') {
-        // Os privados dos outros, só com a hora e o dono.
+        // Os «só para mim» dos outros, só com a hora e o dono.
         const mine = db.memberships.some((m) => m.profile_id === me && m.household_id === args.h);
         const data = !mine ? [] : db.events
           .filter((e) => e.household_id === args.h && e.private && (e.owner_id ?? e.created_by) !== me && e.created_by !== me && e.starts_at < args.to_ts && (e.ends_at ?? e.starts_at) >= args.from_ts)
