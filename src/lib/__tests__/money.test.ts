@@ -106,3 +106,14 @@ describe('datas locais', () => {
     expect(prevMonth('2026-01')).toBe('2025-12');
   });
 });
+
+describe('etiquetas de dias', () => {
+  it('passado e futuro próximos', async () => {
+    const { dayLabel } = await import('../dates');
+    expect(dayLabel('2026-10-28', '2026-10-28')).toBe('hoje');
+    expect(dayLabel('2026-10-27', '2026-10-28')).toBe('ontem');
+    expect(dayLabel('2026-10-29', '2026-10-28')).toBe('amanhã');
+    expect(dayLabel('2026-10-30', '2026-10-28')).toBe('daqui a 2 dias');
+    expect(dayLabel('2026-11-15', '2026-10-28')).toBe('15 nov');
+  });
+});

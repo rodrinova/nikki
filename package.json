@@ -8,7 +8,8 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --port 8080",
     "test": "TZ=Europe/Lisbon vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "demo": "VITE_DEMO=1 vite build --outDir dist-demo && node scripts/demo-html.mjs dist-demo nikki-demo.html"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.118.0",

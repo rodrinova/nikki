@@ -206,8 +206,9 @@ export function Ledger() {
   const pair = expenses.rows.filter((e) => e.split !== 'mine' && [e.paid_by, e.other_id].includes(me.id) && [e.paid_by, e.other_id].includes(partner.id));
   const paid = (id: string) => pair.filter((e) => e.paid_by === id).reduce((t, e) => t + toU(e.amount), 0);
   const pm = paid(me.id), pp = paid(partner.id), T = pm + pp;
-  const a = T ? (pm / T) * 100 : 50;
   const sent = transfers.rows.filter((t) => t.from_id === me.id).reduce((s, t) => s + toU(t.amount), 0), got = transfers.rows.filter((t) => t.to_id === me.id).reduce((s, t) => s + toU(t.amount), 0);
+  // Esforço de cada um: o que pagou das partilhadas, mais o que transferiu ao outro, menos o que recebeu.
+  const a = T ? Math.max(0, Math.min(100, ((pm + sent - got) / T) * 100)) : 50;
   const pct = Math.round(myShare * 100);
   return (
     <>

@@ -18,6 +18,15 @@ npm run build      # tsc + vite build
 
 `.env` é opcional: sem ele, a app usa o projeto `xjhlcfgihyoiewuamzfv` (ver `.env.example`).
 
+## Ver sem base de dados (demonstração)
+
+```bash
+npm run demo       # gera nikki-demo.html: a app real com dados de exemplo em memória, numa página só
+```
+
+Na demonstração entra-se como Rodrigo ou Inês, ou cria-se uma conta nova (qualquer código de 6 algarismos
+serve) para ver o primeiro uso a solo. Nada sai do aparelho.
+
 ## Base de dados
 
 Tudo vive no schema `nikki` do projeto Supabase existente. As tabelas `public.*` da app antiga (Lovable)

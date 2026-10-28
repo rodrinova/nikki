@@ -9,3 +9,5 @@
 - Escritas otimistas onde há lista (compras); erros com aviso.
 - Migrações: `supabase/migrations/`, idempotentes, testadas com `supabase/tests/*` numa base local antes de ir para o Supabase.
 - Nunca mexer nas tabelas `public.*` (app antiga).
+- Preferência do Rodrigo: sempre que houver mudanças visíveis, publicar o HTML para ele ver (`npm run demo` → artefacto «NIKKI app»; o protótipo em thenikki/prototypes/nikki-hub.html → artefacto «NIKKI»).
+- Modo de demonstração: `src/lib/demo.ts` imita o supabase-js em memória; manter em dia quando a app usar novas tabelas ou funções.

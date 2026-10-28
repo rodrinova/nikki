@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { supabase } from '@/lib/supabase';
+import { DEMO, supabase } from '@/lib/supabase';
+import { store } from '@/lib/store';
 import { useSession } from '@/data/session';
 import { useOverlays } from '@/ui/overlays';
 import { Wordmark } from '@/brand/Wordmark';
@@ -48,7 +49,7 @@ export function Login() {
     <section className="ob">
       <div style={{ color: 'var(--ink)' }}><Wordmark h={36} alive /></div>
       <h1 className="l">Vê o teu e-mail</h1>
-      <p className="s" style={{ fontSize: 'var(--t-m)' }}>Enviámos um link para {email}. Abre-o neste aparelho e entras. Não há palavra-passe.</p>
+      <p className="s" style={{ fontSize: 'var(--t-m)' }}>Enviámos um link para {email}. Abre-o neste aparelho e entras. Não há palavra-passe.{DEMO && ' Na demonstração, qualquer código de 6 algarismos serve.'}</p>
       <form className="form" onSubmit={verify}>
         <label>Ou escreve o código do e-mail<input className="code" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))} placeholder="000000" /></label>
         {err && <p className="err">{err}</p>}
@@ -74,6 +75,7 @@ export function Login() {
         ? <button className="btn quiet wide press" onClick={() => { setMode('new'); setErr(''); }}>Criar conta <Icon n="arrow" s={20} /></button>
         : <button className="back press" onClick={() => { setMode('in'); setErr(''); }}>Já tenho conta</button>}
       <Link className="back press" to="/historia"><span>A história da NIKKI</span><Icon n="arrow" s={18} /></Link>
+      {DEMO && <p className="demo"><span>Demonstração:</span><button onClick={() => (supabase.auth as any).demoSignIn('R')}>entrar como Rodrigo</button><button onClick={() => (supabase.auth as any).demoSignIn('I')}>entrar como Inês</button></p>}
     </section>
   );
 }
@@ -148,7 +150,7 @@ export function Onboarding() {
 /** /convite/:token — guarda o convite e aceita-o assim que houver sessão. */
 export function InviteLanding() {
   const { token } = useParams();
-  useEffect(() => { if (token) localStorage.setItem(PENDING_INVITE, token); }, [token]);
+  useEffect(() => { if (token) store.set(PENDING_INVITE, token); }, [token]);
   return (
     <section className="ob"><div style={{ color: 'var(--ink)' }}><Wordmark h={36} alive /></div>
       <h1 className="l">Foste convidado para uma casa na NIKKI.</h1>
@@ -163,9 +165,9 @@ export function usePendingInvite() {
   const { session, reload } = useSession();
   const { toast } = useOverlays();
   useEffect(() => {
-    const t = localStorage.getItem(PENDING_INVITE);
+    const t = store.get(PENDING_INVITE);
     if (!session || !t) return;
-    localStorage.removeItem(PENDING_INVITE);
+    store.remove(PENDING_INVITE);
     supabase.rpc('accept_invite', { invite: t }).then(({ error }) => {
       if (error) toast(error.message === 'convite já usado' ? 'Esse convite já foi usado.' : 'O convite não é válido ou expirou.');
       else { toast('Convite aceite. Bem-vindo à casa.'); reload(); }

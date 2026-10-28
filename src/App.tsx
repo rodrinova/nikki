@@ -1,8 +1,9 @@
 import { useEffect } from 'react';
-import { BrowserRouter, Link, Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom';
+import { BrowserRouter, Link, MemoryRouter, Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom';
+import { DEMO } from '@/lib/supabase';
 import { SessionProvider, useSession } from '@/data/session';
 import { HouseProvider } from '@/data/house';
-import { OverlayProvider, useOverlays } from '@/ui/overlays';
+import { OverlayProvider, SheetHost, useOverlays } from '@/ui/overlays';
 import { Icon } from '@/ui/Icon';
 import { Wordmark } from '@/brand/Wordmark';
 import { InviteLanding, Login, Onboarding, usePendingInvite } from '@/screens/Auth';
@@ -54,9 +55,9 @@ function Shell() {
         <Route path="/historia" element={<Story />} />
         <Route path="*" element={<Login />} />
       </Routes>
-    </main></div>
+    </main><SheetHost /></div>
   );
-  if (!house) return <div className="app"><main className="screen"><Routes><Route path="/historia" element={<Story />} /><Route path="*" element={<Onboarding />} /></Routes></main></div>;
+  if (!house) return <div className="app"><main className="screen"><Routes><Route path="/historia" element={<Story />} /><Route path="*" element={<Onboarding />} /></Routes></main><SheetHost /></div>;
   return (
     <HouseProvider>
       {onHub && <TopBar />}
@@ -76,16 +77,20 @@ function Shell() {
         </Routes>
       </main></div>
       <BottomBar />
+      <SheetHost />
     </HouseProvider>
   );
 }
 
+// Na demonstração (página única, sem servidor) as rotas vivem em memória.
+const Router = DEMO ? MemoryRouter : BrowserRouter;
+
 export default function App() {
   return (
-    <BrowserRouter>
+    <Router>
       <OverlayProvider>
         <SessionProvider><Shell /></SessionProvider>
       </OverlayProvider>
-    </BrowserRouter>
+    </Router>
   );
 }

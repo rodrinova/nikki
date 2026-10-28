@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
+import { store } from '@/lib/store';
 
 export interface Profile { id: string; name: string; color: string }
 export interface Member extends Profile { role: 'admin' | 'member' }
@@ -37,7 +38,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
   const [me, setMe] = useState<Profile | null>(null);
   const [houses, setHouses] = useState<House[]>([]);
-  const [houseId, setHouseId] = useState<string | null>(() => localStorage.getItem(HOUSE_KEY));
+  const [houseId, setHouseId] = useState<string | null>(() => store.get(HOUSE_KEY));
   const [members, setMembers] = useState<Member[]>([]);
   const [ratioRow, setRatioRow] = useState<State['ratioRow']>(null);
 
@@ -58,7 +59,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     const hs: House[] = (ms ?? []).map((m: any) => ({ id: m.household_id, role: m.role, name: m.households?.name ?? 'Casa' }));
     setHouses(hs);
     const h = hs.find((x) => x.id === houseId) ?? hs[0] ?? null;
-    if (h && h.id !== houseId) { setHouseId(h.id); localStorage.setItem(HOUSE_KEY, h.id); }
+    if (h && h.id !== houseId) { setHouseId(h.id); store.set(HOUSE_KEY, h.id); }
     if (h) {
       const [{ data: mm }, { data: rr }] = await Promise.all([
         supabase.from('memberships').select('profile_id, role, profiles(id, name, color)').eq('household_id', h.id).order('joined_at'),
@@ -87,7 +88,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   if (ratioRow && me && partner && [ratioRow.profile_a, ratioRow.profile_b].includes(partner.id)) {
     myShare = ratioRow.profile_a === me.id ? ratioRow.ratio_a : 1 - ratioRow.ratio_a;
   }
-  const setHouse = (id: string) => { localStorage.setItem(HOUSE_KEY, id); setHouseId(id); };
+  const setHouse = (id: string) => { store.set(HOUSE_KEY, id); setHouseId(id); };
 
   return (
     <Ctx.Provider value={{ ready, session, me, houses, house, members, partner, myShare: Math.round(myShare * 1000) / 1000, ratioRow, setHouse, reload }}>

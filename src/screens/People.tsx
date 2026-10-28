@@ -13,11 +13,10 @@ const inviteUrl = (token: string) => `${location.origin}/convite/${token}`;
 /** Partilha pelo menu do telemóvel (WhatsApp, Mensagens…) ou copia, se não houver. */
 async function shareInvite(i: Pick<InviteRow, 'token' | 'code'>, house: string, toast: (m: string) => void) {
   const text = `Convite para a casa «${house}» na NIKKI. Código: ${i.code}`;
-  try {
-    if (navigator.share) { await navigator.share({ title: 'NIKKI', text, url: inviteUrl(i.token) }); return; }
-    await navigator.clipboard.writeText(`${text}\n${inviteUrl(i.token)}`);
-    toast('Convite copiado.');
-  } catch { /* partilha cancelada */ }
+  try { if (navigator.share) { await navigator.share({ title: 'NIKKI', text, url: inviteUrl(i.token) }); return; } }
+  catch (e) { if ((e as Error).name === 'AbortError') return; /* partilha recusada: copia */ }
+  try { await navigator.clipboard.writeText(`${text}\n${inviteUrl(i.token)}`); toast('Convite copiado.'); }
+  catch { toast(`Código do convite: ${i.code}`); }
 }
 
 export function InviteForm({ householdId, onDone }: { householdId: string; onDone?: () => void }) {

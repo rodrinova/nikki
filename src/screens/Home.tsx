@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { store } from '@/lib/store';
 import { useSession } from '@/data/session';
 import { useHouse } from '@/data/house';
 import { useOverlays } from '@/ui/overlays';
@@ -12,9 +13,10 @@ import { InviteForm } from './People';
 
 export function Top({ title, right }: { title: string; right?: ReactNode }) {
   const nav = useNavigate();
+  const loc = useLocation();
   return (
     <>
-      <button className="back press" onClick={() => (history.length > 1 ? nav(-1) : nav('/'))}><Icon n="back" s={20} /><span>Voltar</span></button>
+      <button className="back press" onClick={() => (loc.key !== 'default' ? nav(-1) : nav('/'))}><Icon n="back" s={20} /><span>Voltar</span></button>
       <div className="titlebar"><h1 className="l">{title}</h1>{right}</div>
     </>
   );
@@ -23,8 +25,8 @@ export function Top({ title, right }: { title: string; right?: ReactNode }) {
 /** Quantas vezes este ecrã já foi visto (as linhas de ajuda só aparecem nas 3 primeiras). */
 export function useSeen(k: string) {
   const key = `nikki_seen_${k}`;
-  const [n] = useState(() => Number(localStorage.getItem(key) ?? 0));
-  useEffect(() => { localStorage.setItem(key, String(n + 1)); }, [key, n]);
+  const [n] = useState(() => Number(store.get(key) ?? 0));
+  useEffect(() => { store.set(key, String(n + 1)); }, [key, n]);
   return n;
 }
 export const Hint = ({ show, children }: { show: boolean; children: ReactNode }) => (show ? <p className="hint">{children}</p> : null);
@@ -37,16 +39,16 @@ function FirstSteps() {
   const { open } = useOverlays();
   const nav = useNavigate();
   const hideKey = `nikki_first_hidden_${house?.id}`;
-  const [hidden, setHidden] = useState(() => localStorage.getItem(hideKey) === '1');
+  const [hidden, setHidden] = useState(() => store.get(hideKey) === '1');
   const done = {
     exp: expenses.rows.some((e) => e.created_by === me?.id),
     item: shop.rows.length > 0,
-    invite: members.length > 1 || localStorage.getItem(`nikki_invited_${house?.id}`) === '1',
+    invite: members.length > 1 || store.get(`nikki_invited_${house?.id}`) === '1',
   };
   const rows: [keyof typeof done, string, () => void][] = [
     ['exp', 'Registar uma despesa', () => open(<ExpenseSheet />)],
     ['item', 'Pôr algo na lista de compras', () => nav('/compras')],
-    ['invite', 'Convidar quem vive contigo', () => open(<div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}><p className="l">Convidar</p><InviteForm householdId={house!.id} onDone={() => localStorage.setItem(`nikki_invited_${house?.id}`, '1')} /></div>)],
+    ['invite', 'Convidar quem vive contigo', () => open(<div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}><p className="l">Convidar</p><InviteForm householdId={house!.id} onDone={() => store.set(`nikki_invited_${house?.id}`, '1')} /></div>)],
   ];
   const n = rows.filter(([k]) => done[k]).length;
   if (hidden || n === 3 || expenses.loading) return null;
@@ -54,7 +56,7 @@ function FirstSteps() {
     <section className="tile card" aria-label="Primeiros passos">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', minHeight: 52 }}>
         <span className="s">Primeiros passos · {n} de 3</span>
-        <button className="back press" style={{ fontSize: 'var(--t-s)' }} onClick={() => { localStorage.setItem(hideKey, '1'); setHidden(true); }}>Esconder</button>
+        <button className="back press" style={{ fontSize: 'var(--t-s)' }} onClick={() => { store.set(hideKey, '1'); setHidden(true); }}>Esconder</button>
       </div>
       <div className="rows">{rows.map(([k, label, go]) => (
         <button key={k} className="press" disabled={done[k]} onClick={go}>
@@ -113,7 +115,7 @@ export function Hub() {
         <Widget to="/em-breve/agenda" ic="cal" v="—" l="Próximo" d="nada marcado" />
         <Widget to="/em-breve/casa" ic="bell" v={String(open.length)} l="Avisos" d={open[0] ? `${open[0].title}, ${dayLabel(open[0].due_on)}` : 'tudo em dia'} />
         {partner && L
-          ? <Widget to="/contas" ic="heart" v={`${eur(Math.abs(L.v))} €`} l="Contas a dois" d={L.lead.toLowerCase()} />
+          ? <Widget to="/contas" ic="heart" v={`${eur(Math.abs(L.v))} €`} l="Contas a dois" d={L.even ? 'em equilíbrio' : L.v > 0 ? 'adiantaste mais' : `${partner.name} adiantou mais`} />
           : <Widget to="/dinheiro" ic="coins" v={`${eur(m.total, 0)} €`} l={monthName(m.key)[0].toUpperCase() + monthName(m.key).slice(1)} d={m.pace.fresh ? 'primeiro mês' : `${Math.abs(m.pace.pct)}% ${m.pace.pct >= 0 ? 'acima' : 'abaixo'} do habitual`} />}
         <Widget to="/em-breve/objetivos" ic="target" v="—" l="Objetivos" d="propostos no fim do 1.º mês" />
       </div>

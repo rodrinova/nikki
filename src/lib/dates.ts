@@ -34,10 +34,12 @@ export const prevMonth = (key: string): string => {
 const MONTHS = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
 export const monthName = (key: string): string => MONTHS[Number(key.slice(5, 7)) - 1];
 
-/** "hoje", "ontem" ou "27 out". */
+/** "hoje", "ontem", "amanhã", "daqui a 3 dias" ou "27 out". */
 export const dayLabel = (s: string, today = todayStr()): string => {
   if (s === today) return 'hoje';
   if (s === addDays(today, -1)) return 'ontem';
+  if (s === addDays(today, 1)) return 'amanhã';
+  for (let n = 2; n <= 6; n++) if (s === addDays(today, n)) return `daqui a ${n} dias`;
   const d = parseDate(s);
   return `${d.getDate()} ${MONTHS[d.getMonth()].slice(0, 3)}`;
 };

@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 
 // Folhas (bottom sheets) e avisos (toasts), partilhados por toda a app.
-interface Overlays { open: (node: ReactNode) => void; close: () => void; toast: (msg: string) => void; isOpen: boolean }
+interface Overlays { open: (node: ReactNode) => void; close: () => void; toast: (msg: string) => void; isOpen: boolean; sheet: ReactNode }
 const Ctx = createContext<Overlays | null>(null);
 export const useOverlays = () => {
   const c = useContext(Ctx);
@@ -29,17 +29,26 @@ export function OverlayProvider({ children }: { children: ReactNode }) {
   }, [sheet]);
 
   return (
-    <Ctx.Provider value={{ open, close, toast, isOpen: !!sheet }}>
+    <Ctx.Provider value={{ open, close, toast, isOpen: !!sheet, sheet }}>
       {children}
-      {sheet && (
-        <div>
-          <div className="scrim" onClick={close} />
-          <div className="sheet" role="dialog" aria-modal="true"><div className="grab" />{sheet}</div>
-        </div>
-      )}
       <div className="toast-root" role="status" aria-live="polite">
         {toasts.map((t) => <div className="toast" key={t.id}><span>{t.msg}</span></div>)}
       </div>
     </Ctx.Provider>
+  );
+}
+
+/**
+ * Onde a folha aberta aparece. Fica dentro dos providers da sessão e da casa (cada ramo da app tem um),
+ * para que o conteúdo da folha possa usar useSession e useHouse.
+ */
+export function SheetHost() {
+  const { sheet, close } = useOverlays();
+  if (!sheet) return null;
+  return (
+    <div>
+      <div className="scrim" onClick={close} />
+      <div className="sheet" role="dialog" aria-modal="true"><div className="grab" />{sheet}</div>
+    </div>
   );
 }
