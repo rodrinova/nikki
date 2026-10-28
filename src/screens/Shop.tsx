@@ -1,8 +1,9 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useSession } from '@/data/session';
 import { useHouse, type ShopItem } from '@/data/house';
 import { useOverlays } from '@/ui/overlays';
+import { useShopPresence } from '@/data/presence';
 import { Icon } from '@/ui/Icon';
 import { Top } from './Home';
 
@@ -27,6 +28,23 @@ export function Shop() {
   const [name, setName] = useState('');
   const left = shop.rows.filter((i) => !i.done).length, done = shop.rows.filter((i) => i.done);
 
+  // Em direto só quando outra pessoa da casa também tem as compras abertas (ex.: os dois no supermercado).
+  // Nessa altura: a faixa «em direto», o que o outro risca pisca, e a inicial de cada um no corredor onde está.
+  const { here, at } = useShopPresence(house?.id, me?.id);
+  const company = members.filter((m) => m.id !== me?.id && here[m.id]);
+  const live = company.length > 0;
+  const [mine, setMine] = useState<string | null>(null); // o meu corredor (onde risquei por último)
+  const [flash, setFlash] = useState<Set<string>>(new Set());
+  const was = useRef(new Map<string, boolean>());
+  useEffect(() => {
+    const fresh = live ? shop.rows.filter((i) => i.done && was.current.get(i.id) === false && i.done_by && i.done_by !== me?.id).map((i) => i.id) : [];
+    was.current = new Map(shop.rows.map((i) => [i.id, i.done]));
+    if (!fresh.length) return;
+    setFlash((f) => new Set([...f, ...fresh]));
+    const t = setTimeout(() => setFlash((f) => new Set([...f].filter((id) => !fresh.includes(id)))), 1100);
+    return () => clearTimeout(t);
+  }, [shop.rows, live, me?.id]);
+
   async function add(e: FormEvent) {
     e.preventDefault();
     const n = name.trim();
@@ -41,6 +59,7 @@ export function Shop() {
   async function tick(it: ShopItem) {
     const doneNow = !it.done;
     shop.setRows((r) => r.map((x) => (x.id === it.id ? { ...x, done: doneNow, done_by: doneNow ? me!.id : null } : x)));
+    if (doneNow) { setMine(it.aisle); at(it.aisle); }
     const { error } = await supabase.from('shopping_items').update({ done: doneNow, done_by: doneNow ? me!.id : null, done_at: doneNow ? new Date().toISOString() : null }).eq('id', it.id);
     if (error) { shop.reload(); toast('Não foi possível riscar.'); }
   }
@@ -56,14 +75,15 @@ export function Shop() {
   return (
     <>
       <Top title="Compras" right={done.length ? <button className="tb press" onClick={clear}>Limpar riscados</button> : null} />
-      <p className="s">{left} por comprar{partner ? ` · em tempo real com ${partner.name}` : ''}</p>
+      <p className="s">{left} por comprar{partner && !live ? ' · a lista atualiza-se sozinha' : ''}</p>
+      {live && <p className="live-bar" role="status"><span className="dot" aria-hidden="true" />Em direto com {company.map((m) => m.name).join(' e ')}</p>}
       <form className="add-row" onSubmit={add} autoComplete="off"><label className="sr" htmlFor="new-item">Novo artigo</label><input id="new-item" className="field" placeholder="Adicionar" value={name} onChange={(e) => setName(e.target.value)} /><button className="sq press" aria-label="Adicionar"><Icon n="plus" /></button></form>
       {groups.length ? (
         <div className="tile card">{groups.map(([a, l]) => (
-          <div key={a}><p className="aisle s">{a}</p><ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>{l.map((it) => {
+          <div key={a}><p className="aisle s">{a}{live && <span className="aisle-who">{[...(mine === a ? [me!] : []), ...company.filter((m) => here[m.id].aisle === a)].map((m) => <span key={m.id} className="who" style={{ ['--c' as any]: m.color }} title={`${m.id === me?.id ? 'Tu' : m.name} neste corredor`}>{m.name[0]}</span>)}</span>}</p><ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>{l.map((it) => {
             const b = it.done ? who(it.done_by) : null;
             return (
-              <li key={it.id} className={`item${it.done ? ' done' : ''}`}>
+              <li key={it.id} className={`item${it.done ? ' done' : ''}${flash.has(it.id) ? ' flash' : ''}`}>
                 <button className="check" aria-pressed={it.done} aria-label={it.name} onClick={() => tick(it)}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ground)" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 12.5l4 4 8-9" /></svg></button>
                 <span className="nm">{it.name}</span>
                 <span className="q s">{b && <span className="who" style={{ ['--c' as any]: b.color }}>{b.name[0]}</span>}</span>

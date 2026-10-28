@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { eur, monthClose, monthSpend, normalMonth, pace, pairBalance, parseAmount, partOf, toU, whiskerLean, yearFill, type Expense, type Transfer } from '../money';
-import { addDays, daysInMonth, prevMonth, toDateStr } from '../dates';
+import { addDays, daysInMonth, monthWeeks, nextMonth, prevMonth, toDateStr, weekOf, weekdayName } from '../dates';
 
 const R = 'rodrigo', I = 'ines';
 let n = 0;
@@ -151,6 +151,27 @@ describe('datas locais', () => {
     expect(toDateStr(new Date(2026, 9, 25, 0, 30))).toBe('2026-10-25');
     expect(daysInMonth('2028-02')).toBe(29);
     expect(prevMonth('2026-01')).toBe('2025-12');
+  });
+});
+
+describe('calendário', () => {
+  it('semana de segunda a domingo', () => {
+    expect(weekOf('2026-10-28')).toEqual(['2026-10-26', '2026-10-27', '2026-10-28', '2026-10-29', '2026-10-30', '2026-10-31', '2026-11-01']);
+    expect(weekOf('2026-11-01')[0]).toBe('2026-10-26'); // domingo fica na semana que começou na segunda
+    expect(weekOf('2026-10-26')[0]).toBe('2026-10-26');
+    expect(weekdayName('2026-10-28')).toBe('quarta');
+  });
+  it('semanas que cobrem o mês, sem saltos na mudança de hora', () => {
+    const oct = monthWeeks('2026-10');
+    expect(oct).toHaveLength(5);
+    expect(oct[0][0]).toBe('2026-09-28');
+    expect(oct[4][6]).toBe('2026-11-01');
+    const mar = monthWeeks('2026-03').flat(); // a hora muda a 29 de março
+    expect(mar).toHaveLength(42);
+    expect(new Set(mar).size).toBe(42);
+    for (let k = 1; k < mar.length; k++) expect(mar[k]).toBe(addDays(mar[k - 1], 1));
+    expect(monthWeeks('2027-02')).toHaveLength(4); // começa a uma segunda e tem 28 dias
+    expect(nextMonth('2026-12')).toBe('2027-01');
   });
 });
 

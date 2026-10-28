@@ -123,4 +123,31 @@ do $$ begin
 exception when others then assert sqlerrm = 'a casa precisa de pelo menos um administrador', sqlerrm; end $$;
 rollback;
 
+-- Eventos privados: os outros só os veem como «ocupado», pela hora, e quem não é da casa não vê nada
+begin;
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+insert into nikki.events (household_id, title, starts_at, owner_id, private, created_by)
+  select v::uuid, 'Médico', '2026-10-29 10:00+00', auth.uid(), true, auth.uid() from ctx where k = 'h';
+insert into nikki.events (household_id, title, starts_at, created_by)
+  select v::uuid, 'Jantar com amigos', '2026-10-30 20:00+00', auth.uid() from ctx where k = 'h';
+do $$ begin
+  assert (select count(*) from nikki.events) = 2, 'o dono lê os seus privados';
+  assert (select count(*) from nikki.busy_slots((select v::uuid from ctx where k = 'h'), '2026-10-01', '2026-11-30')) = 0, 'os seus não aparecem como ocupado';
+end $$;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+do $$ begin
+  assert (select count(*) from nikki.events) = 1, 'a Inês só lê o evento da casa';
+  assert (select count(*) from nikki.events where title = 'Médico') = 0, 'o título do privado não sai da base';
+  assert (select count(*) from nikki.busy_slots((select v::uuid from ctx where k = 'h'), '2026-10-01', '2026-11-30')) = 1, 'mas vê que o Rodrigo está ocupado';
+  assert (select owner_id from nikki.busy_slots((select v::uuid from ctx where k = 'h'), '2026-10-01', '2026-11-30')) = '00000000-0000-0000-0000-00000000000a', 'e de quem é';
+  assert (select count(*) from nikki.busy_slots((select v::uuid from ctx where k = 'h'), '2026-11-01', '2026-11-30')) = 0, 'só no intervalo pedido';
+end $$;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
+do $$ begin
+  assert (select count(*) from nikki.busy_slots((select v::uuid from ctx where k = 'h'), '2026-10-01', '2026-11-30')) = 0, 'quem não é da casa não vê nada';
+  assert (select count(*) from nikki.events) = 0, 'nem os eventos';
+end $$;
+rollback;
+
 \echo 'rls_test: tudo certo'

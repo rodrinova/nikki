@@ -358,8 +358,22 @@ language sql stable security invoker set search_path = '' as $$
   from o;
 $$;
 
+-- Eventos privados dos outros, só com a hora e o dono: a app mostra «ocupado» (o título nunca sai da base).
+create or replace function nikki.busy_slots(h uuid, from_ts timestamptz, to_ts timestamptz)
+returns table (id uuid, starts_at timestamptz, ends_at timestamptz, all_day boolean, owner_id uuid)
+language sql stable security definer set search_path = '' as $$
+  select e.id, e.starts_at, e.ends_at, e.all_day, coalesce(e.owner_id, e.created_by)
+  from nikki.events e
+  where nikki.is_member(h) and e.household_id = h and e.private
+    and coalesce(e.owner_id, e.created_by) <> auth.uid() and e.created_by <> auth.uid()
+    and e.starts_at < to_ts and coalesce(e.ends_at, e.starts_at) >= from_ts
+  order by e.starts_at;
+$$;
+
 grant execute on function nikki.is_member(uuid), nikki.is_admin(uuid), nikki.shares_household(uuid),
-  nikki.create_household(text), nikki.accept_invite(text), nikki.pair_balance(uuid, uuid, uuid) to authenticated;
+  nikki.create_household(text), nikki.accept_invite(text), nikki.pair_balance(uuid, uuid, uuid),
+  nikki.busy_slots(uuid, timestamptz, timestamptz) to authenticated;
+revoke execute on function nikki.busy_slots(uuid, timestamptz, timestamptz) from anon, public;
 revoke execute on function nikki.create_household(text), nikki.accept_invite(text) from anon, public;
 
 -- ───────────────────────── RLS ─────────────────────────
@@ -450,8 +464,10 @@ create policy cars_read on nikki.cars for select to authenticated using (nikki.i
 create policy cars_admin on nikki.cars for all to authenticated using (nikki.is_admin(household_id)) with check (nikki.is_admin(household_id));
 create policy assets_house on nikki.assets for all to authenticated using (nikki.is_member(household_id)) with check (nikki.is_member(household_id));
 
--- Eventos: privados aparecem aos outros só pela hora (a app mostra "ocupado"); só o autor altera.
-create policy events_read on nikki.events for select to authenticated using (nikki.is_member(household_id));
+-- Eventos: um privado só o lê o dono (ou quem o criou); aos outros chega só pela hora, por nikki.busy_slots,
+-- e a app mostra «ocupado». Só o autor altera.
+create policy events_read on nikki.events for select to authenticated
+  using (nikki.is_member(household_id) and (not private or owner_id = auth.uid() or created_by = auth.uid()));
 create policy events_insert on nikki.events for insert to authenticated with check (nikki.is_member(household_id) and created_by = auth.uid());
 create policy events_edit on nikki.events for update to authenticated using (created_by = auth.uid()) with check (created_by = auth.uid());
 create policy events_delete on nikki.events for delete to authenticated using (created_by = auth.uid());

@@ -1,7 +1,7 @@
 // Modo de demonstração (VITE_DEMO=1): a app real, com uma base de dados de exemplo em memória.
 // Imita só o que a app usa do supabase-js: auth, from().select/insert/update/delete/upsert, rpc e tempo real.
 // Respeita as regras de acesso que importam: as despesas «Minha» do outro não aparecem.
-import { addDays, monthKey, prevMonth, todayStr } from './dates';
+import { addDays, monthKey, parseDate, prevMonth, todayStr } from './dates';
 
 type Row = Record<string, any>;
 type Listener = () => void;
@@ -17,7 +17,7 @@ function seed() {
     memberships: [{ household_id: H, profile_id: R, role: 'admin', joined_at: '2026-01-01' }, { household_id: H, profile_id: I, role: 'member', joined_at: '2026-01-02' }],
     share_ratios: [{ household_id: H, profile_a: R, profile_b: I, ratio_a: 0.5 }],
     invites: [{ id: uid(), household_id: H, email: 'teresa@exemplo.pt', role: 'member', token: 'demo-token', code: 'K7Q2NB', expires_at: addDays(today, 5) + 'T12:00:00Z', accepted_at: null, created_at: today }],
-    expenses: [], transfers: [], deadlines: [], shopping_items: [],
+    expenses: [], transfers: [], deadlines: [], shopping_items: [], events: [],
   };
   // Três meses: dois completos (o "normal") e o corrente até hoje. Valores de exemplo.
   const plan: [number, string, string, string, string | null, number | null, string][] = [
@@ -44,6 +44,15 @@ function seed() {
     db.shopping_items.push({ id: uid(), household_id: H, name: n, aisle: a, done: false, done_by: null, done_at: null, created_by: R, created_at: today + 'T08:00:00Z' });
   db.deadlines.push({ id: uid(), household_id: H, title: 'Revisão do Mini', due_on: addDays(today, 2), amount: '210.00', paid_at: null });
   db.deadlines.push({ id: uid(), household_id: H, title: 'IUC do Golf', due_on: addDays(today, 4), amount: '148.37', paid_at: null });
+  // Agenda: da casa (sem dono), de cada um e dois privados (o outro só os vê como «ocupado»).
+  const ev = (o: number, hm: string, title: string, owner: string | null, priv = false) => {
+    const d = parseDate(addDays(today, o)), [h, m] = hm.split(':').map(Number);
+    d.setHours(h, m);
+    db.events.push({ id: uid(), household_id: H, title, starts_at: d.toISOString(), ends_at: null, all_day: false, owner_id: owner, private: priv, created_by: owner ?? R, created_at: today });
+  };
+  ev(-6, '15:00', 'Dentista', I); ev(-4, '20:00', 'Jantar fora', null); ev(0, '18:45', 'Pilates', I); ev(0, '19:30', 'Treino', R);
+  ev(1, '10:00', 'Reunião de equipa', I, true); ev(1, '13:00', 'Almoço com a Rita', R, true); ev(3, '19:00', 'Aniversário da Mãe', null);
+  ev(8, '20:30', 'Jantar com amigos', null); ev(12, '10:00', 'Padel', R);
   return db;
 }
 
@@ -64,6 +73,7 @@ export function createDemoClient() {
     if (t === 'households') return houses.includes(r.id);
     if (t === 'expenses') return houses.includes(r.household_id) && (r.paid_by === me || r.created_by === me || r.other_id === me);
     if (t === 'transfers') return houses.includes(r.household_id) && (r.from_id === me || r.to_id === me);
+    if (t === 'events') return houses.includes(r.household_id) && (!r.private || r.owner_id === me || r.created_by === me);
     return houses.includes(r.household_id);
   };
   const embed = (t: string, r: Row, sel: string) => {
@@ -143,6 +153,37 @@ export function createDemoClient() {
     }
   }
 
+  // Presença nas compras. Na demonstração, o outro (Rodrigo ou Inês) abre as compras uns segundos depois de
+  // ti e vai riscando artigos, corredor a corredor, enquanto as tiveres abertas.
+  function presence(key: string) {
+    const state: Record<string, { aisle: string | null }[]> = {};
+    const syncs: Listener[] = [];
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    const sync = () => syncs.forEach((f) => f());
+    const other = key === R ? I : key === I ? R : null;
+    const partnerTick = () => {
+      const it = db.shopping_items.find((x) => x.household_id === H && !x.done);
+      if (!it || !other) return;
+      it.done = true; it.done_by = other; it.done_at = new Date().toISOString();
+      state[other] = [{ aisle: it.aisle }];
+      sync(); changed('shopping_items');
+      timers.push(setTimeout(partnerTick, 4000 + Math.random() * 2500));
+    };
+    const ch = {
+      on(_e: string, _f: unknown, cb: Listener) { syncs.push(cb); return ch; },
+      subscribe(cb?: (s: string) => void) {
+        setTimeout(() => cb?.('SUBSCRIBED'), 20);
+        if (other) timers.push(setTimeout(() => { state[other] = [{ aisle: null }]; sync(); timers.push(setTimeout(partnerTick, 2500)); }, 2500));
+        return ch;
+      },
+      track(meta: { aisle: string | null }) { state[key] = [meta]; sync(); return Promise.resolve('ok'); },
+      untrack() { delete state[key]; return Promise.resolve('ok'); },
+      presenceState() { return state; },
+      _off() { timers.forEach(clearTimeout); },
+    };
+    return ch;
+  }
+
   const client = {
     from: (t: string) => new Query(t),
     async rpc(name: string, args: Row) {
@@ -162,9 +203,18 @@ export function createDemoClient() {
         changed('memberships');
         return { data: i.household_id, error: null };
       }
+      if (name === 'busy_slots') {
+        // Os privados dos outros, só com a hora e o dono.
+        const mine = db.memberships.some((m) => m.profile_id === me && m.household_id === args.h);
+        const data = !mine ? [] : db.events
+          .filter((e) => e.household_id === args.h && e.private && (e.owner_id ?? e.created_by) !== me && e.created_by !== me && e.starts_at < args.to_ts && (e.ends_at ?? e.starts_at) >= args.from_ts)
+          .map((e) => ({ id: e.id, starts_at: e.starts_at, ends_at: e.ends_at, all_day: e.all_day, owner_id: e.owner_id ?? e.created_by }));
+        return { data, error: null };
+      }
       return { data: null, error: { message: 'função desconhecida' } };
     },
-    channel() {
+    channel(_topic: string, opts?: { config?: { presence?: { key: string } } }) {
+      if (opts?.config?.presence?.key) return presence(opts.config.presence.key);
       const subs: [string, Listener][] = [];
       const ch = {
         on(_e: string, f: { table: string }, cb: Listener) { subs.push([f.table, cb]); return ch; },

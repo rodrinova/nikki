@@ -7,10 +7,11 @@ import { useOverlays } from '@/ui/overlays';
 import { Icon } from '@/ui/Icon';
 import { Wordmark } from '@/brand/Wordmark';
 import { Whiskers } from '@/ui/Whiskers';
+import { Calendar, type CalItem } from '@/ui/Calendar';
 import { Poster } from '@/ui/Poster';
 import { How, Year } from '@/ui/Year';
 import { eur, monthClose } from '@/lib/money';
-import { addDays, dayLabel, monthName, todayStr } from '@/lib/dates';
+import { addDays, dayLabel, monthName, toDateStr, todayStr } from '@/lib/dates';
 import { ExpenseSheet, INVEST, useLedger, useMonth } from './Money';
 import { InviteForm } from './People';
 
@@ -100,8 +101,30 @@ function Now() {
   );
 }
 
-function Widget({ to, ic, v, l, d }: { to: string; ic: string | ReactNode; v: string; l: string; d: string }) {
-  return <Link className="tile w press" to={to} aria-label={l}><span className="ic">{typeof ic === 'string' ? <Icon n={ic} /> : ic}</span><span><span className="l">{v}</span><span className="s det">{l} · {d}</span></span></Link>;
+/** A agenda no início: eventos da casa, os teus e os do outro (os privados dele só como «ocupado») e os prazos. */
+function HomeCalendar() {
+  const { me, members } = useSession();
+  const { events, busy, deadlines } = useHouse();
+  const items = useMemo(() => {
+    const who = (id: string) => members.find((m) => m.id === id);
+    const hm = (iso: string) => new Date(iso).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' });
+    const out: CalItem[] = [];
+    for (const e of events.rows) {
+      const o = e.owner_id ? who(e.owner_id) : undefined;
+      out.push({ day: toDateStr(new Date(e.starts_at)), time: e.all_day ? null : hm(e.starts_at), title: e.title, kind: !e.owner_id ? 'house' : e.owner_id === me?.id ? 'mine' : 'other', color: o?.color, note: !e.owner_id ? 'Casa' : e.owner_id === me?.id ? 'Tu' : o?.name ?? '' });
+    }
+    for (const b of busy.rows) {
+      const o = who(b.owner_id);
+      out.push({ day: toDateStr(new Date(b.starts_at)), time: b.all_day ? null : hm(b.starts_at), title: 'Ocupado', kind: 'busy', color: o?.color, note: o?.name ?? '' });
+    }
+    for (const d of deadlines.rows) if (!d.paid_at) out.push({ day: d.due_on, time: null, title: d.title, kind: 'due', note: d.amount ? `Prazo · ${eur(Number(d.amount) * 100_000)} €` : 'Prazo' });
+    return out;
+  }, [events.rows, busy.rows, deadlines.rows, members, me?.id]);
+  return <Calendar items={items} to="/em-breve/agenda" />;
+}
+
+function Widget({ to, ic, v, l, d, wide }: { to: string; ic: string | ReactNode; v: string; l: string; d: string; wide?: boolean }) {
+  return <Link className={`tile w press${wide ? ' wide' : ''}`} to={to} aria-label={l}><span className="ic">{typeof ic === 'string' ? <Icon n={ic} /> : ic}</span><span><span className="l">{v}</span><span className="s det">{l} · {d}</span></span></Link>;
 }
 
 export function Hub() {
@@ -115,13 +138,13 @@ export function Hub() {
       <MonthClose />
       <FirstSteps />
       <Now />
+      <HomeCalendar />
       <div className="widgets">
-        <Widget to="/em-breve/agenda" ic="cal" v="—" l="Próximo" d="nada marcado" />
         <Widget to="/em-breve/casa" ic="bell" v={String(open.length)} l="Avisos" d={open[0] ? `${open[0].title}, ${dayLabel(open[0].due_on)}` : 'tudo em dia'} />
         {partner && L
           ? <Widget to="/contas" ic={<Whiskers h={22} lean={L.lean} even={L.even} />} v={`${eur(Math.abs(L.v))} €`} l="Contas a dois" d={L.even ? 'em equilíbrio' : L.v > 0 ? 'adiantaste mais' : `${partner.name} adiantou mais`} />
           : <Widget to="/dinheiro" ic="coins" v={`${eur(m.total, 0)} €`} l={monthName(m.key)[0].toUpperCase() + monthName(m.key).slice(1)} d={m.pace.fresh ? 'primeiro mês' : `${Math.abs(m.pace.pct)}% ${m.pace.pct >= 0 ? 'acima' : 'abaixo'} do habitual`} />}
-        <Widget to="/em-breve/objetivos" ic="target" v="—" l="Objetivos" d="propostos no fim do 1.º mês" />
+        <Widget to="/em-breve/objetivos" ic="target" v="—" l="Objetivos" d="propostos no fim do 1.º mês" wide />
       </div>
     </>
   );

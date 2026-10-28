@@ -58,11 +58,12 @@ configurar um SMTP (ex.: Resend) em **Authentication → SMTP Settings**.
 
 - Entrar ou criar conta por e-mail; nome; criar casa (fica administrador) ou entrar com código/ligação.
 - Convites com ligação e código, partilhados pelo menu do telemóvel; papéis Administrador e Membro.
-- Início fixo: primeiros passos, «Agora» que se desliza, Próximo, Avisos, Contas a dois (a solo: Mês), Objetivos.
+- Início fixo: primeiros passos, «Agora» que se desliza, agenda em calendário (a semana, que abre no mês), Avisos,
+  Contas a dois (a solo: Mês), Objetivos.
 - Dinheiro: a tua parte do mês, ritmo face ao teu normal, fecho previsto, categorias, movimentos.
 - Despesa: Minha · Partilhada · Do outro, dia, nota. A percentagem da partilha define-se em Pessoas.
-- Contas a dois: quem adiantou mais, barra de esforço, transferências nos dois sentidos.
-- Compras em tempo real, arrumadas por corredor, sem unidades.
+- Contas a dois: quem adiantou mais (os bigodes da cara medem), transferências nos dois sentidos.
+- Compras sincronizadas, arrumadas por corredor, sem unidades; em direto quando os dois as têm abertas.
 
 Garagem, agenda, casa (prazos), ginásio, objetivos, património e independência, importação de extratos
 e talões com Gemini chegam nas fases seguintes (ver `docs/ARQUITETURA.md`).
