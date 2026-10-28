@@ -284,13 +284,9 @@ html,body{overscroll-behavior-y:contain}
 .intro .facegrp{animation:faceMid 460ms var(--ease-out) 2050ms forwards}
 @keyframes faceMid{to{transform:translateX(-19.2px)}}
 
-/* ---------- contas a dois num arco ---------- */
-.arc{width:100%;height:auto;display:block;overflow:visible}
-.arc-line{fill:none;stroke:var(--ink);stroke-width:2}
-.arc-mid{fill:none;stroke:var(--sub);stroke-width:1;stroke-dasharray:2 3}
-.arc-ini{fill:#0B0B0B;font-size:13px;text-anchor:middle;font-family:var(--font)}
-.arc-dot{fill:var(--accent);transition:fill 300ms ease}
-.arc-dot.even{fill:var(--ink)}
+/* ---------- contas a dois na cara: os bigodes medem ---------- */
+.wg .eyes{transform-box:fill-box;transform-origin:50% 50%}
+.word.wg.once .eyes{animation:blinkOnce 320ms ease-in-out 120ms}
 
 /* ---------- meses livres e «como contámos» ---------- */
 .year{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:4px}

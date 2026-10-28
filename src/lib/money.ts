@@ -131,14 +131,15 @@ export function monthClose(expenses: Expense[], who: string, today: string) {
 }
 
 /**
- * Contas a dois num arco: onde fica o ponto. 0 é o lado de quem vê, 1 o do outro, 0,5 o meio (equilíbrio).
- * Vai para o lado de quem adiantou mais e afasta-se do meio com o valor, depressa no início e cada vez
- * mais devagar: a 150 € já fez 63% do caminho até ao limite (0,08 da ponta), que nunca chega a tocar.
+ * Contas a dois na cara da NIKKI: quanto crescem os bigodes de quem vê (e encolhem os do outro).
+ * Os bigodes de cada lado ficam com o fator 1 + lean (quem vê) e 1 − lean (o outro); 0 = iguais, como no
+ * logótipo. Positivo quando quem vê adiantou mais. Cresce depressa no início e cada vez mais devagar:
+ * a 150 € já fez 63% do caminho até ao limite de ±0,5, que nunca chega a tocar.
  */
-export const ARC_SCALE = 15_000_000; // 150 € em unidades
-export function arcT(balance: number): number {
-  if (Math.abs(balance) < 500) return 0.5;
-  return 0.5 - Math.sign(balance) * 0.42 * (1 - Math.exp(-Math.abs(balance) / ARC_SCALE));
+export const WHISKER_SCALE = 15_000_000; // 150 € em unidades
+export function whiskerLean(balance: number): number {
+  if (Math.abs(balance) < 500) return 0; // menos de meio cêntimo: em equilíbrio
+  return Math.sign(balance) * 0.5 * (1 - Math.exp(-Math.abs(balance) / WHISKER_SCALE));
 }
 
 /** Meses livres desenhados: 12 meses, cheios até à parte inteira e o seguinte com a fração. */

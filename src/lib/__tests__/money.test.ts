@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { arcT, eur, monthClose, monthSpend, normalMonth, pace, pairBalance, parseAmount, partOf, toU, yearFill, type Expense, type Transfer } from '../money';
+import { eur, monthClose, monthSpend, normalMonth, pace, pairBalance, parseAmount, partOf, toU, whiskerLean, yearFill, type Expense, type Transfer } from '../money';
 import { addDays, daysInMonth, prevMonth, toDateStr } from '../dates';
 
 const R = 'rodrigo', I = 'ines';
@@ -105,15 +105,15 @@ describe('fecho do mês', () => {
   });
 });
 
-describe('arco das contas a dois', () => {
-  it('meio em equilíbrio, para o lado de quem adiantou mais, com limite', () => {
-    expect(arcT(0)).toBe(0.5);
-    expect(arcT(400)).toBe(0.5); // menos de meio cêntimo
-    expect(arcT(toU(150))).toBeCloseTo(0.5 - 0.42 * (1 - Math.exp(-1)), 10); // 63% do caminho
-    expect(arcT(-toU(150))).toBeCloseTo(0.5 + 0.42 * (1 - Math.exp(-1)), 10);
-    expect(arcT(toU(10)) < 0.5 && arcT(toU(10)) > arcT(toU(100))).toBe(true); // sempre a afastar-se
-    expect(arcT(toU(100000))).toBeGreaterThan(0.08); // nunca chega à ponta
-    expect(arcT(toU(100000))).toBeCloseTo(0.08, 6);
+describe('bigodes das contas a dois', () => {
+  it('iguais em equilíbrio, maiores do lado de quem adiantou mais, com limite', () => {
+    expect(whiskerLean(0)).toBe(0);
+    expect(whiskerLean(400)).toBe(0); // menos de meio cêntimo
+    expect(whiskerLean(toU(150))).toBeCloseTo(0.5 * (1 - Math.exp(-1)), 10); // 63% do caminho
+    expect(whiskerLean(-toU(150))).toBeCloseTo(-0.5 * (1 - Math.exp(-1)), 10);
+    expect(whiskerLean(toU(10)) > 0 && whiskerLean(toU(10)) < whiskerLean(toU(100))).toBe(true); // sempre a crescer
+    expect(whiskerLean(toU(2000))).toBeLessThan(0.5); // não chega ao limite
+    expect(whiskerLean(toU(2000))).toBeCloseTo(0.5, 5);
   });
 });
 

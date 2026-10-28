@@ -5,8 +5,8 @@ import { useSession } from '@/data/session';
 import { useHouse, type ExpenseRow } from '@/data/house';
 import { useOverlays } from '@/ui/overlays';
 import { Icon } from '@/ui/Icon';
-import { Arc } from '@/ui/Arc';
-import { arcT, eur, monthSpend, normalMonth, pace, pairBalance, parseAmount, toU, type Split } from '@/lib/money';
+import { Whiskers } from '@/ui/Whiskers';
+import { eur, monthSpend, normalMonth, pace, pairBalance, parseAmount, toU, type Split, whiskerLean } from '@/lib/money';
 import { addDays, dayLabel, monthKey, monthName, todayStr } from '@/lib/dates';
 import { Hint, Top, useSeen } from './Home';
 
@@ -38,7 +38,7 @@ export function useLedger() {
     const even = Math.abs(v) < 500; // menos de meio cêntimo
     const who = v > 0 ? me : partner;
     const lead = even ? 'Em equilíbrio' : v > 0 ? 'Adiantaste mais' : `${partner.name} adiantou mais`;
-    return { v, even, who, lead, t: arcT(v) };
+    return { v, even, who, lead, lean: whiskerLean(v) };
   }, [expenses.rows, transfers.rows, me, partner]);
 }
 
@@ -217,7 +217,9 @@ export function Ledger() {
       <div className="swap"><p className="xl">{eur(Math.abs(L.v))}<small>€</small></p><p className="s" style={{ marginTop: 8 }}>{L.even ? 'Esforço distribuído como combinado' : `${L.lead} do que o combinado`}</p></div>
       <Hint show={seen < 3}>{`Quanto cada um adiantou face ao combinado (${pct}/${100 - pct}). Não é uma dívida: serve para distribuírem o esforço.`}</Hint>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <Arc t={L.t} even={L.even} me={me} other={partner} label={L.even ? 'Em equilíbrio: o ponto está no meio do arco.' : `${L.lead}: o ponto está do lado de ${L.v > 0 ? 'ti' : partner.name}.`} />
+        <div style={{ display: 'grid', placeItems: 'center', padding: '8px 0 4px', color: 'var(--ink)' }}>
+          <Whiskers h={112} lean={L.lean} even={L.even} label={L.even ? 'Em equilíbrio: os bigodes estão iguais, como no logótipo.' : `${L.lead}: os bigodes do lado de ${L.v > 0 ? 'ti' : partner.name} estão maiores.`} />
+        </div>
         <div className="s" style={{ display: 'flex', justifyContent: 'space-between' }}><span>Tu {Math.round(a)}%</span><span>combinado {pct}/{100 - pct}</span><span>{partner.name} {100 - Math.round(a)}%</span></div>
       </div>
       <div className="tile card rows">

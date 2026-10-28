@@ -6,7 +6,7 @@ import { useHouse } from '@/data/house';
 import { useOverlays } from '@/ui/overlays';
 import { Icon } from '@/ui/Icon';
 import { Wordmark } from '@/brand/Wordmark';
-import { ArcIcon } from '@/ui/Arc';
+import { Whiskers } from '@/ui/Whiskers';
 import { Poster } from '@/ui/Poster';
 import { How, Year } from '@/ui/Year';
 import { eur, monthClose } from '@/lib/money';
@@ -119,7 +119,7 @@ export function Hub() {
         <Widget to="/em-breve/agenda" ic="cal" v="—" l="Próximo" d="nada marcado" />
         <Widget to="/em-breve/casa" ic="bell" v={String(open.length)} l="Avisos" d={open[0] ? `${open[0].title}, ${dayLabel(open[0].due_on)}` : 'tudo em dia'} />
         {partner && L
-          ? <Widget to="/contas" ic={<ArcIcon t={L.t} even={L.even} />} v={`${eur(Math.abs(L.v))} €`} l="Contas a dois" d={L.even ? 'em equilíbrio' : L.v > 0 ? 'adiantaste mais' : `${partner.name} adiantou mais`} />
+          ? <Widget to="/contas" ic={<Whiskers h={22} lean={L.lean} even={L.even} />} v={`${eur(Math.abs(L.v))} €`} l="Contas a dois" d={L.even ? 'em equilíbrio' : L.v > 0 ? 'adiantaste mais' : `${partner.name} adiantou mais`} />
           : <Widget to="/dinheiro" ic="coins" v={`${eur(m.total, 0)} €`} l={monthName(m.key)[0].toUpperCase() + monthName(m.key).slice(1)} d={m.pace.fresh ? 'primeiro mês' : `${Math.abs(m.pace.pct)}% ${m.pace.pct >= 0 ? 'acima' : 'abaixo'} do habitual`} />}
         <Widget to="/em-breve/objetivos" ic="target" v="—" l="Objetivos" d="propostos no fim do 1.º mês" />
       </div>
