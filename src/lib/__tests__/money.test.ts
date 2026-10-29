@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { eur, monthSpend, normalMonth, pace, pairBalance, parseAmount, partOf, toU, type Expense, type Transfer } from '../money';
-import { addDays, daysInMonth, prevMonth, toDateStr } from '../dates';
+import { eur, lit, openingOf, monthClose, monthSpend, normalMonth, pace, pairBalance, parseAmount, partOf, toU, whiskerLean, yearFill, type Expense, type Transfer } from '../money';
+import { addDays, daysInMonth, monthWeeks, nextMonth, prevMonth, toDateStr, weekOf, weekdayName } from '../dates';
 
 const R = 'rodrigo', I = 'ines';
 let n = 0;
@@ -80,6 +80,65 @@ describe('mês, normal e ritmo', () => {
   });
 });
 
+describe('fecho do mês', () => {
+  const hist = [
+    ex({ spent_on: '2026-07-10', amount: '300.00' }),
+    ex({ spent_on: '2026-08-05', amount: '500.00' }),
+    ex({ spent_on: '2026-09-12', amount: '352.00' }),
+    ex({ spent_on: '2026-10-03', amount: '999.00' }),
+  ];
+  it('compara o mês anterior com o normal até aí, sem o contar', () => {
+    const c = monthClose(hist, R, '2026-10-28')!;
+    expect(c.key).toBe('2026-09');
+    expect(c.total).toBe(toU(352));
+    expect(c.normal).toBe(toU(400)); // julho e agosto
+    expect(c.pct).toBe(-12);
+  });
+  it('primeiro mês completo: sem normal para comparar', () => {
+    const c = monthClose([hist[2]], R, '2026-10-02')!;
+    expect(c.normal).toBeNull();
+    expect(c.pct).toBeNull();
+  });
+  it('sem nada no mês anterior não há fecho', () => {
+    expect(monthClose([hist[3]], R, '2026-10-28')).toBeNull();
+    expect(monthClose(hist, I, '2026-10-28')).toBeNull();
+  });
+});
+
+describe('bigodes das contas a dois', () => {
+  it('iguais em equilíbrio, maiores do lado de quem adiantou mais, com limite', () => {
+    expect(whiskerLean(0)).toBe(0);
+    expect(whiskerLean(400)).toBe(0); // menos de meio cêntimo
+    expect(whiskerLean(toU(150))).toBeCloseTo(0.5 * (1 - Math.exp(-1)), 10); // 63% do caminho
+    expect(whiskerLean(-toU(150))).toBeCloseTo(-0.5 * (1 - Math.exp(-1)), 10);
+    expect(whiskerLean(toU(10)) > 0 && whiskerLean(toU(10)) < whiskerLean(toU(100))).toBe(true); // sempre a crescer
+    expect(whiskerLean(toU(2000))).toBeLessThan(0.5); // não chega ao limite
+    expect(whiskerLean(toU(2000))).toBeCloseTo(0.5, 5);
+  });
+});
+
+describe('bigodes acesos', () => {
+  it('acendem ao crescer, apagam ao voltar ao meio e mudam de lado', () => {
+    expect(lit(0.1, 0, 0.2, 1)).toBeCloseTo(0.5, 10); // a meio do crescimento, meio acesos
+    expect(lit(0.2, 0, 0.2, 1)).toBe(1);
+    expect(lit(0.2, 0, 0.2, -1)).toBe(0); // o outro lado fica apagado
+    expect(lit(0.05, 0.2, 0, 1)).toBeCloseTo(0.25, 10); // a apagar até ao equilíbrio
+    expect(lit(0.15, 0.3, 0.1, 1)).toBe(1); // continua do mesmo lado: aceso
+    expect(lit(-0.1, 0.2, -0.2, -1)).toBeCloseTo(0.5, 10); // passou para o outro lado
+    expect(lit(0, 0, 0, 1)).toBe(0);
+  });
+});
+
+describe('meses livres', () => {
+  it('cheios até à parte inteira e o seguinte com a fração', () => {
+    const y = yearFill(3.4);
+    expect(y.slice(0, 5).map((v) => +v.toFixed(2))).toEqual([1, 1, 1, 0.4, 0]);
+    expect(y).toHaveLength(12);
+    expect(yearFill(14).every((v) => v === 1)).toBe(true);
+    expect(yearFill(0).every((v) => v === 0)).toBe(true);
+  });
+});
+
 describe('formatos', () => {
   it('meio-par só ao mostrar', () => {
     expect(eur(617_500)).toBe('6,18'); // 6,175 → 6,18 (8 é par)
@@ -104,5 +163,46 @@ describe('datas locais', () => {
     expect(toDateStr(new Date(2026, 9, 25, 0, 30))).toBe('2026-10-25');
     expect(daysInMonth('2028-02')).toBe(29);
     expect(prevMonth('2026-01')).toBe('2025-12');
+  });
+});
+
+describe('calendário', () => {
+  it('semana de segunda a domingo', () => {
+    expect(weekOf('2026-10-28')).toEqual(['2026-10-26', '2026-10-27', '2026-10-28', '2026-10-29', '2026-10-30', '2026-10-31', '2026-11-01']);
+    expect(weekOf('2026-11-01')[0]).toBe('2026-10-26'); // domingo fica na semana que começou na segunda
+    expect(weekOf('2026-10-26')[0]).toBe('2026-10-26');
+    expect(weekdayName('2026-10-28')).toBe('quarta');
+  });
+  it('semanas que cobrem o mês, sem saltos na mudança de hora', () => {
+    const oct = monthWeeks('2026-10');
+    expect(oct).toHaveLength(5);
+    expect(oct[0][0]).toBe('2026-09-28');
+    expect(oct[4][6]).toBe('2026-11-01');
+    const mar = monthWeeks('2026-03').flat(); // a hora muda a 29 de março
+    expect(mar).toHaveLength(42);
+    expect(new Set(mar).size).toBe(42);
+    for (let k = 1; k < mar.length; k++) expect(mar[k]).toBe(addDays(mar[k - 1], 1));
+    expect(monthWeeks('2027-02')).toHaveLength(4); // começa a uma segunda e tem 28 dias
+    expect(nextMonth('2026-12')).toBe('2027-01');
+  });
+});
+
+describe('etiquetas de dias', () => {
+  it('passado e futuro próximos', async () => {
+    const { dayLabel } = await import('../dates');
+    expect(dayLabel('2026-10-28', '2026-10-28')).toBe('hoje');
+    expect(dayLabel('2026-10-27', '2026-10-28')).toBe('ontem');
+    expect(dayLabel('2026-10-29', '2026-10-28')).toBe('amanhã');
+    expect(dayLabel('2026-10-30', '2026-10-28')).toBe('daqui a 2 dias');
+    expect(dayLabel('2026-11-15', '2026-10-28')).toBe('15 nov');
+  });
+});
+
+describe('openingOf', () => {
+  const rows = [{ profile_a: 'a', profile_b: 'b', cutover: '2026-01-01', amount_a: '15.75' }];
+  it('lê o saldo de abertura do lado de quem vê', () => {
+    expect(openingOf(rows, 'a', 'b')).toEqual({ amountA: 15.75, since: '2026-01-01' });
+    expect(openingOf(rows, 'b', 'a')).toEqual({ amountA: -15.75, since: '2026-01-01' });
+    expect(openingOf([], 'a', 'b')).toEqual({ amountA: 0, since: '' });
   });
 });

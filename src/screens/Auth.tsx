@@ -1,13 +1,25 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { supabase } from '@/lib/supabase';
+import { DEMO, supabase } from '@/lib/supabase';
+import { store } from '@/lib/store';
 import { useSession } from '@/data/session';
 import { useOverlays } from '@/ui/overlays';
 import { Wordmark } from '@/brand/Wordmark';
+import { Face } from '@/brand/Face';
 import { Icon } from '@/ui/Icon';
+import { ago } from '@/lib/admin';
 import { InviteForm } from './People';
 
 const PENDING_INVITE = 'nikki_invite';
+
+/** Mensagens da base ao aceitar um convite, em frases para pessoas. */
+export function inviteError(m: string): string {
+  if (m === 'convite expirado') return 'Este convite expirou. Pede outro.';
+  if (m === 'convite já usado') return 'Esse convite já foi usado.';
+  if (m === 'a casa já tem duas pessoas') return 'Essa casa já tem duas pessoas.';
+  if (m === 'conta sem acesso') return 'Esta conta não tem acesso.';
+  return 'Código inválido.';
+}
 
 /** Entrar com link mágico ou com o código de 6 algarismos do mesmo e-mail (útil na app instalada no iPhone). */
 export function Login() {
@@ -27,7 +39,7 @@ export function Login() {
     setBusy(true);
     const { error } = await supabase.auth.signInWithOtp({
       email: email.trim(),
-      options: { emailRedirectTo: location.origin, data: mode === 'new' ? { name: name.trim() } : undefined },
+      options: { emailRedirectTo: `${location.origin}${import.meta.env.BASE_URL}`, data: mode === 'new' ? { name: name.trim() } : undefined },
     });
     setBusy(false);
     if (error) return setErr(error.status === 429 ? 'Muitos pedidos seguidos. Espera um minuto e tenta outra vez.' : error.message);
@@ -48,7 +60,7 @@ export function Login() {
     <section className="ob">
       <div style={{ color: 'var(--ink)' }}><Wordmark h={36} alive /></div>
       <h1 className="l">Vê o teu e-mail</h1>
-      <p className="s" style={{ fontSize: 'var(--t-m)' }}>Enviámos um link para {email}. Abre-o neste aparelho e entras. Não há palavra-passe.</p>
+      <p className="s" style={{ fontSize: 'var(--t-m)' }}>Enviámos um link para {email}. Abre-o neste aparelho e entras. Não há palavra-passe.{DEMO && ' Na demonstração, qualquer código de 6 algarismos serve.'}</p>
       <form className="form" onSubmit={verify}>
         <label>Ou escreve o código do e-mail<input className="code" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))} placeholder="000000" /></label>
         {err && <p className="err">{err}</p>}
@@ -69,11 +81,13 @@ export function Login() {
         <label>E-mail<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="o teu e-mail" autoComplete="email" /></label>
         {err && <p className="err">{err}</p>}
         <button className="btn wide press" disabled={busy}>{mode === 'new' ? 'Criar conta' : 'Receber link para entrar'} <Icon n="arrow" s={20} /></button>
+        {mode === 'new' && <p className="s">A NIKKI abre por convite. A primeira conta de cada casa fica à espera de aprovação; quem recebe um convite de casa entra logo.</p>}
       </form>
       {mode === 'in'
         ? <button className="btn quiet wide press" onClick={() => { setMode('new'); setErr(''); }}>Criar conta <Icon n="arrow" s={20} /></button>
         : <button className="back press" onClick={() => { setMode('in'); setErr(''); }}>Já tenho conta</button>}
       <Link className="back press" to="/historia"><span>A história da NIKKI</span><Icon n="arrow" s={18} /></Link>
+      {DEMO && <p className="demo"><span>Demonstração:</span><button onClick={() => (supabase.auth as any).demoSignIn('R')}>entrar como Rodrigo</button><button onClick={() => (supabase.auth as any).demoSignIn('I')}>entrar como Inês</button><button onClick={() => (supabase.auth as any).demoSignIn('M')}>entrar como Maria (housekeeping)</button></p>}
     </section>
   );
 }
@@ -88,8 +102,10 @@ export function Onboarding() {
   const [mode, setMode] = useState<'new' | 'join'>('new');
   const [house, setHouse] = useState('');
   const [code, setCode] = useState('');
+  const [note, setNote] = useState('');
   const [hid, setHid] = useState<string | null>(null);
   const [err, setErr] = useState('');
+  const asks = me?.status === 'pending'; // a primeira casa precisa de aprovação
   useEffect(() => { if (me && !name) setName(me.name); }, [me, name]);
 
   const steps = <div className="steps" aria-hidden="true">{[0, 1, 2].map((j) => <i key={j} className={j <= step ? 'on' : ''} />)}</div>;
@@ -103,15 +119,20 @@ export function Onboarding() {
   }
   async function makeHouse(e: FormEvent) {
     e.preventDefault(); setErr('');
-    if (mode === 'new') {
+    if (mode === 'new' && asks) {
+      if (!house.trim()) return setErr('Dá um nome à casa.');
+      const { error } = await supabase.rpc('request_account', { house: house.trim(), note: note.trim() });
+      if (error) return setErr(error.message);
+      await reload(); // passa para o ecrã de espera
+    } else if (mode === 'new') {
       if (!house.trim()) return setErr('Dá um nome à casa.');
       const { data, error } = await supabase.rpc('create_household', { house_name: house.trim() });
       if (error) return setErr(error.message);
       setHid(data as string); setStep(2);
     } else {
       const { error } = await supabase.rpc('accept_invite', { invite: code.trim() });
-      if (error) return setErr(error.message === 'convite expirado' ? 'Este convite expirou. Pede outro.' : 'Código inválido.');
-      await reload(); toast('Convite aceite.'); nav('/');
+      if (error) return setErr(inviteError(error.message));
+      await reload(); toast('Convite aceite.', { ok: true }); nav('/');
     }
   }
 
@@ -124,15 +145,18 @@ export function Onboarding() {
   if (step === 1) return (
     <section className="ob"><button className="back press" onClick={() => setStep(0)}><Icon n="back" s={20} /><span>Voltar</span></button>{steps}<h1 className="l">A tua casa</h1>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <button className="choice press" aria-pressed={mode === 'new'} onClick={() => setMode('new')}><span>Criar uma casa<span className="s" style={{ display: 'block' }}>Ficas administrador. Funciona a solo ou com quem vive contigo.</span></span><Icon n="house" /></button>
+        <button className="choice press" aria-pressed={mode === 'new'} onClick={() => setMode('new')}><span>{asks ? 'Pedir uma casa' : 'Criar uma casa'}<span className="s" style={{ display: 'block' }}>{asks ? 'O pedido vai para aprovação. Depois, convidas quem vive contigo.' : 'Ficas administrador. Funciona a solo ou com quem vive contigo.'}</span></span><Icon n="house" /></button>
         <button className="choice press" aria-pressed={mode === 'join'} onClick={() => setMode('join')}><span>Tenho um convite<span className="s" style={{ display: 'block' }}>Entro numa casa que já existe</span></span><Icon n="link" /></button>
       </div>
       <form className="form" onSubmit={makeHouse}>
         {mode === 'new'
-          ? <label>Nome da casa<input value={house} onChange={(e) => setHouse(e.target.value)} placeholder="Ex.: Casa da Graça" /></label>
+          ? <>
+            <label>Nome da casa<input value={house} onChange={(e) => setHouse(e.target.value)} placeholder="Ex.: Casa da Graça" maxLength={80} /></label>
+            {asks && <label>Uma nota para quem aprova (opcional)<textarea className="note" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Quem vive contigo, como conheceste a NIKKI…" maxLength={300} rows={3} /></label>}
+          </>
           : <label>Código do convite<input value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} placeholder="6 caracteres" maxLength={32} /></label>}
         {err && <p className="err">{err}</p>}
-        <button className="btn wide press">Continuar <Icon n="arrow" s={20} /></button>
+        <button className="btn wide press">{mode === 'new' && asks ? 'Enviar pedido' : 'Continuar'} <Icon n="arrow" s={20} /></button>
       </form>
     </section>
   );
@@ -140,7 +164,7 @@ export function Onboarding() {
     <section className="ob">{steps}<h1 className="l">Convidar</h1>
       <p className="s" style={{ fontSize: 'var(--t-m)' }}>Vives com alguém? Cada pessoa recebe um convite e cria o seu login. Se vives sozinho, salta este passo.</p>
       {hid && <InviteForm householdId={hid} />}
-      <button className="btn wide press" onClick={async () => { await reload(); toast(`Casa criada. Bem-vindo, ${name.trim()}.`); nav('/'); }}>Entrar <Icon n="arrow" s={20} /></button>
+      <button className="btn wide press" onClick={async () => { await reload(); toast(`Casa criada. Bem-vindo, ${name.trim()}.`, { ok: true }); nav('/'); }}>Entrar <Icon n="arrow" s={20} /></button>
     </section>
   );
 }
@@ -148,7 +172,7 @@ export function Onboarding() {
 /** /convite/:token — guarda o convite e aceita-o assim que houver sessão. */
 export function InviteLanding() {
   const { token } = useParams();
-  useEffect(() => { if (token) localStorage.setItem(PENDING_INVITE, token); }, [token]);
+  useEffect(() => { if (token) store.set(PENDING_INVITE, token); }, [token]);
   return (
     <section className="ob"><div style={{ color: 'var(--ink)' }}><Wordmark h={36} alive /></div>
       <h1 className="l">Foste convidado para uma casa na NIKKI.</h1>
@@ -163,12 +187,74 @@ export function usePendingInvite() {
   const { session, reload } = useSession();
   const { toast } = useOverlays();
   useEffect(() => {
-    const t = localStorage.getItem(PENDING_INVITE);
+    const t = store.get(PENDING_INVITE);
     if (!session || !t) return;
-    localStorage.removeItem(PENDING_INVITE);
+    store.remove(PENDING_INVITE);
     supabase.rpc('accept_invite', { invite: t }).then(({ error }) => {
-      if (error) toast(error.message === 'convite já usado' ? 'Esse convite já foi usado.' : 'O convite não é válido ou expirou.');
-      else { toast('Convite aceite. Bem-vindo à casa.'); reload(); }
+      if (error) toast(error.message === 'convite inválido' ? 'O convite não é válido ou expirou.' : inviteError(error.message));
+      else { toast('Convite aceite. Bem-vindo à casa.', { ok: true }); reload(); }
     });
   }, [session, reload, toast]);
+}
+
+/**
+ * À espera de aprovação: o pedido já foi. Volta a ver sozinho de 30 em 30 segundos e quando a app volta a primeiro
+ * plano; quando a administração aprova, a casa abre aqui. Com um convite de casa, entra logo.
+ */
+export function Waiting() {
+  const { me, reload } = useSession();
+  const { toast } = useOverlays();
+  const nav = useNavigate();
+  const [code, setCode] = useState('');
+  const [err, setErr] = useState('');
+  useEffect(() => {
+    const check = () => { if (document.visibilityState === 'visible') reload(); };
+    const t = setInterval(check, 30_000);
+    addEventListener('focus', check); document.addEventListener('visibilitychange', check);
+    return () => { clearInterval(t); removeEventListener('focus', check); document.removeEventListener('visibilitychange', check); };
+  }, [reload]);
+  async function join(e: FormEvent) {
+    e.preventDefault(); setErr('');
+    const { error } = await supabase.rpc('accept_invite', { invite: code.trim() });
+    if (error) return setErr(inviteError(error.message));
+    await reload(); toast('Convite aceite. Bem-vindo à casa.', { ok: true }); nav('/');
+  }
+  return (
+    <section className="ob">
+      <div style={{ color: 'var(--ink)' }}><Face h={44} label="NIKKI à espera" /></div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <h1 className="l">Pedido enviado.</h1>
+        <p className="s" style={{ fontSize: 'var(--t-m)' }}>A casa abre aqui assim que o pedido for aprovado. Podes fechar a app: quando voltares, já lá está.</p>
+      </div>
+      <div className="tile card rows">
+        <div><span className="k">Casa</span><span className="v">{me?.request?.house}</span></div>
+        <div><span className="k">Pedido</span><span className="v">{ago(me?.requested_at ?? null)}</span></div>
+      </div>
+      <form className="form" onSubmit={join}>
+        <label>Vais viver com alguém que já usa a NIKKI? Com o código do convite entras já.<input value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} placeholder="Código do convite" maxLength={32} /></label>
+        {err && <p className="err">{err}</p>}
+        {code.trim() && <button className="btn wide press">Entrar na casa <Icon n="arrow" s={20} /></button>}
+      </form>
+      {DEMO && <p className="demo"><span>Demonstração:</span><button onClick={async () => { await (supabase as any).demoApprove(); await reload(); toast('Pedido aprovado. Bem-vindo à NIKKI.', { ok: true }); }}>aprovar o pedido, como faria o administrador</button></p>}
+      <button className="back press" onClick={() => supabase.auth.signOut()}>Sair</button>
+    </section>
+  );
+}
+
+/** Conta suspensa ou pedido não aceite: sem acesso às casas (os dados ficam guardados). */
+export function NoAccess() {
+  const { me } = useSession();
+  const paused = me?.status === 'paused';
+  return (
+    <section className="ob">
+      <div style={{ color: 'var(--ink)' }}><Face h={44} mode="still" /></div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <h1 className="l">{paused ? 'Conta em pausa.' : 'Pedido não aceite.'}</h1>
+        <p className="s" style={{ fontSize: 'var(--t-m)' }}>{paused
+          ? 'Fala com quem administra a NIKKI para voltares a entrar. Nada do que registaste se perdeu.'
+          : 'Por agora a NIKKI está aberta a poucas casas. Obrigado pelo interesse.'}</p>
+      </div>
+      <button className="btn quiet wide press" onClick={() => supabase.auth.signOut()}>Sair <Icon n="arrow" s={20} /></button>
+    </section>
+  );
 }

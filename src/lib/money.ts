@@ -76,6 +76,14 @@ export function pairBalance(expenses: Expense[], transfers: Transfer[], a: strin
   return v;
 }
 
+/** O saldo de abertura do par `a`/`b`, do ponto de vista de `a` (as linhas guardam-se com profile_a < profile_b). */
+export function openingOf(rows: { profile_a: string; profile_b: string; cutover: string; amount_a: number | string }[], a: string, b: string) {
+  const o = rows.find((r) => (r.profile_a === a && r.profile_b === b) || (r.profile_a === b && r.profile_b === a));
+  if (!o) return { amountA: 0, since: '' };
+  const v = Number(o.amount_a);
+  return { amountA: o.profile_a === a ? v : -v, since: o.cutover };
+}
+
 /** Parte de `who` num mês ("YYYY-MM"), total e por categoria. */
 export function monthSpend(expenses: Expense[], who: string, key: string) {
   const byCat = new Map<string, number>();
@@ -117,6 +125,45 @@ export function pace(spent: number, normal: number | null, today: string) {
     blocks: Math.round(spent / daily), // dias de um mês normal já gastos
   };
 }
+
+/**
+ * Fecho do mês anterior: a parte da pessoa, o normal dela até esse mês (sem o contar) e a diferença.
+ * Null quando o mês anterior não tem nada dela. O investimento já vem filtrado por quem chama.
+ */
+export function monthClose(expenses: Expense[], who: string, today: string) {
+  const key = prevMonth(monthKey(today));
+  const total = monthSpend(expenses, who, key).total;
+  if (!total) return null;
+  const normal = normalMonth(expenses, who, `${key}-01`);
+  return { key, total, normal, pct: normal ? Math.round((total / normal - 1) * 100) : null };
+}
+
+/**
+ * Contas a dois na cara da NIKKI: quanto crescem os bigodes de quem vê (e encolhem os do outro).
+ * Os bigodes de cada lado ficam com o fator 1 + lean (quem vê) e 1 − lean (o outro); 0 = iguais, como no
+ * logótipo. Positivo quando quem vê adiantou mais. Cresce depressa no início e cada vez mais devagar:
+ * a 150 € já fez 63% do caminho até ao limite de ±0,5, que nunca chega a tocar.
+ */
+export const WHISKER_SCALE = 15_000_000; // 150 € em unidades
+export function whiskerLean(balance: number): number {
+  if (Math.abs(balance) < 500) return 0; // menos de meio cêntimo: em equilíbrio
+  return Math.sign(balance) * 0.5 * (1 - Math.exp(-Math.abs(balance) / WHISKER_SCALE));
+}
+
+/**
+ * Quanto está aceso um lado dos bigodes (0 a 1) a meio da animação de a até z, sendo v o valor atual;
+ * side +1 é a esquerda (quem vê) e −1 a direita. Ao crescer de 0 até z acende ao mesmo ritmo; ao voltar de
+ * a até 0 apaga-se; se fica do mesmo lado, continua aceso.
+ */
+export function lit(v: number, a: number, z: number, side: 1 | -1): number {
+  const sv = v * side, sa = a * side, sz = z * side;
+  if (sv <= 0) return 0;
+  if (sa > 0 && sz > 0) return 1;
+  return Math.min(1, sv / Math.max(sa, sz));
+}
+
+/** Meses livres desenhados: 12 meses, cheios até à parte inteira e o seguinte com a fração. */
+export const yearFill = (free: number) => Array.from({ length: 12 }, (_, j) => Math.max(0, Math.min(1, free - j)));
 
 /** Arredondamento meio-par a cêntimos, para mostrar. */
 export function toCents(u: number): number {
