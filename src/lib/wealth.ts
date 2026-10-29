@@ -71,6 +71,48 @@ export function avgMonthly(totals: { month: string; total: number }[], today: st
 export const monthlyIncome = (rows: { amount: number; times_per_year: number }[]) =>
   Math.round(rows.reduce((t, r) => t + (r.amount * r.times_per_year) / 12, 0));
 
+/**
+ * Cada fonte de rendimento é «fixa» (valor × vezes por ano ÷ 12) ou «pelos registos» (as entradas que se vão
+ * registando). Pelos registos, o habitual é a média dos últimos 12 meses completos (o mês corrente não conta), a
+ * contar só desde o mês da primeira entrada; com entradas só no mês corrente, conta o que já entrou.
+ */
+export interface IncomeSrc { id: string; mode: 'fixed' | 'log'; amount: number | null; times_per_year: number }
+export interface IncomeEntry { id?: string; income_id: string; received_on: string; amount: number }
+export function sourceMonthly(src: IncomeSrc, entries: IncomeEntry[], today: string): number {
+  if (src.mode === 'fixed') return Math.round(((src.amount ?? 0) * src.times_per_year) / 12);
+  const mine = entries.filter((e) => e.income_id === src.id);
+  if (!mine.length) return 0;
+  const by = new Map<string, number>();
+  for (const e of mine) by.set(monthKey(e.received_on), (by.get(monthKey(e.received_on)) ?? 0) + e.amount);
+  const first = [...by.keys()].sort()[0], cur = monthKey(today);
+  let sum = 0, n = 0;
+  for (let k = prevMonth(cur); k >= first && n < 12; k = prevMonth(k)) { sum += by.get(k) ?? 0; n++; }
+  return n ? Math.round(sum / n) : by.get(cur) ?? 0;
+}
+export const incomeMonthly = (srcs: IncomeSrc[], entries: IncomeEntry[], today: string) => srcs.reduce((t, s) => t + sourceMonthly(s, entries, today), 0);
+
+/** As entradas por mês, do mais recente para o mais antigo, com o total de cada mês. */
+export function entriesByMonth<T extends IncomeEntry>(entries: T[]): { month: string; total: number; items: T[] }[] {
+  const by = new Map<string, T[]>();
+  for (const e of entries) { const k = monthKey(e.received_on); by.set(k, [...(by.get(k) ?? []), e]); }
+  return [...by].sort((a, b) => b[0].localeCompare(a[0])).map(([month, items]) => ({ month, total: items.reduce((t, e) => t + e.amount, 0), items: items.sort((a, b) => b.received_on.localeCompare(a.received_on)) }));
+}
+
+/**
+ * Os dois fundos, com o excedente do de emergência a passar para o de imprevistos (o fundo de maneio): o fundo de
+ * emergência enche primeiro com o que demora dias a levantar (Certificados de Aforro, prazos), depois com o que está
+ * disponível no próprio dia; o que passar da meta e estiver disponível no próprio dia conta no fundo de maneio.
+ * Sem meta (ainda sem despesa média), não há excedente.
+ */
+export function splitFunds(em: { value: number; liq: Liquidity }[], cu: { value: number }[], target: number | null) {
+  const days = em.filter((a) => a.liq !== 'now').reduce((t, a) => t + a.value, 0);
+  const now = em.filter((a) => a.liq === 'now').reduce((t, a) => t + a.value, 0);
+  const total = days + now, own = cu.reduce((t, a) => t + a.value, 0);
+  if (target === null) return { emergency: total, cushion: own, overflow: 0 };
+  const overflow = Math.max(0, now - Math.max(0, target - days));
+  return { emergency: Math.min(total, target), cushion: own + overflow, overflow };
+}
+
 /** Meses livres: quantos meses do ano o rendimento real dos investimentos paga a despesa média. */
 export function freeMonths(pools: { value: number; real: number; liq: Liquidity }[], spend: number): number {
   if (spend <= 0) return 0;

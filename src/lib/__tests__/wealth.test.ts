@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { U } from '../money';
-import { avgMonthly, badges, celebrate, nextBadge, freeMonths, fundCheck, healthScore, monthPlan, monthlyIncome, monthsAhead, realReturn, savings, suggestGoal, vacationUntil } from '../wealth';
+import { avgMonthly, badges, celebrate, nextBadge, freeMonths, fundCheck, healthScore, monthPlan, monthlyIncome, monthsAhead, realReturn, savings, suggestGoal, vacationUntil, sourceMonthly, entriesByMonth, splitFunds } from '../wealth';
 
 const e = (v: number) => v * U;
 
@@ -121,5 +121,42 @@ describe('saúde financeira', () => {
     expect(g2.metric).toBe('fund:cushion');
     expect(g2.due).toBe('2026-12-31'); // 700 € a 400 €/mês: 2 meses
     expect(monthsAhead('2026-12-15', 2)).toBe('2027-02-28');
+  });
+});
+
+describe('rendimentos: fixos ou pelos registos', () => {
+  const E = (income_id: string, received_on: string, eur: number) => ({ income_id, received_on, amount: eur * U });
+  it('fixo: valor × vezes por ano ÷ 12', () => {
+    expect(sourceMonthly({ id: 's', mode: 'fixed', amount: 1400 * U, times_per_year: 14 }, [], '2026-10-29')).toBe(Math.round((1400 * U * 14) / 12));
+  });
+  it('pelos registos: média dos meses completos desde a primeira entrada (o mês corrente não conta)', () => {
+    const es = [E('r', '2026-07-25', 1500), E('r', '2026-08-25', 1500), E('r', '2026-09-25', 1500), E('r', '2026-09-30', 300), E('r', '2026-10-25', 9999), E('x', '2026-09-01', 50)];
+    expect(sourceMonthly({ id: 'r', mode: 'log', amount: null, times_per_year: 12 }, es, '2026-10-29')).toBe(1600 * U); // (1500+1500+1800)/3
+  });
+  it('no máximo 12 meses; meses sem entradas contam como zero', () => {
+    const es = [E('r', '2025-01-10', 12000), E('r', '2026-06-10', 1200)];
+    expect(sourceMonthly({ id: 'r', mode: 'log', amount: null, times_per_year: 12 }, es, '2026-10-29')).toBe(100 * U); // out/25 → set/26: só os 1200
+  });
+  it('só entradas no mês corrente: conta o que já entrou', () => {
+    expect(sourceMonthly({ id: 'r', mode: 'log', amount: null, times_per_year: 12 }, [E('r', '2026-10-02', 900)], '2026-10-29')).toBe(900 * U);
+  });
+  it('entradas por mês, do mais recente', () => {
+    const m = entriesByMonth([E('r', '2026-09-25', 1500), E('r', '2026-10-25', 1500), E('r', '2026-09-30', 300)]);
+    expect(m.map((x) => [x.month, x.total / U, x.items.length])).toEqual([['2026-10', 1500, 1], ['2026-09', 1800, 2]]);
+  });
+});
+
+describe('o excedente do fundo de emergência passa para o fundo de maneio', () => {
+  it('enche primeiro com o que demora dias; o excedente disponível já passa', () => {
+    const r = splitFunds([{ value: 8000 * U, liq: 'days' }, { value: 10000 * U, liq: 'now' }], [{ value: 500 * U }], 15000 * U);
+    expect([r.emergency, r.cushion, r.overflow].map((v) => v / U)).toEqual([15000, 3500, 3000]);
+  });
+  it('excedente em Certificados de Aforro não passa (não está disponível no próprio dia)', () => {
+    const r = splitFunds([{ value: 20000 * U, liq: 'days' }], [], 15000 * U);
+    expect([r.emergency, r.cushion, r.overflow].map((v) => v / U)).toEqual([15000, 0, 0]);
+  });
+  it('abaixo da meta, nada passa; sem meta, nada passa', () => {
+    expect(splitFunds([{ value: 5000 * U, liq: 'now' }], [{ value: 1 * U }], 15000 * U).overflow).toBe(0);
+    expect(splitFunds([{ value: 5000 * U, liq: 'now' }], [], null)).toEqual({ emergency: 5000 * U, cushion: 0, overflow: 0 });
   });
 });

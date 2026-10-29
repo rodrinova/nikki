@@ -1288,3 +1288,39 @@ alter default privileges in schema nikki revoke execute on functions from public
 alter default privileges in schema nikki revoke all on tables from anon;
 grant execute on function nikki.has_room(uuid), nikki.in_house(uuid), nikki.is_active(), nikki.is_admin(uuid), nikki.is_app_admin(),
   nikki.is_member(uuid), nikki.is_staff(uuid), nikki.pair_balance(uuid, uuid, uuid), nikki.shares_household(uuid) to authenticated;
+
+-- ───────────────────────── rendimentos: fixos ou pelos registos ─────────────────────────
+-- Cada fonte é «fixa» (valor × vezes por ano) ou «pelos registos» (cada entrada com data e valor; o habitual é a
+-- média dos últimos 12 meses completos). Pelos registos, o valor da fonte fica vazio.
+alter table nikki.incomes add column if not exists mode text not null default 'fixed';
+alter table nikki.incomes alter column amount drop not null;
+alter table nikki.incomes drop constraint if exists incomes_mode_check;
+alter table nikki.incomes add constraint incomes_mode_check check (mode in ('fixed', 'log') and (mode = 'log' or amount is not null));
+
+create table if not exists nikki.income_entries (
+  id uuid primary key default gen_random_uuid(),
+  household_id uuid not null references nikki.households (id) on delete cascade,
+  income_id uuid not null references nikki.incomes (id) on delete cascade,
+  received_on date not null default current_date,
+  amount numeric(12, 2) not null check (amount > 0),
+  note text check (length(note) <= 80),
+  external_ref text,
+  created_by uuid not null default auth.uid() references nikki.profiles (id),
+  created_at timestamptz not null default now()
+);
+create index if not exists income_entries_income on nikki.income_entries (income_id, received_on);
+create unique index if not exists income_entries_external on nikki.income_entries (household_id, external_ref) where external_ref is not null;
+alter table nikki.income_entries enable row level security;
+grant select, insert, update, delete on nikki.income_entries to authenticated;
+grant all on nikki.income_entries to service_role;
+do $$ begin
+  if not exists (select 1 from pg_policies where schemaname = 'nikki' and tablename = 'income_entries' and policyname = 'income_entries_house') then
+    create policy income_entries_house on nikki.income_entries for all to authenticated
+      using (nikki.is_member(household_id))
+      with check (nikki.is_member(household_id) and exists (select 1 from nikki.incomes i where i.id = income_entries.income_id and i.household_id = income_entries.household_id));
+  end if;
+  if exists (select 1 from pg_publication where pubname = 'supabase_realtime')
+     and not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'nikki' and tablename = 'income_entries') then
+    alter publication supabase_realtime add table nikki.income_entries;
+  end if;
+end $$;

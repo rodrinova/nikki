@@ -2,16 +2,16 @@ import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { supabase } from '@/lib/supabase';
 import { store } from '@/lib/store';
 import { useSession } from '@/data/session';
-import { useHouse, type AssetRow, type GoalRow, type IncomeRow } from '@/data/house';
+import { useHouse, type AssetRow, type GoalRow, type IncomeEntryRow, type IncomeRow } from '@/data/house';
 import { goalProgress, useWealth, type Wealth as W, type WealthView } from '@/data/wealth';
 import { useOverlays } from '@/ui/overlays';
 import { Icon } from '@/ui/Icon';
 import { Poster } from '@/ui/Poster';
 import { How, Year } from '@/ui/Year';
 import { U, eur, parseAmount, toU } from '@/lib/money';
-import { monthName, todayStr } from '@/lib/dates';
+import { monthKey, monthName, todayStr } from '@/lib/dates';
 import { shortDate } from '@/lib/admin';
-import { KINDS, LEVELS, MILESTONES, WHERE, celebrate, fundCheck, liqOf, nextBadge, vacationUntil, type AssetKind, type FundRole } from '@/lib/wealth';
+import { KINDS, LEVELS, MILESTONES, WHERE, celebrate, entriesByMonth, fundCheck, liqOf, nextBadge, sourceMonthly, vacationUntil, type AssetKind, type FundRole } from '@/lib/wealth';
 import { Top } from './Home';
 
 // Património: a saúde financeira da família e quantos meses vive do que tem. Regras em docs/CALCULOS.md, secção 6.
@@ -247,6 +247,7 @@ function FundCard({ w, role }: { w: W; role: FundRole }) {
       <p className="s">{role === 'emergency'
         ? (w.spend ? `12 meses × ${money(w.spend.avg)} de despesa média.` : 'A meta são 12 meses da despesa média, que a NIKKI calcula no fim do primeiro mês completo.')
         : `Para imprevistos: pelo menos ${money(w.cushionTarget)}, disponível no próprio dia.`}</p>
+      {f.overflow > 0 && <p className="s why"><span className="dot" aria-hidden="true" /><span>{role === 'emergency' ? `O fundo de emergência está completo: ${money(f.overflow)} a mais passam para o ${ROLE.cushion.toLowerCase()}.` : `Inclui ${money(f.overflow)} a mais do fundo de emergência.`}</span></p>}
       {f.list.map((a) => (
         <button key={a.id} type="button" className="fund-acc press" onClick={() => open(<AssetSheet asset={a} />)}>
           <span><span>{a.name}</span><span className="s">{KINDS[a.kind as AssetKind]?.name} · {owner(a.owner_id)}</span></span>
@@ -331,14 +332,69 @@ function Assets({ w }: { w: W }) {
 function Incomes({ w }: { w: W }) {
   const { open } = useOverlays();
   const { members } = useSession();
+  const { incomeEntries } = useHouse();
   if (!w.incomeRows.length) return <p className="s">Os valores líquidos que entram: salário, subsídio de alimentação e complementos. Servem a poupança e o plano do mês; os fundos medem-se pela despesa.</p>;
+  const today = todayStr();
+  const entries = incomeEntries.rows.map((e) => ({ ...e, amount: toU(e.amount) }));
   return (
-    <div className="tile card rows">{w.incomeRows.map((r) => (
-      <button key={r.id} className="press" onClick={() => open(<IncomeSheet income={r} />)}>
-        <span className="st2"><span>{r.label || INCOME[r.kind][0]}</span><span className="s">{members.find((m) => m.id === r.profile_id)?.name} · {eur(toU(r.amount), 0)} € × {r.times_per_year}</span></span>
-        <span className="v">{money(Math.round((toU(r.amount) * r.times_per_year) / 12))}<span className="s">/mês</span></span>
-      </button>
-    ))}</div>
+    <div className="tile card rows">{w.incomeRows.map((r) => {
+      const mine = entries.filter((e) => e.income_id === r.id);
+      const month = sourceMonthly({ id: r.id, mode: r.mode, amount: r.amount === null ? null : toU(r.amount), times_per_year: r.times_per_year }, entries, today);
+      const how = r.mode === 'log' ? (mine.length ? `pelos registos · última a ${shortDate(mine[0].received_on)}` : 'pelos registos · ainda sem entradas') : `${eur(toU(r.amount ?? 0), 0)} € × ${r.times_per_year}`;
+      return (
+        <button key={r.id} className="press" onClick={() => open(r.mode === 'log' ? <IncomeLog income={r} /> : <IncomeSheet income={r} />)}>
+          <span className="st2"><span>{r.label || INCOME[r.kind][0]}</span><span className="s">{members.find((m) => m.id === r.profile_id)?.name} · {how}</span></span>
+          <span className="v">{money(month)}<span className="s">/mês</span></span>
+        </button>
+      );
+    })}</div>
+  );
+}
+
+/** O registo das entradas de um rendimento «pelos registos»: registar uma entrada e ver as que já entraram, por mês. */
+function IncomeLog({ income }: { income: IncomeRow }) {
+  const { house, me } = useSession();
+  const { incomeEntries } = useHouse();
+  const { open, toast } = useOverlays();
+  const [amount, setAmount] = useState('');
+  const [day, setDay] = useState(todayStr());
+  const [err, setErr] = useState('');
+  const list = incomeEntries.rows.filter((e) => e.income_id === income.id).map((e) => ({ ...e, amount: toU(e.amount) }));
+  const months = entriesByMonth(list);
+  const month = sourceMonthly({ id: income.id, mode: 'log', amount: null, times_per_year: 12 }, list, todayStr());
+  async function add(e: FormEvent) {
+    e.preventDefault(); setErr('');
+    const a = parseAmount(amount);
+    if (!a) return setErr('Quanto entrou? (líquido)');
+    const { error } = await supabase.from('income_entries').insert({ household_id: house!.id, income_id: income.id, received_on: day, amount: a, created_by: me!.id });
+    if (error) return setErr(error.message);
+    setAmount(''); incomeEntries.reload(); toast(`Entrou ${eur(toU(a), 0)} €.`, { ok: true });
+  }
+  async function drop(x: IncomeEntryRow) {
+    const { error } = await supabase.from('income_entries').delete().eq('id', x.id);
+    if (error) toast(error.message); else incomeEntries.reload();
+  }
+  return (
+    <Sheet title={income.label || INCOME[income.kind][0]}>
+      <p className="s" style={{ fontSize: 'var(--t-m)' }}>{list.length ? `Habitual: ${money(month)} por mês (média dos últimos 12 meses completos).` : 'Regista cada entrada com o dia e o valor líquido; a NIKKI faz a média.'}</p>
+      <form className="form" onSubmit={add}>
+        <div className="two">
+          <label>Entrou (€)<input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0,00" autoFocus /></label>
+          <label>Dia<input type="date" value={day} max={todayStr()} onChange={(e) => setDay(e.target.value)} /></label>
+        </div>
+        {err && <p className="err">{err}</p>}
+        <button className="btn wide press">Registar entrada <Icon n="check" s={20} /></button>
+      </form>
+      {months.map((m) => (
+        <div key={m.month} className="stack">
+          <div className="wbar"><span className="s">{monthName(m.month)}{m.month.slice(0, 4) !== todayStr().slice(0, 4) ? ` ${m.month.slice(0, 4)}` : ''}{m.month === monthKey(todayStr()) ? ' · em curso' : ''}</span><span className="s">{money(m.total)}</span></div>
+          <div className="tile card rows" style={{ background: 'var(--tile-2)' }}>{m.items.map((x) => (
+            <div key={x.id}><span className="st2"><span>{eur(x.amount)} €</span><span className="s">{shortDate(x.received_on)}{x.note ? ` · ${x.note}` : ''}</span></span><button type="button" className="tb press" aria-label={`Apagar a entrada de ${shortDate(x.received_on)}`} onClick={() => drop(x as unknown as IncomeEntryRow)}><Icon n="close" s={16} /></button></div>
+          ))}</div>
+        </div>
+      ))}
+      <button className="back press" onClick={() => open(<IncomeSheet income={income} />)}>Mudar este rendimento</button>
+    </Sheet>
   );
 }
 
@@ -369,7 +425,9 @@ function AssetSheet({ asset, role: presetRole }: { asset?: AssetRow & { value?: 
     if (!name.trim()) return setErr('Dá um nome (ex.: Conta poupança, ETF World).');
     if (!v) return setErr('Indica o valor de hoje.');
     if (!Number.isFinite(r) || r < -20 || r > 30) return setErr('O retorno estimado vai de −20% a 30% por ano.');
-    const row = { household_id: house!.id, owner_id: owner, name: name.trim(), kind, expected_return: r, role: liq === 'out' ? null : role, invested: liq !== 'out' };
+    // O papel de fundo só o escolhe quem é dono (ou qualquer um dos dois, se for partilhado).
+    const keepRole = partner && owner === partner.id ? (asset?.owner_id === owner ? asset.role : null) : role;
+    const row = { household_id: house!.id, owner_id: owner, name: name.trim(), kind, expected_return: r, role: liq === 'out' ? null : keepRole, invested: liq !== 'out' };
     let id = asset?.id;
     if (id) { const { error } = await supabase.from('assets').update(row).eq('id', id); if (error) return setErr(error.message); }
     else { const { data, error } = await supabase.from('assets').insert(row).select('id').single(); if (error) return setErr(error.message); id = (data as { id: string }).id; }
@@ -395,7 +453,7 @@ function AssetSheet({ asset, role: presetRole }: { asset?: AssetRow & { value?: 
           <label>Valor hoje (€)<input inputMode="decimal" value={value} onChange={(e) => setValue(e.target.value)} placeholder="0,00" /></label>
           {liq !== 'out' && <label>Retorno estimado (%/ano)<input inputMode="decimal" value={ret} onChange={(e) => setRet(e.target.value)} /></label>}
         </div>
-        {liq === 'out' ? <p className="s">Fica registado, mas fora das contas: não rende para pagar a despesa.</p> : <>
+        {liq === 'out' ? <p className="s">Fica registado, mas fora das contas: não rende para pagar a despesa.</p> : partner && owner === partner.id ? <p className="s">É de {partner.name}: só {partner.name} pode escolher se é um fundo. Nos teus fundos entra só o que é teu ou dos dois.</p> : <>
           <div className="seg" role="group" aria-label="Papel">
             <button type="button" className="press" aria-pressed={role === null} onClick={() => setRole(null)}>Investimento</button>
             <button type="button" className="press" aria-pressed={role === 'emergency'} onClick={() => setRole('emergency')}>Emergência</button>
@@ -414,7 +472,9 @@ function AssetSheet({ asset, role: presetRole }: { asset?: AssetRow & { value?: 
 function ChooseFund({ role }: { role: FundRole }) {
   const { assets } = useHouse();
   const { open, close, toast } = useOverlays();
-  const list = assets.rows.filter((a) => !a.archived && liqOf(a.kind) !== 'out' && !a.role);
+  const { me } = useSession();
+  // Só o que é teu ou partilhado: o que é do outro não pode ser o teu fundo (nem o dele pode ser escolhido por ti).
+  const list = assets.rows.filter((a) => !a.archived && liqOf(a.kind) !== 'out' && !a.role && (a.owner_id === me?.id || a.owner_id === null));
   async function pick(a: AssetRow) {
     const { error } = await supabase.from('assets').update({ role }).eq('id', a.id);
     if (error) { toast(error.message); return; }
@@ -472,17 +532,18 @@ function IncomeSheet({ income }: { income?: IncomeRow }) {
   const { close, toast } = useOverlays();
   const [who, setWho] = useState(income?.profile_id ?? me!.id);
   const [kind, setKind] = useState<IncomeRow['kind']>(income?.kind ?? 'salario');
-  const [amount, setAmount] = useState(income ? String(income.amount).replace('.', ',') : '');
+  const [amount, setAmount] = useState(income?.amount != null ? String(income.amount).replace('.', ',') : '');
   const [times, setTimes] = useState(income?.times_per_year ?? 14);
+  const [mode, setMode] = useState<IncomeRow['mode']>(income?.mode ?? 'fixed');
   const [err, setErr] = useState('');
   async function save(e: FormEvent) {
     e.preventDefault(); setErr('');
-    const a = parseAmount(amount);
-    if (!a) return setErr('Indica o valor líquido de cada pagamento.');
-    const row = { household_id: house!.id, profile_id: who, kind, amount: a, times_per_year: times, updated_at: new Date().toISOString() };
+    const a = mode === 'fixed' ? parseAmount(amount) : null;
+    if (mode === 'fixed' && !a) return setErr('Indica o valor líquido de cada pagamento.');
+    const row = { household_id: house!.id, profile_id: who, kind, mode, amount: a, times_per_year: mode === 'fixed' ? times : 12, updated_at: new Date().toISOString() };
     const { error } = income ? await supabase.from('incomes').update(row).eq('id', income.id) : await supabase.from('incomes').insert(row);
     if (error) return setErr(error.message);
-    incomes.reload(); close(); toast('Rendimento guardado.', { ok: true });
+    incomes.reload(); close(); toast(mode === 'log' ? 'Guardado: regista as entradas a partir da lista.' : 'Rendimento guardado.', { ok: true });
   }
   async function remove() {
     const { error } = await supabase.from('incomes').delete().eq('id', income!.id);
@@ -494,9 +555,12 @@ function IncomeSheet({ income }: { income?: IncomeRow }) {
       <form className="form" onSubmit={save}>
         {partner && <div className="seg" role="group" aria-label="De quem"><button type="button" className="press" aria-pressed={who === me!.id} onClick={() => setWho(me!.id)}>Meu</button><button type="button" className="press" aria-pressed={who === partner.id} onClick={() => setWho(partner.id)}>De {partner.name}</button></div>}
         <div className="chips" role="group" aria-label="Tipo">{(Object.keys(INCOME) as IncomeRow['kind'][]).map((k) => <button key={k} type="button" className="press" aria-pressed={kind === k} onClick={() => { setKind(k); if (!income) setTimes(INCOME[k][1]); }}>{INCOME[k][0]}</button>)}</div>
-        <label>Valor líquido de cada pagamento (€)<input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0,00" /></label>
-        <div className="chips" role="group" aria-label="Vezes por ano">{[14, 13, 12, 11].map((n) => <button key={n} type="button" className="press" aria-pressed={times === n} onClick={() => setTimes(n)}>{n}× por ano</button>)}</div>
-        <p className="s">{kind === 'salario' ? 'Em Portugal o salário paga-se 14 vezes (com os subsídios de férias e de Natal).' : kind === 'alimentacao' ? 'O subsídio de alimentação costuma vir 11 vezes (não há no mês de férias).' : 'Quantas vezes por ano entra.'}</p>
+        <div className="seg" role="group" aria-label="Como se conta"><button type="button" className="press" aria-pressed={mode === 'fixed'} onClick={() => setMode('fixed')}>Valor fixo</button><button type="button" className="press" aria-pressed={mode === 'log'} onClick={() => setMode('log')}>Pelos registos</button></div>
+        {mode === 'fixed' ? <>
+          <label>Valor líquido de cada pagamento (€)<input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0,00" /></label>
+          <div className="chips" role="group" aria-label="Vezes por ano">{[14, 13, 12, 11].map((n) => <button key={n} type="button" className="press" aria-pressed={times === n} onClick={() => setTimes(n)}>{n}× por ano</button>)}</div>
+          <p className="s">{kind === 'salario' ? 'Em Portugal o salário paga-se 14 vezes (com os subsídios de férias e de Natal).' : kind === 'alimentacao' ? 'O subsídio de alimentação costuma vir 11 vezes (não há no mês de férias).' : 'Quantas vezes por ano entra.'}</p>
+        </> : <p className="s">Para o que varia (horas extra, prémios, trabalho por conta própria): registas cada entrada e a NIKKI usa a média dos últimos 12 meses.</p>}
         {err && <p className="err">{err}</p>}
         <button className="btn wide press">Guardar <Icon n="check" s={20} /></button>
       </form>
