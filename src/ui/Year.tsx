@@ -3,14 +3,17 @@ import { yearFill } from '@/lib/money';
 import { Icon } from './Icon';
 
 // Meses livres à vista (a ideia da janela do Windows, de Paula Scher: desenhar o que o nome diz).
-// Um ano de 12 meses que se pinta com o rendimento passivo; o mês a meio avança com a ponta roída.
+// Um ano de 12 meses que se pinta com o rendimento passivo; o mês a meio enche de baixo até onde chega.
 const L = 'JFMAMJJASOND';
 
 export function Year({ free, label }: { free: number; label: string }) {
   return (
     <div className="year" role="img" aria-label={label}>
       {yearFill(free).map((v, j) => (
-        <i key={j} className={v >= 1 ? 'f' : v > 0 ? 'p' : ''} style={{ ['--k' as string]: j, ...(v > 0 && v < 1 ? { ['--p' as string]: `${Math.round(v * 100)}%` } : {}) }}>{L[j]}</i>
+        <i key={j} className={v >= 1 ? 'f' : v > 0 ? `p${v >= 0.35 ? ' lo' : ''}${v >= 0.5 ? ' hi' : ''}` : ''} style={{ ['--k' as string]: j }}>
+          {v > 0 && v < 1 && <b className="fill" style={{ height: `${Math.round(v * 100)}%` }} />}
+          <span>{L[j]}</span>
+        </i>
       ))}
     </div>
   );

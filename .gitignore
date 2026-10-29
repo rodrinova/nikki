@@ -6,3 +6,4 @@ dist
 .DS_Store
 dist-demo
 nikki-demo.html
+public/ocr

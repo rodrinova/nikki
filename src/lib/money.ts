@@ -76,6 +76,14 @@ export function pairBalance(expenses: Expense[], transfers: Transfer[], a: strin
   return v;
 }
 
+/** O saldo de abertura do par `a`/`b`, do ponto de vista de `a` (as linhas guardam-se com profile_a < profile_b). */
+export function openingOf(rows: { profile_a: string; profile_b: string; cutover: string; amount_a: number | string }[], a: string, b: string) {
+  const o = rows.find((r) => (r.profile_a === a && r.profile_b === b) || (r.profile_a === b && r.profile_b === a));
+  if (!o) return { amountA: 0, since: '' };
+  const v = Number(o.amount_a);
+  return { amountA: o.profile_a === a ? v : -v, since: o.cutover };
+}
+
 /** Parte de `who` num mês ("YYYY-MM"), total e por categoria. */
 export function monthSpend(expenses: Expense[], who: string, key: string) {
   const byCat = new Map<string, number>();

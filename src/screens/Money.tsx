@@ -1,17 +1,23 @@
-import { useMemo, useState, type FormEvent } from 'react';
-import { Link } from 'react-router-dom';
+import { Fragment, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { useSession } from '@/data/session';
-import { useHouse, type ExpenseRow } from '@/data/house';
+import { useHouse, type CarRow, type ExpenseRow } from '@/data/house';
 import { useOverlays } from '@/ui/overlays';
 import { Icon } from '@/ui/Icon';
 import { Whiskers } from '@/ui/Whiskers';
-import { eur, monthSpend, normalMonth, pace, pairBalance, parseAmount, toU, type Split, whiskerLean } from '@/lib/money';
+import { eur, monthSpend, normalMonth, openingOf, pace, pairBalance, parseAmount, toU, type Split, whiskerLean } from '@/lib/money';
 import { addDays, dayLabel, monthKey, monthName, todayStr } from '@/lib/dates';
+import { KIND_ASK, carKindOf, guess, parseQuick, type Past } from '@/lib/quick';
+import { pairEntries, pairFilter, type PairPeriod, type PairSort, type PairWho } from '@/lib/pairlog';
 import { Hint, Top, useSeen } from './Home';
+import { BillFields, billEntry, useBillChoice, useSaveBill, type BillEntry } from './Casa';
+import { CarEntryFields, carEntry, checkEntry, entryWhy, lastOdometer, useLearnFromPayment, useSaveCarLog, type CarEntry } from './Garage';
 
 export const CATEGORIES = ['Supermercado', 'Restaurantes', 'Casa', 'Contas', 'Carros', 'Lazer', 'Saúde', 'Roupa', 'Viagens', 'Future Me'];
 export const INVEST = 'Future Me'; // investir não é gasto
+/** O nome que se mostra: «Future Me» (como fica guardado) aparece como «Investir». */
+export const catLabel = (c: string) => (c === INVEST ? 'Investir' : c);
 
 /** "Do Rodrigo", "Da Inês"… sem saber o género, "De Marta". */
 export const ofName = (n: string) => `De ${n}`;
@@ -31,25 +37,45 @@ export function useMonth() {
 
 export function useLedger() {
   const { me, partner } = useSession();
-  const { expenses, transfers } = useHouse();
+  const { expenses, transfers, openings } = useHouse();
   return useMemo(() => {
     if (!me || !partner) return null;
-    const v = pairBalance(expenses.rows, transfers.rows, me.id, partner.id);
+    const v = pairBalance(expenses.rows, transfers.rows, me.id, partner.id, openingOf(openings.rows, me.id, partner.id));
     const even = Math.abs(v) < 500; // menos de meio cêntimo
     const who = v > 0 ? me : partner;
     const lead = even ? 'Em equilíbrio' : v > 0 ? 'Adiantaste mais' : `${partner.name} adiantou mais`;
     return { v, even, who, lead, lean: whiskerLean(v) };
-  }, [expenses.rows, transfers.rows, me, partner]);
+  }, [expenses.rows, transfers.rows, openings.rows, me, partner]);
 }
 
+/**
+ * Dinheiro: um só sítio, com dois separadores quando são dois. «Gastos» responde a «quanto gastei?» (a tua parte,
+ * pague quem pagar); «Entre nós» responde a «quem adiantou mais?» (quem pagou mais do que o combinado).
+ */
 export function Money() {
   const { partner } = useSession();
-  const m = useMonth(), L = useLedger();
+  const [sp, setSp] = useSearchParams();
+  const us = !!partner && sp.get('ver') === 'entre-nos';
+  return (
+    <>
+      <Top title="Dinheiro" />
+      {partner && <div className="seg" role="tablist" aria-label="Dinheiro">
+        <button type="button" role="tab" className="press" aria-selected={!us} aria-pressed={!us} onClick={() => setSp({}, { replace: true })}>Gastos</button>
+        <button type="button" role="tab" className="press" aria-selected={us} aria-pressed={us} onClick={() => setSp({ ver: 'entre-nos' }, { replace: true })}>Entre nós</button>
+      </div>}
+      {partner && <p className="s">{us ? `Quem pagou mais do que o combinado, e como acertar.` : 'O que é teu este mês, pague quem pagar.'}</p>}
+      {us ? <Ledger embedded /> : <Spend />}
+    </>
+  );
+}
+
+function Spend() {
+  const { partner } = useSession();
+  const m = useMonth();
   const p = m.pace;
   const seen = useSeen('money');
   return (
     <>
-      <Top title="Dinheiro" />
       <div className="swap"><p className="xl">{eur(m.total, 0)}<small>€</small></p><p className="s" style={{ marginTop: 8 }}>{partner ? `A tua parte em ${monthName(m.key)}` : monthName(m.key)[0].toUpperCase() + monthName(m.key).slice(1)}</p></div>
       {partner && <Hint show={seen < 3}>A tua parte é o que é só teu mais a tua percentagem das partilhadas. Não depende de quem pagou.</Hint>}
       {p.fresh
@@ -65,7 +91,6 @@ export function Money() {
         </>}
       <div className="tile card rows">
         {!p.fresh && <div><span className="k">Fecho previsto{seen < 3 && <span className="s" style={{ display: 'block' }}>se o resto do mês for normal</span>}</span><span className="v">{eur(p.forecast, 0)} €</span></div>}
-        {L && <Link className="press" to="/contas"><span className="k">Contas a dois<span className="s" style={{ display: 'block' }}>{L.lead}</span></span><span className="v">{eur(Math.abs(L.v))} €<Icon n="arrow" s={16} /></span></Link>}
         {m.byCat.length > 0 && <Link className="press" to="/dinheiro/categorias"><span className="k">Categorias</span><span className="v">{m.byCat.length}<Icon n="arrow" s={16} /></span></Link>}
         <ExpenseButton />
       </div>
@@ -93,7 +118,7 @@ function Movements() {
       <p className="s">Este mês</p>
       <div className="tile card rows">{list.map((e) => (
         <button key={e.id} className="press" onClick={() => open(<ExpenseDetail e={e} label={lbl(e)} />)}>
-          <span className="k" style={{ color: 'var(--ink)' }}>{e.note || e.category}<span className="s" style={{ display: 'block' }}>{dayLabel(e.spent_on)} · {lbl(e)}</span></span>
+          <span className="k" style={{ color: 'var(--ink)' }}>{e.note || catLabel(e.category)}<span className="s" style={{ display: 'block' }}>{dayLabel(e.spent_on)} · {lbl(e)}</span></span>
           <span className="v">{eur(toU(e.amount))} €</span>
         </button>
       ))}</div>
@@ -113,7 +138,7 @@ function ExpenseDetail({ e, label }: { e: ExpenseRow; label: string }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <p className="xl">{eur(toU(e.amount))}<small>€</small></p>
       <div className="tile card rows" style={{ background: 'var(--tile-2)' }}>
-        <div><span className="k">Categoria</span><span className="v">{e.category}</span></div>
+        <div><span className="k">Categoria</span><span className="v">{catLabel(e.category)}</span></div>
         <div><span className="k">Dia</span><span className="v">{dayLabel(e.spent_on)}</span></div>
         <div><span className="k">De quem é</span><span className="v">{label}</span></div>
         {e.note && <div><span className="k">Nota</span><span className="v">{e.note}</span></div>}
@@ -125,17 +150,59 @@ function ExpenseDetail({ e, label }: { e: ExpenseRow; label: string }) {
 
 /** Despesa: valor, categoria, Minha · Partilhada · Do outro, dia e nota. Quem paga é quem regista. */
 export function ExpenseSheet() {
+  const learn = useLearnFromPayment();
+  const saveLog = useSaveCarLog();
   const { me, partner, house, myShare } = useSession();
+  const { cars, carLogs, on, expenses } = useHouse();
   const { close, toast } = useOverlays();
-  const [amt, setAmt] = useState('');
-  const [cat, setCat] = useState('Supermercado');
-  const [split, setSplit] = useState<Split>(partner ? 'shared' : 'mine');
-  const [day, setDay] = useState<'hoje' | 'ontem' | 'outro'>('hoje');
-  const [date, setDate] = useState(todayStr());
-  const [note, setNote] = useState('');
+  // Num gesto: «45 pingo doce» dá o valor e a nota (e «ontem» ou «sábado», o dia); a categoria e a divisão
+  // adivinham-se pelo que fizeste antes. Tudo se pode mudar em «Mudar».
+  const [text, setText] = useState('');
+  const q = parseQuick(text, todayStr());
+  const note = q.note;
+  const g = useMemo(() => guess(note, expenses.rows as Past[], me?.id ?? '', !!partner, CATEGORIES), [note, expenses.rows, me?.id, partner]);
+  const [catSet, setCat] = useState<string | null>(null);
+  const cat = catSet ?? g.category;
+  const [splitSet, setSplit] = useState<Split | null>(null);
+  const [daySet, setDay] = useState<'hoje' | 'ontem' | 'outro' | null>(null);
+  const day = daySet ?? (q.day && q.day !== todayStr() ? 'outro' : 'hoje');
+  const [dateSet, setDate] = useState<string | null>(null);
+  const date = dateSet ?? q.day ?? todayStr();
+  const [more, setMore] = useState(false);
+  // Na dúvida, a NIKKI pergunta antes de gravar: «Abastecimento do Golf?», «Supermercado, partilhada?».
+  const [ok, setOk] = useState(false);
+  const [noKm, setNoKm] = useState(false);
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
-  const v = parseAmount(amt);
+  // «Guardar e outra»: a folha fica aberta, com a mesma categoria, divisão e dia, para registar várias seguidas.
+  const [done, setDone] = useState<{ n: number; total: number; last: string } | null>(null);
+  const amtRef = useRef<HTMLInputElement>(null);
+  // Em Carros, com a Garagem ligada: de que carro, que despesa, e os litros e km (como no Abastecer da Garagem).
+  const garage = on('garagem') ? cars.rows.filter((c) => !c.archived) : [];
+  const [carId, setCarId] = useState<string | null>(null);
+  // O carro: o escolhido; senão o da última despesa com o mesmo sítio; senão o último usado; senão o meu.
+  const mineCar = expenses.rows.filter((e) => e.created_by === me?.id && e.car_id).sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+  const sameCar = note ? mineCar.find((e) => (e.note ?? '').toLowerCase().startsWith(note.toLowerCase().split(' ')[0])) : undefined;
+  const pick = garage.find((c) => c.id === carId) ?? garage.find((c) => c.id === (sameCar ?? mineCar[0])?.car_id) ?? garage.find((c) => c.owner_id === me?.id) ?? garage[0];
+  // Os campos do carro: depois do valor, ou logo que a nota diz que é do carro (para começar pela foto do talão).
+  const car = cat === 'Carros' && (q.amount || (note && g.why !== 'default')) ? pick : undefined;
+  // A despesa de um carro fica, por defeito, de quem é o carro (como na Garagem); pode mudar-se a seguir.
+  const splitFor = (c: CarRow): Split => (!partner || c.owner_id === me?.id ? 'mine' : c.owner_id === null ? 'shared' : 'other');
+  const split: Split = splitSet ?? (cat === 'Carros' && pick ? splitFor(pick) : g.split);
+  const splitWord = partner ? (split === 'shared' ? 'partilhada' : split === 'mine' ? 'só tua' : ofName(partner.name).toLowerCase()) : '';
+  const [entry, setEntry] = useState<{ car: string; f: CarEntry } | null>(null);
+  const f = car ? (entry && entry.car === car.id ? entry.f : carEntry(car, carKindOf(note, car.energy === 'eletrico'))) : null;
+  const setF = (x: CarEntry) => car && setEntry({ car: car.id, f: x });
+  const last = car ? lastOdometer(carLogs.rows, car) : null;
+  const v = q.amount ? parseAmount(q.amount) : null;
+  const spentOn = day === 'hoje' ? todayStr() : day === 'ontem' ? addDays(todayStr(), -1) : date;
+  // Em Contas ou Casa, com a Casa ligada: de que conta fixa é (reconhecida pela nota e pelo valor, ou escolhida).
+  const [bf, setBf] = useState<BillEntry>(billEntry);
+  const bc = useBillChoice(cat, note, v ? toU(v) : 0, spentOn, bf);
+  // Tem a certeza quando foi a pessoa a escolher ou quando repete o que fez antes no mesmo sítio (num carro, pergunta sempre).
+  const sure = ok || catSet !== null || carId !== null || (g.why === 'history' && cat !== 'Carros');
+  const ask = cat === 'Carros' && car && f ? `${KIND_ASK[f.kind]} do ${car.name}${partner ? `, ${splitWord}` : ''}?` : `${bc.bill ? bc.bill.name : catLabel(cat)}${partner ? `, ${splitWord}` : ''}?`;
+  const saveBill = useSaveBill();
   const pct = Math.round(myShare * 100);
   const hint = !v ? '' : !partner ? 'Em teu nome.' : split === 'shared'
     ? `Partilhada ${pct}/${100 - pct}: ${eur(toU(v) * myShare)} € na tua parte, ${eur(toU(v) * (1 - myShare))} € na parte de ${partner.name}. A percentagem muda-se em Pessoas.`
@@ -143,34 +210,78 @@ export function ExpenseSheet() {
 
   async function save(e: FormEvent) {
     e.preventDefault();
-    if (!v) return setErr('Escreve o valor, por exemplo 12,35.');
+    const again = ((e.nativeEvent as SubmitEvent).submitter as HTMLElement | null)?.dataset.again === '1';
+    if (!v) return setErr('Falta o valor: por exemplo «12,35 farmácia».');
     if (!me || !house) return;
-    const spent_on = day === 'hoje' ? todayStr() : day === 'ontem' ? addDays(todayStr(), -1) : date;
+    const spent_on = spentOn;
+    if (!sure) return setErr(`Confirma primeiro: ${ask}`);
+    const n = car && f ? checkEntry(car, f, last) : null;
+    if (typeof n === 'string') return setErr(n);
+    if (car && f && (f.kind === 'fuel' || f.kind === 'charge') && !f.odo.trim() && !noKm) return setErr('E os km do conta-quilómetros? Sem eles, não entra no consumo.');
     setBusy(true);
-    const { error } = await supabase.from('expenses').insert({
-      household_id: house.id, created_by: me.id, paid_by: me.id, amount: v, category: cat, spent_on,
-      split, other_id: split === 'mine' ? null : partner!.id, payer_share: split === 'shared' ? myShare : null, note: note.trim() || null,
-    });
+    const { data, error } = await supabase.from('expenses').insert({
+      household_id: house.id, created_by: me.id, paid_by: me.id, amount: v, category: cat, spent_on, car_id: car?.id ?? null,
+      split, other_id: split === 'mine' ? null : partner!.id, payer_share: split === 'shared' ? myShare : null,
+      note: (car ? `${note.trim() || (f!.kind === 'fuel' ? 'Combustível' : f!.kind === 'charge' ? 'Carregamento' : f!.kind === 'toll' ? 'Portagens' : f!.kind === 'service' ? 'Oficina' : 'Carro')} · ${car.name}` : note.trim()).slice(0, 120) || null,
+    }).select('id').single();
+    if (!error && car && f && n) {
+      const { error: e2 } = await saveLog(car, f, n, (data as { id: string }).id, v, spent_on, note);
+      if (e2) { setBusy(false); return setErr(e2.message); }
+      carLogs.reload();
+    }
     setBusy(false);
     if (error) return setErr(error.message);
-    close();
-    toast(`${eur(toU(v))} € · ${cat} · ${dayLabel(spent_on)}${partner ? ' · ' + (split === 'shared' ? 'partilhada' : split === 'mine' ? 'minha' : ofName(partner.name).toLowerCase()) : ''}`, { ok: true });
+    const billErr = await saveBill(bc, bf, (data as { id: string }).id, v, spent_on);
+    if (again) {
+      setDone((d) => ({ n: (d?.n ?? 0) + 1, total: (d?.total ?? 0) + toU(v), last: `${eur(toU(v))} € · ${car ? car.name : note.trim() || cat}` }));
+      setText(''); setCat(null); setSplit(null); setDay(null); setDate(null); setMore(false); setOk(false); setNoKm(false); setErr(''); setEntry(null); setBf(billEntry());
+      setTimeout(() => amtRef.current?.focus(), 30);
+    } else close();
+    if (billErr) toast(`A despesa ficou, mas não ficou ligada à conta: ${billErr}`);
+    // Um pagamento em Carros com «IUC» ou o nome da seguradora na nota ensina a Garagem (mês, data e valor).
+    const learned = cat === 'Carros' && note.trim() && (!f || f.kind === 'other' || f.kind === 'service') ? await learn({ car, note }, toU(v), spent_on) : null;
+    if (!again || learned) toast(learned ?? `${eur(toU(v))} € · ${car ? car.name : cat}${n && n.litres !== null ? ` · ${String(n.litres).replace('.', ',')} L` : ''}${bc.bill && bf.pick !== 'none' ? ` · ${bc.bill.name}` : ''} · ${dayLabel(spent_on)}${partner ? ' · ' + (split === 'shared' ? 'partilhada' : split === 'mine' ? 'minha' : ofName(partner.name).toLowerCase()) : ''}`, { ok: true });
   }
 
   const chip = (on: boolean, txt: string, f: () => void) => <button type="button" className="press" aria-pressed={on} onClick={f} key={txt}>{txt}</button>;
   return (
     <form onSubmit={save} autoComplete="off" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <label className="sr" htmlFor="amt">Valor</label>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}><input id="amt" className="amount" inputMode="decimal" placeholder="0,00" autoFocus value={amt} onChange={(e) => { setAmt(e.target.value); setErr(''); }} style={{ width: `${Math.max(4.2, amt.length + 0.6)}ch` }} /><span className="l">€</span></div>
-      <p className="s" style={{ minHeight: 18, marginTop: -8 }}>{err || hint}</p>
-      <div className="chips" role="group" aria-label="Categoria">{CATEGORIES.map((c) => chip(cat === c, c, () => setCat(c)))}</div>
-      {partner && <div className="seg" role="group" aria-label="De quem é">
+      {done && <p className="s why"><span className="dot" aria-hidden="true" /><span>Guardada: {done.last}. {done.n > 1 ? `Já são ${done.n}, ${eur(done.total)} €. ` : ''}Mais uma:</span></p>}
+      <label className="sr" htmlFor="amt">Valor e onde (ex.: 45 pingo doce)</label>
+      <input id="amt" ref={amtRef} className="field quick" placeholder="45 pingo doce" autoFocus value={text} onChange={(e) => { setText(e.target.value); setErr(''); }} enterKeyHint="done" />
+      {v && !sure ? <div className="ask-card" role="group" aria-label="Confirmar">
+        <span className="l">{eur(toU(v))} €</span>
+        <p className="ask-q">{ask}</p>
+        <div className="ask-btns">
+          <button type="button" className="btn press" onClick={() => { setOk(true); setErr(''); }}>Sim</button>
+          <button type="button" className="btn quiet press" onClick={() => { setOk(true); setMore(true); setErr(''); }}>Mudar</button>
+        </div>
+      </div> : v ? <div className="quick-sum">
+        <span className="l">{eur(toU(v))} €</span>
+        <button type="button" className="chip-sum press" aria-expanded={more} onClick={() => setMore(!more)}>
+          <span>{[catLabel(cat), partner ? (split === 'shared' ? 'partilhada' : split === 'mine' ? 'minha' : ofName(partner.name).toLowerCase()) : '', dayLabel(spentOn)].filter(Boolean).join(' · ')}</span>
+          <span className="s">{more ? 'Fechar' : 'Mudar'}</span>
+        </button>
+      </div> : <p className="s" style={{ minHeight: 18 }}>{err || 'O valor e onde. «ontem», «sábado» ou «12/10» mudam o dia.'}</p>}
+      {v && (err || (more && split === 'shared' && hint)) ? <p className="s" style={{ marginTop: -8 }}>{err || hint}</p> : null}
+      {more && <div className="chips wrap" role="group" aria-label="Categoria">{CATEGORIES.map((c) => chip(cat === c, catLabel(c), () => setCat(c)))}</div>}
+      {(sure || !v) && car && f && <div className="form">
+        {garage.length > 1 && <div className="chips" role="group" aria-label="Carro">{garage.map((c) => chip(car.id === c.id, c.name, () => { setCarId(c.id); setSplit(splitFor(c)); }))}</div>}
+        <CarEntryFields car={car} f={f} set={setF} last={last} pickKind onAmount={(a) => setText(`${a.toFixed(2).replace('.', ',')} ${note || 'Combustível'}`)} />
+        <p className="s why"><span className="dot" aria-hidden="true" /><span>{entryWhy(f)}</span></p>
+        {(f.kind === 'fuel' || f.kind === 'charge') && !f.odo.trim() && <label className="check s"><input type="checkbox" checked={noKm} onChange={(e) => setNoKm(e.target.checked)} /> Não sei os km agora</label>}
+      </div>}
+      {sure && <BillFields c={bc} f={bf} set={setBf} amount={v ? toU(v) : 0} spent_on={spentOn} />}
+      {more && partner && <div className="seg" role="group" aria-label="De quem é">
         {chip(split === 'mine', 'Minha', () => setSplit('mine'))}{chip(split === 'shared', 'Partilhada', () => setSplit('shared'))}{chip(split === 'other', ofName(partner.name), () => setSplit('other'))}
       </div>}
-      <div className="chips" role="group" aria-label="Dia">{chip(day === 'hoje', 'Hoje', () => setDay('hoje'))}{chip(day === 'ontem', 'Ontem', () => setDay('ontem'))}{chip(day === 'outro', 'Outro dia', () => setDay('outro'))}</div>
-      {day === 'outro' && <input className="field" type="date" aria-label="Dia da despesa" max={todayStr()} value={date} onChange={(e) => setDate(e.target.value)} />}
-      <input className="field" placeholder="Nota (opcional)" maxLength={60} value={note} onChange={(e) => setNote(e.target.value)} aria-label="Nota" />
-      <button className="btn wide press" disabled={busy}>Guardar · {me?.name} <Icon n="arrow" s={20} /></button>
+      {more && <div className="chips" role="group" aria-label="Dia">{chip(day === 'hoje', 'Hoje', () => setDay('hoje'))}{chip(day === 'ontem', 'Ontem', () => setDay('ontem'))}{chip(day === 'outro', 'Outro dia', () => setDay('outro'))}</div>}
+      {more && day === 'outro' && <input className="field" type="date" aria-label="Dia da despesa" max={todayStr()} value={date} onChange={(e) => setDate(e.target.value)} />}
+      <div className="save-two">
+        <button className="btn quiet press" data-again="1" disabled={busy}>Guardar e outra</button>
+        <button className="btn press" disabled={busy}>{done ? 'Guardar e fechar' : `Guardar · ${me?.name}`} <Icon n="arrow" s={20} /></button>
+      </div>
+      {done && <button type="button" className="back press" onClick={close}>Fechar ({done.n} {done.n === 1 ? 'guardada' : 'guardadas'})</button>}
     </form>
   );
 }
@@ -194,27 +305,27 @@ export function Cats() {
   );
 }
 
-export function Ledger() {
+export function Ledger({ embedded }: { embedded?: boolean }) {
   const { me, partner, myShare } = useSession();
   const { expenses, transfers } = useHouse();
   const { open } = useOverlays();
   const L = useLedger();
   const seen = useSeen('ledger');
   if (!me || !partner || !L) return (
-    <><Top title="Contas a dois" /><p className="l">Aparecem quando alguém se junta à casa.</p><p className="s" style={{ fontSize: 'var(--t-m)' }}>Mostram quem adiantou mais nas despesas partilhadas.</p><Link className="btn quiet wide press" to="/pessoas">Convidar <Icon n="arrow" s={20} /></Link></>
+    <>{!embedded && <Top title="Entre nós" />}<p className="l">Aparecem quando alguém se junta à casa.</p><p className="s" style={{ fontSize: 'var(--t-m)' }}>Mostram quem adiantou mais nas despesas partilhadas.</p><Link className="btn quiet wide press" to="/pessoas">Convidar <Icon n="arrow" s={20} /></Link></>
   );
   // Esforço: quanto cada um pagou do que é partilhado ou do outro.
   const pair = expenses.rows.filter((e) => e.split !== 'mine' && [e.paid_by, e.other_id].includes(me.id) && [e.paid_by, e.other_id].includes(partner.id));
   const paid = (id: string) => pair.filter((e) => e.paid_by === id).reduce((t, e) => t + toU(e.amount), 0);
   const pm = paid(me.id), pp = paid(partner.id), T = pm + pp;
-  const sent = transfers.rows.filter((t) => t.from_id === me.id).reduce((s, t) => s + toU(t.amount), 0), got = transfers.rows.filter((t) => t.to_id === me.id).reduce((s, t) => s + toU(t.amount), 0);
+  const sent = transfers.rows.filter((t) => t.from_id === me.id && t.to_id === partner.id).reduce((s, t) => s + toU(t.amount), 0), got = transfers.rows.filter((t) => t.to_id === me.id && t.from_id === partner.id).reduce((s, t) => s + toU(t.amount), 0);
   // Esforço de cada um: o que pagou das partilhadas, mais o que transferiu ao outro, menos o que recebeu.
   const a = T ? Math.max(0, Math.min(100, ((pm + sent - got) / T) * 100)) : 50;
   const pct = Math.round(myShare * 100);
   return (
     <>
-      <Top title="Contas a dois" />
-      <div className="swap"><p className="xl">{eur(Math.abs(L.v))}<small>€</small></p><p className="s" style={{ marginTop: 8 }}>{L.even ? 'Esforço distribuído como combinado' : `${L.lead} do que o combinado`}</p></div>
+      {!embedded && <Top title="Entre nós" />}
+      <div className="swap"><p className="xl">{eur(Math.abs(L.v))}<small>€</small></p><p className="s" style={{ marginTop: 8 }}>{L.even ? 'Estão quites' : L.v > 0 ? `Adiantaste a mais (o combinado é ${Math.round(myShare * 100)}/${100 - Math.round(myShare * 100)})` : `${partner.name} adiantou a mais (o combinado é ${Math.round(myShare * 100)}/${100 - Math.round(myShare * 100)})`}</p></div>
       <Hint show={seen < 3}>{`Quanto cada um adiantou face ao combinado (${pct}/${100 - pct}). Não é uma dívida: serve para distribuírem o esforço.`}</Hint>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         <div style={{ display: 'grid', placeItems: 'center', padding: '8px 0 4px', color: 'var(--ink)' }}>
@@ -222,15 +333,64 @@ export function Ledger() {
         </div>
         <div className="s" style={{ display: 'flex', justifyContent: 'space-between' }}><span>Tu {Math.round(a)}%</span><span>combinado {pct}/{100 - pct}</span><span>{partner.name} {100 - Math.round(a)}%</span></div>
       </div>
-      <div className="tile card rows">
-        <div><span className="k">Pagaste tu</span><span className="v">{eur(pm)} €</span></div>
-        <div><span className="k">Pagou {partner.name}</span><span className="v">{eur(pp)} €</span></div>
-        {(sent > 0 || got > 0) && <div><span className="k">Transferências<span className="s" style={{ display: 'block' }}>enviaste {eur(sent)} € · recebeste {eur(got)} €</span></span><span className="v">{eur(sent - got)} €</span></div>}
-        <div><span>Diferença para o combinado</span><span className="v">{eur(Math.abs(L.v))} €</span></div>
-      </div>
       {!L.even && <p className="s why"><span className="dot" aria-hidden="true" /><span>Para equilibrar sem transferências, as próximas partilhadas ficam com {L.v > 0 ? partner.name : 'contigo'}.</span></p>}
       <button className={`btn wide press${L.even ? ' quiet' : ''}`} onClick={() => open(<TransferSheet />)}>{L.even ? 'Registar uma transferência' : 'Equilibrar com uma transferência'}<Icon n="arrow" s={20} /></button>
+      <PairLog />
     </>
+  );
+}
+
+const PAGE = 40;
+
+/**
+ * Movimentos a dois: quem pagou quanto, em que despesa e quando, e o efeito de cada um nas contas a dois.
+ * Ao fim de anos, os totais acumulados não dizem nada; a lista diz. Do mais recente para o mais antigo.
+ */
+function PairLog() {
+  const { me, partner } = useSession();
+  const { expenses, transfers } = useHouse();
+  const [q, setQ] = useState('');
+  const [who, setWho] = useState<PairWho>('all');
+  const [period, setPeriod] = useState<PairPeriod>('all');
+  const [sort, setSort] = useState<PairSort>('new');
+  const [n, setN] = useState(PAGE);
+  const all = useMemo(() => (me && partner ? pairEntries(expenses.rows, transfers.rows, me.id, partner.id) : []), [expenses.rows, transfers.rows, me, partner]);
+  const names = useMemo(() => ({ [me!.id]: me!.name, [partner!.id]: partner!.name }), [me, partner]);
+  const list = useMemo(() => pairFilter(all, { q, who, period, sort, me: me!.id, names, today: todayStr() }), [all, q, who, period, sort, me, names]);
+  useEffect(() => setN(PAGE), [q, who, period, sort]);
+  const p = partner!.name;
+  const effect = (v: number, transfer: boolean) => (Math.abs(v) < 500 ? '' : transfer ? (v > 0 ? 'enviaste' : 'recebeste') : v > 0 ? `adiantaste ${eur(v)} €` : `${p} adiantou ${eur(-v)} €`);
+  const shown = list.slice(0, n);
+  const months = sort !== 'big';
+  return (
+    <section className="stack pairlog" aria-label="Movimentos a dois">
+      <div className="wbar"><span className="s">Movimentos a dois</span><span className="s">{list.length === all.length ? `${all.length}` : `${list.length} de ${all.length}`}</span></div>
+      <input className="field" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={`Procurar: jantar, ${p}, 46,80…`} aria-label="Procurar nos movimentos" />
+      <div className="chips" role="group" aria-label="Quem">
+        {([['all', 'Tudo'], ['me', 'Pagaste tu'], ['other', `Pagou ${p}`], ['transfers', 'Transferências']] as [PairWho, string][]).map(([k, l]) => <button key={k} className="press" aria-pressed={who === k} onClick={() => setWho(k)}>{l}</button>)}
+      </div>
+      <div className="chips" role="group" aria-label="Período e ordem">
+        {([['all', 'Sempre'], ['month', 'Este mês'], ['12m', '12 meses'], ['year', 'Este ano']] as [PairPeriod, string][]).map(([k, l]) => <button key={k} className="press" aria-pressed={period === k} onClick={() => setPeriod(k)}>{l}</button>)}
+        <span className="chips-sep" aria-hidden="true" />
+        {([['new', 'Recentes'], ['old', 'Antigos'], ['big', 'Maior valor']] as [PairSort, string][]).map(([k, l]) => <button key={k} className="press" aria-pressed={sort === k} onClick={() => setSort(k)}>{l}</button>)}
+      </div>
+      {!shown.length
+        ? <p className="s">{all.length ? 'Nada com estes filtros.' : 'Ainda não há despesas partilhadas nem transferências.'}</p>
+        : <div className="tile card rows">{shown.map((e, j) => {
+          const head = months && (j === 0 || monthKey(shown[j - 1].date) !== monthKey(e.date));
+          const fx = effect(e.effect, e.kind === 'transfer');
+          return (
+            <Fragment key={e.id}>
+              {head && <div className="mhead"><span className="s">{monthName(monthKey(e.date))} {e.date.slice(0, 4)}</span></div>}
+              <div className="mv">
+                <span className="mv-t"><span>{e.title}</span><span className="s">{e.kind === 'transfer' ? (e.payer === me!.id ? `Tu → ${p}` : `${p} → tu`) : e.payer === me!.id ? 'Pagaste tu' : `Pagou ${p}`} · {dayLabel(e.date)}{e.category && e.title !== e.category ? ` · ${e.category}` : ''}</span></span>
+                <span className="mv-v"><span>{eur(e.amount)} €</span>{fx && <span className={`s${e.effect > 0 ? ' up' : ''}`}>{fx}</span>}</span>
+              </div>
+            </Fragment>
+          );
+        })}</div>}
+      {list.length > n && <button className="btn quiet wide press" onClick={() => setN(n + PAGE)}>Mostrar mais ({list.length - n}) <Icon n="arrow" s={20} /></button>}
+    </section>
   );
 }
 

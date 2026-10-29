@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { eur, lit, monthClose, monthSpend, normalMonth, pace, pairBalance, parseAmount, partOf, toU, whiskerLean, yearFill, type Expense, type Transfer } from '../money';
+import { eur, lit, openingOf, monthClose, monthSpend, normalMonth, pace, pairBalance, parseAmount, partOf, toU, whiskerLean, yearFill, type Expense, type Transfer } from '../money';
 import { addDays, daysInMonth, monthWeeks, nextMonth, prevMonth, toDateStr, weekOf, weekdayName } from '../dates';
 
 const R = 'rodrigo', I = 'ines';
@@ -195,5 +195,14 @@ describe('etiquetas de dias', () => {
     expect(dayLabel('2026-10-29', '2026-10-28')).toBe('amanhã');
     expect(dayLabel('2026-10-30', '2026-10-28')).toBe('daqui a 2 dias');
     expect(dayLabel('2026-11-15', '2026-10-28')).toBe('15 nov');
+  });
+});
+
+describe('openingOf', () => {
+  const rows = [{ profile_a: 'a', profile_b: 'b', cutover: '2026-01-01', amount_a: '15.75' }];
+  it('lê o saldo de abertura do lado de quem vê', () => {
+    expect(openingOf(rows, 'a', 'b')).toEqual({ amountA: 15.75, since: '2026-01-01' });
+    expect(openingOf(rows, 'b', 'a')).toEqual({ amountA: -15.75, since: '2026-01-01' });
+    expect(openingOf([], 'a', 'b')).toEqual({ amountA: 0, since: '' });
   });
 });

@@ -16,7 +16,7 @@ npm test           # contas e datas (Europe/Lisbon)
 npm run build      # tsc + vite build
 ```
 
-`.env` é opcional: sem ele, a app usa o projeto `xjhlcfgihyoiewuamzfv` (ver `.env.example`).
+`.env` é opcional: sem ele, a app usa o projeto `imbflvhufvvjcfetljsd` (ver `.env.example`).
 
 ## Ver sem base de dados (demonstração)
 
@@ -24,8 +24,9 @@ npm run build      # tsc + vite build
 npm run demo       # gera nikki-demo.html: a app real com dados de exemplo em memória, numa página só
 ```
 
-Na demonstração entra-se como Rodrigo ou Inês, ou cria-se uma conta nova (qualquer código de 6 algarismos
-serve) para ver o primeiro uso a solo. Nada sai do aparelho.
+Na demonstração entra-se como Rodrigo (administração da app: Perfil → Administração da app) ou Inês, ou
+cria-se uma conta nova (qualquer código de 6 algarismos serve) para ver o pedido, a espera e, com o botão
+«aprovar o pedido», o primeiro uso. Há outras casas, pedidos e tickets de exemplo. Nada sai do aparelho.
 
 ## Base de dados
 
@@ -34,6 +35,10 @@ não são tocadas.
 
 - Migração: `supabase/migrations/0001_nikki.sql` (idempotente; corre no SQL Editor do Supabase).
 - Depois de a correr, em **Project Settings → API → Exposed schemas**, juntar `nikki`.
+- **A primeira conta registada fica administradora da app** (ou, se já houver contas em `auth.users`, a mais
+  antiga). Regista-te primeiro e confirma com
+  `select p.name, p.email from nikki.app_admins a join nikki.profiles p on p.id = a.profile_id;`.
+- A migração cria o bucket privado `tickets` no Storage (capturas dos tickets, até 5 MB, só imagens).
 - Testes de acesso (RLS), convites e contas a dois numa base local:
 
 ```bash
@@ -56,8 +61,17 @@ configurar um SMTP (ex.: Resend) em **Authentication → SMTP Settings**.
 
 ## O que já funciona (fase 1)
 
-- Entrar ou criar conta por e-mail; nome; criar casa (fica administrador) ou entrar com código/ligação.
+- Entrar ou criar conta por e-mail; nome; **pedir a casa** (fica à espera da aprovação da administração) ou
+  entrar com código/ligação (fica ativa logo). Cada casa tem até duas pessoas.
 - Convites com ligação e código, partilhados pelo menu do telemóvel; papéis Administrador e Membro.
+- **Módulos por casa**: quem administra liga e desliga (Contas a dois, Compras, Agenda, Casa, Garagem, Objetivos,
+  Património, Ginásio, Extratos); o início e os Espaços mostram só os ligados.
+- **Património** (saúde financeira): score 0–100 com níveis e conquistas em medalhas, meses livres
+  por ano contados como férias a partir de 1 de janeiro, fundos de emergência (12 meses da despesa média) e de maneio (2 000 €, só liquidez imediata),
+  plano do mês (emergência → maneio → investir), rendimentos e rácio de poupança, para o casal e para cada um.
+- **Ideias e problemas** (Perfil): com o ecrã onde estava e captura opcional; estado e resposta à vista.
+- **Administração da app** (só o Rodrigo): pedidos de conta, pessoas (pausa), casas e módulos, tickets e
+  números. Nunca os dados das casas.
 - Início fixo: primeiros passos, «Agora» que se desliza, agenda em calendário (a semana, que abre no mês), Avisos,
   Contas a dois (a solo: Mês), Objetivos.
 - Dinheiro: a tua parte do mês, ritmo face ao teu normal, fecho previsto, categorias, movimentos.
@@ -65,5 +79,8 @@ configurar um SMTP (ex.: Resend) em **Authentication → SMTP Settings**.
 - Contas a dois: quem adiantou mais (os bigodes da cara medem), transferências nos dois sentidos.
 - Compras sincronizadas, arrumadas por corredor, sem unidades; em direto quando os dois as têm abertas.
 
-Garagem, agenda, casa (prazos), ginásio, objetivos, património e independência, importação de extratos
-e talões com Gemini chegam nas fases seguintes (ver `docs/ARQUITETURA.md`).
+- **Garagem:** carros da casa ou de cada um, abastecimentos (com parciais), L/100 km de cheio a cheio, km, €/km
+  com seguro e IUC proporcionais, registos a rever e prazos do carro (IUC, inspeção, seguro) com «Paguei».
+
+Agenda (ecrã próprio e ligação ao iPhone), Casa, Objetivos e Ginásio vêm a seguir, um de cada vez.
+Extratos e talões com Gemini ficam para depois (ver `docs/ARQUITETURA.md`).

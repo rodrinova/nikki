@@ -13,3 +13,9 @@
 - Preferência do Rodrigo: sempre que houver mudanças visíveis, publicar o HTML para ele ver (`npm run demo` → artefacto «NIKKI app»; o protótipo em thenikki/prototypes/nikki-hub.html → artefacto «NIKKI»).
 - Marca: depois da abertura (`src/brand/Intro.tsx`, primeira abertura de cada dia) usa-se só a cara (`Face`), não a palavra; `Wordmark` fica para a entrada e para a história. Setas com o ângulo dos bigodes (`Icon`: back, arrow, chev). Avisos de algo gravado: `toast(msg, { ok: true })` (a cara pisca o olho).
 - Modo de demonstração: `src/lib/demo.ts` imita o supabase-js em memória; manter em dia quando a app usar novas tabelas ou funções.
+- Contas por aprovação: `profiles.status` (pending · active · paused · declined). Sem conta ativa, as regras de acesso não deixam ver nada; a app mostra o pedido (`Onboarding`), a espera (`Waiting`) ou `NoAccess`. A segunda pessoa entra com convite e fica ativa; cada casa tem no máximo 2 pessoas.
+- Administração da app: só por `rpc('admin_*')` e só para `nikki.app_admins` (o Rodrigo). Estas funções nunca devolvem dados de dentro das casas (dinheiro, agendas, compras…); não acrescentar campos desses.
+- Módulos: `src/lib/modules.ts` (lista igual ao `check` de `nikki.household_modules`). Ecrãs de módulo dentro de `<Gate k="…">`; no início e nos Espaços, `useHouse().on(k)`.
+- Tickets: `src/screens/Tickets.tsx`; capturas no bucket privado `tickets`, em `<id da pessoa>/<ficheiro>`, lidas por link assinado.
+- Património: contas em `src/lib/wealth.ts` (testes em `__tests__/wealth.test.ts`), juntas por `useWealth(view)` em `src/data/wealth.ts`; a despesa do casal só por `rpc('house_month_totals')` (totais por mês). Liquidez decide-se pelo tipo do ativo (`KINDS`), nunca por pergunta.
+- O protótipo foi abandonado (28 out 2026): mudanças só na app real.
