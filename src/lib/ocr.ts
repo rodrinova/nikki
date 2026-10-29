@@ -23,9 +23,8 @@ async function pdfLib(): Promise<Pdf> {
 
 async function ocrWorker(progress: (p: number) => void) {
   const { createWorker } = (DEMO ? await import(/* @vite-ignore */ `${CDN}tesseract.js@5.1.1/dist/tesseract.esm.min.js`) : await import('tesseract.js')) as typeof import('tesseract.js');
-  const paths = DEMO
-    ? { workerPath: `${CDN}tesseract.js@5.1.1/dist/worker.min.js`, corePath: `${CDN}tesseract.js-core@5.1.1`, langPath: `${CDN}@tesseract.js-data/por@1.0.0/4.0.0_best_int` }
-    : { workerPath: '/ocr/worker.min.js', corePath: '/ocr', langPath: '/ocr' };
+  // O motor e o português vêm sempre do jsDelivr, em versões fixas (a app publicada não leva estes ficheiros grandes).
+  const paths = { workerPath: `${CDN}tesseract.js@5.1.1/dist/worker.min.js`, corePath: `${CDN}tesseract.js-core@5.1.1`, langPath: `${CDN}@tesseract.js-data/por@1.0.0/4.0.0_best_int` };
   return createWorker('por', 1, { ...paths, logger: (m: { status: string; progress: number }) => { if (m.status === 'recognizing text') progress(m.progress); } });
 }
 
