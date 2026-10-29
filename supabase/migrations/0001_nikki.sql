@@ -1280,3 +1280,11 @@ create unique index if not exists cars_external on nikki.cars (household_id, ext
 create unique index if not exists car_logs_external on nikki.car_logs (household_id, external_ref) where external_ref is not null;
 create unique index if not exists assets_external on nikki.assets (household_id, external_ref) where external_ref is not null;
 create unique index if not exists incomes_external on nikki.incomes (household_id, external_ref) where external_ref is not null;
+
+-- ───────────────────────── fechar o que não precisa de estar aberto ─────────────────────────
+-- Ninguém sem sessão corre funções da NIKKI; funções e tabelas novas nascem fechadas para quem não entrou.
+revoke execute on all functions in schema nikki from public, anon;
+alter default privileges in schema nikki revoke execute on functions from public, anon;
+alter default privileges in schema nikki revoke all on tables from anon;
+grant execute on function nikki.has_room(uuid), nikki.in_house(uuid), nikki.is_active(), nikki.is_admin(uuid), nikki.is_app_admin(),
+  nikki.is_member(uuid), nikki.is_staff(uuid), nikki.pair_balance(uuid, uuid, uuid), nikki.shares_household(uuid) to authenticated;
