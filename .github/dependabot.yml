@@ -1,0 +1,10 @@
+# Avisa quando há versões novas das bibliotecas e das ações do GitHub (as correções de segurança chegam como PR).
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 5
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly }
