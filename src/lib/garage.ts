@@ -14,6 +14,7 @@ export interface CarLog {
   expense_id: string | null;
   amount: number | string | null; // o valor da despesa, guardado no registo (a Garagem é de toda a casa)
   note?: string | null;
+  estimated?: boolean; // «esqueci-me»: abastecimento que faltou, estimado pelas medianas
   created_at: string;
 }
 export interface Car { id: string; created_at: string; annual_insurance: number | string; annual_tax: number | string; annual_other: number | string }
@@ -35,22 +36,23 @@ export function period(kind: '12m' | 'year' | 'all', today: string): Period {
 
 const median = (xs: number[]) => { const v = [...xs].sort((x, y) => x - y), m = v.length >> 1; return v.length ? (v.length % 2 ? v[m] : (v[m - 1] + v[m]) / 2) : null; };
 
-interface Segment { from: string; to: string; km: number; litres: number; l100: number }
+interface Segment { from: string; to: string; km: number; litres: number; l100: number; estimated?: boolean }
 
 /** Todos os troços de cheio a cheio de um carro (os que não se medem contam-se em skipped, com a data). */
 function walk(logs: CarLog[]) {
   const fuel = logs.filter((l) => l.kind === 'fuel').sort(order);
   const segments: Segment[] = [], skipped: string[] = [];
-  let prev: CarLog | null = null, acc = 0, bad = false;
+  let prev: CarLog | null = null, acc = 0, bad = false, est = false;
   for (const l of fuel) {
     if (!prev) { if (l.full_tank && l.odometer !== null) prev = l; continue; }
     const litres = num(l.litres);
     if (litres === null) bad = true; else acc += litres;
+    if (l.estimated) est = true;
     if (!l.full_tank) continue;
     const km = l.odometer !== null && prev.odometer !== null ? l.odometer - prev.odometer : null;
     if (bad || km === null || km <= 0) skipped.push(l.logged_on);
-    else segments.push({ from: prev.logged_on, to: l.logged_on, km, litres: acc, l100: (acc / km) * 100 });
-    prev = l.odometer !== null ? l : null; acc = 0; bad = false;
+    else segments.push({ from: prev.logged_on, to: l.logged_on, km, litres: acc, l100: (acc / km) * 100, ...(est ? { estimated: true } : {}) });
+    prev = l.odometer !== null ? l : null; acc = 0; bad = false; est = false;
   }
   return { segments, skipped };
 }
@@ -60,6 +62,7 @@ function walk(logs: CarLog[]) {
  * os dois cheios. Fica de fora (skipped) um troço com um abastecimento sem litros, sem odómetro nas pontas ou com km
  * a descer. Fica de fora e a rever (suspects) um troço que parece ter um abastecimento esquecido: com 3 ou mais
  * troços, 35% abaixo da mediana do carro; com a capacidade do depósito, mais km do que cabem num depósito (+10%).
+ * Um troço com um abastecimento «esqueci-me» (estimado) já foi completado: conta e não volta a rever.
  * Só contam os troços que acabam dentro do período.
  */
 export function consumption(logs: CarLog[], p?: Period, tank?: number | null) {
@@ -70,12 +73,13 @@ export function consumption(logs: CarLog[], p?: Period, tank?: number | null) {
   const segments: Segment[] = [], suspects: (Segment & { why: string })[] = [];
   for (const s of all.segments) {
     if (!inside(s.to)) continue;
-    if (med !== null && s.l100 < med * 0.65) suspects.push({ ...s, why: 'parece faltar um abastecimento (consumo muito abaixo do normal)' });
+    if (s.estimated) segments.push(s);
+    else if (med !== null && s.l100 < med * 0.65) suspects.push({ ...s, why: 'parece faltar um abastecimento (consumo muito abaixo do normal)' });
     else if (tank && ref && s.km > (tank / (ref / 100)) * 1.1) suspects.push({ ...s, why: `${s.km} km não cabem num depósito de ${tank} L: faltou registar um abastecimento` });
     else segments.push(s);
   }
   const km = segments.reduce((t, s) => t + s.km, 0), litres = segments.reduce((t, s) => t + s.litres, 0);
-  return { avg: km ? (litres / km) * 100 : null, last: segments.length ? segments[segments.length - 1].l100 : null, segments, suspects, skipped: all.skipped.filter(inside).length, median: med };
+  return { avg: km ? (litres / km) * 100 : null, last: segments.length ? segments[segments.length - 1].l100 : null, segments, suspects, skipped: all.skipped.filter(inside).length, median: med, ref };
 }
 
 /**
@@ -113,6 +117,22 @@ export function pricePerLitre(logs: CarLog[]): number | null {
   return median(both.map((l) => num(l.amount)! / num(l.litres)!));
 }
 
+/**
+ * «Esqueci-me»: o abastecimento que faltou num troço a rever, estimado com as medianas. Litros: os que o troço
+ * gastaria ao consumo mediano do carro, menos os que estão registados. Valor: esses litros ao preço mediano por litro
+ * dos abastecimentos desse intervalo (sem nenhum, o dos últimos 10). Data: o meio do intervalo. Null se não faltar
+ * nada ou não houver consumo de referência.
+ */
+export function forgotten(logs: CarLog[], seg: { from: string; to: string; km: number; litres: number }, ref: number | null) {
+  if (!ref) return null;
+  const litres = Math.round(((seg.km * ref) / 100 - seg.litres) * 100) / 100;
+  if (litres <= 0) return null;
+  const inGap = logs.filter((l) => l.kind === 'fuel' && !l.estimated && num(l.litres) && num(l.amount) && l.logged_on >= seg.from && l.logged_on <= seg.to);
+  const ppl = median(inGap.map((l) => num(l.amount)! / num(l.litres)!)) ?? pricePerLitre(logs.filter((l) => !l.estimated));
+  const logged_on = addDaysIso(seg.from, Math.floor(days(seg.from, seg.to) / 2));
+  return { logged_on, litres, amount: ppl ? Math.round(litres * ppl * 100) / 100 : null, ppl };
+}
+
 /** Km feitos no período: último odómetro − primeiro (todos os registos com odómetro, não só os troços medidos). */
 export function kmIn(logs: CarLog[], p: Period): number {
   const o = logs.filter((l) => l.odometer !== null && l.logged_on >= p.from && l.logged_on <= p.to).sort(order).map((l) => l.odometer!);
@@ -140,6 +160,7 @@ export function flags(logs: CarLog[]): { id: string; why: string }[] {
   let lastOdo: number | null = null;
   const seen = new Set<string>();
   for (const l of sorted) {
+    if (l.estimated) continue; // o «esqueci-me» não tem odómetro de propósito
     if (l.kind === 'fuel' && num(l.litres) === null) {
       const a = num(l.amount);
       out.push({ id: l.id, why: a && ppl ? `sem litros (≈ ${(a / ppl).toFixed(1).replace('.', ',')} L estimados pelo preço; não entram no consumo)` : 'abastecimento sem litros' });

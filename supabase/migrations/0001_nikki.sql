@@ -236,6 +236,8 @@ alter table nikki.cars add column if not exists energy text not null default 'co
 alter table nikki.car_logs drop constraint if exists car_logs_kind_check;
 alter table nikki.car_logs add constraint car_logs_kind_check check (kind in ('fuel', 'charge', 'service', 'toll', 'other'));
 alter table nikki.car_logs add column if not exists note text check (length(note) <= 60);
+-- «Esqueci-me»: abastecimento que faltou, estimado pelas medianas (sem km e sem despesa).
+alter table nikki.car_logs add column if not exists estimated boolean not null default false;
 
 create table if not exists nikki.deadlines (
   id uuid primary key default gen_random_uuid(),

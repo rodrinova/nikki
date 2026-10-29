@@ -119,6 +119,10 @@ function seed() {
   }
   // Um abastecimento parcial do Golf a meio do mês passado (entra no troço seguinte).
   { const id = uid(), on = `${m1}-18`; db.expenses.push({ id, household_id: H, created_by: R, paid_by: R, other_id: null, amount: '25.00', split: 'mine', payer_share: null, spent_on: on, category: 'Carros', note: 'Combustível · Golf', car_id: GOLF, source: 'manual', created_at: `${on}T18:00:00Z` }); carLog(GOLF, on, 42130, 14.4, false, id, R, '25.00'); }
+  // Histórico mais antigo do Golf, com um abastecimento esquecido: o troço até ao de há dois meses fica a rever
+  // (1100 km com 38 L) e a Garagem propõe «Esqueci-me».
+  { const m3 = prevMonth(m2), m4 = prevMonth(m3);
+    for (const [on, odo, l, v] of [[`${m4}-05`, 39500, 38.0, '64.20'], [`${m3}-02`, 40100, 37.5, '63.40']] as const) db.car_logs.push({ id: uid(), household_id: H, car_id: GOLF, logged_on: on, odometer: odo, litres: l.toFixed(2), full_tank: true, kind: 'fuel', expense_id: null, amount: v, created_by: R, created_at: `${on}T12:00:00Z` }); }
   // Oficina e portagens do Golf (as portagens entram no €/km, não nos fixos) e um elétrico dos dois, com carregamentos.
   const extra = (car: string, on: string, kind: string, amount: string, note: string, by: string, odometer: number | null, split: 'mine' | 'shared') => {
     const id = uid();
