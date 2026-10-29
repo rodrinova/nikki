@@ -43,6 +43,7 @@ export function Wealth() {
         </div>
       ) : null} />
       {house && w.ready && <Celebrations w={w} k={`nikki_cheer_${house.id}_${w.casa ? 'casa' : 'eu'}`} onCheer={setCheer} />}
+      <NetWorth w={w} />
       <Score w={w} cheer={cheer} />
       <Free w={w} />
       <Steps w={w} />
@@ -313,6 +314,23 @@ function Goals({ w }: { w: W }) {
   const { goals } = useHouse();
   if (!goals.rows.some((g) => g.status === 'active' && /^(fund:|savings_rate|free_months|score)/.test(g.metric))) return null;
   return <section className="stack" aria-label="Objetivos"><span className="s">Objetivos</span><GoalsList casa={w.casa ? w : other} eu={w.casa ? other : w} /></section>;
+}
+
+/** O total do património: do casal (tudo) ou teu (o que é teu e a tua parte do que é dos dois). */
+function NetWorth({ w }: { w: W }) {
+  const { partner } = useSession();
+  const n = w.net;
+  if (!w.mine.length) return null;
+  const parts = w.casa
+    ? [`${money(n.invested)} a render`, n.total - n.invested > 0 ? `${money(n.total - n.invested)} em casa e carros` : '']
+    : [partner && n.shared ? `${money(n.own)} teu` : '', partner && n.shared ? `${money(n.shared)} a tua parte do que é dos dois` : '', `${money(n.invested)} a render`];
+  return (
+    <section className="tile pane networth" aria-label="Património total">
+      <span className="s">{w.casa ? (partner ? 'Património do casal' : 'Património') : 'O teu património'}</span>
+      <p className="xl">{eur(n.total, 0)}<small>€</small></p>
+      <p className="s">{parts.filter(Boolean).join(' · ')}</p>
+    </section>
+  );
 }
 
 function Assets({ w }: { w: W }) {

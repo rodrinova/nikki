@@ -868,3 +868,4 @@ button.ctile{border:0;text-align:left;align-items:flex-start;width:100%;font:inh
 .gym-table table{width:100%;border-collapse:collapse;font-size:var(--t-s);font-variant-numeric:tabular-nums;margin-top:8px}
 .gym-table th,.gym-table td{text-align:right;padding:6px 4px;border-bottom:1px solid var(--line)}
 .gym-table th:first-child,.gym-table td:first-child{text-align:left}
+.networth{display:flex;flex-direction:column;gap:8px;min-height:0}

@@ -63,6 +63,13 @@ export function useWealth(view: WealthView) {
     const cushionTarget = Math.round(CUSHION_MIN * (casa ? 1 : myShare));
     const sv = income > 0 && spend ? savings(income, spend.avg) : null;
     const plan = sv ? monthPlan(sv.surplus, (emergencyTarget ?? 0) - emergency.value, cushionTarget - cushion.value) : null;
+    // Património total (o que vale tudo, casa e carros incluídos): da casa, ou o teu com a tua parte do partilhado.
+    const net = {
+      total: mine.reduce((t, a) => t + a.mine, 0),
+      invested: mine.filter((a) => a.liq !== 'out').reduce((t, a) => t + a.mine, 0),
+      own: mine.filter((a) => a.owner_id !== null).reduce((t, a) => t + a.mine, 0),
+      shared: mine.filter((a) => a.owner_id === null).reduce((t, a) => t + a.mine, 0),
+    };
     const pools = mine.map((a) => ({ value: a.mine, real: a.real, liq: a.liq }));
     const fm = spend ? freeMonths(pools, spend.avg) : 0;
     const passiveYear = pools.filter((p) => p.liq !== 'out').reduce((t, p) => t + p.value * p.real, 0);
@@ -70,7 +77,7 @@ export function useWealth(view: WealthView) {
     const score = healthScore(scoreIn);
     const goal = suggestGoal({ ...scoreIn, plan: plan ?? monthPlan(0, 0, 0) }, score.total, today);
     return {
-      casa, solo, items, mine, spend, income, incomeRows, emergency, cushion, emergencyTarget, cushionTarget, sv, plan, fm, passiveYear,
+      casa, solo, items, mine, net, spend, income, incomeRows, emergency, cushion, emergencyTarget, cushionTarget, sv, plan, fm, passiveYear,
       score, badges: badges(scoreIn), goal, ready: !assets.loading && !snapshots.loading && (!casa || !monthTotals.loading),
     };
   }, [view, me, partner, myShare, assets.rows, assets.loading, snapshots.rows, snapshots.loading, incomes.rows, incomeEntries.rows, expenses.rows, monthTotals.rows, monthTotals.loading]);
