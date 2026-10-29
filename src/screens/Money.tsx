@@ -30,7 +30,8 @@ export function useMonth() {
     const today = todayStr(), key = monthKey(today);
     const spend = expenses.rows.filter((e) => e.category !== INVEST);
     const m = monthSpend(spend, me?.id ?? '', key);
-    const normal = normalMonth(spend, me?.id ?? '', today);
+    // Os eventos (casamento, batizado…) contam no mês, mas não no «mês normal».
+    const normal = normalMonth(spend.filter((e) => !e.occasion_id), me?.id ?? '', today);
     return { key, today, ...m, normal, pace: pace(m.total, normal, today) };
   }, [expenses.rows, me?.id]);
 }
@@ -153,7 +154,10 @@ export function ExpenseSheet() {
   const learn = useLearnFromPayment();
   const saveLog = useSaveCarLog();
   const { me, partner, house, myShare } = useSession();
-  const { cars, carLogs, on, expenses } = useHouse();
+  const { cars, carLogs, on, expenses, occasions } = useHouse();
+  // Eventos a decorrer (casamento, batizado…): a despesa pode ficar ligada a um. Mantém-se em «Guardar e outra».
+  const occs = on('eventos') ? occasions.rows.filter((o) => !o.archived) : [];
+  const [occ, setOcc] = useState<string | null>(null);
   const { close, toast } = useOverlays();
   // Num gesto: «45 pingo doce» dá o valor e a nota (e «ontem» ou «sábado», o dia); a categoria e a divisão
   // adivinham-se pelo que fizeste antes. Tudo se pode mudar em «Mudar».
@@ -220,7 +224,7 @@ export function ExpenseSheet() {
     if (car && f && (f.kind === 'fuel' || f.kind === 'charge') && !f.odo.trim() && !noKm) return setErr('E os km do conta-quilómetros? Sem eles, não entra no consumo.');
     setBusy(true);
     const { data, error } = await supabase.from('expenses').insert({
-      household_id: house.id, created_by: me.id, paid_by: me.id, amount: v, category: cat, spent_on, car_id: car?.id ?? null,
+      household_id: house.id, created_by: me.id, paid_by: me.id, amount: v, category: cat, spent_on, car_id: car?.id ?? null, occasion_id: occs.some((o) => o.id === occ) ? occ : null,
       split, other_id: split === 'mine' ? null : partner!.id, payer_share: split === 'shared' ? myShare : null,
       note: (car ? `${note.trim() || (f!.kind === 'fuel' ? 'Combustível' : f!.kind === 'charge' ? 'Carregamento' : f!.kind === 'toll' ? 'Portagens' : f!.kind === 'service' ? 'Oficina' : 'Carro')} · ${car.name}` : note.trim()).slice(0, 120) || null,
     }).select('id').single();
@@ -272,6 +276,7 @@ export function ExpenseSheet() {
         {(f.kind === 'fuel' || f.kind === 'charge') && !f.odo.trim() && <label className="check s"><input type="checkbox" checked={noKm} onChange={(e) => setNoKm(e.target.checked)} /> Não sei os km agora</label>}
       </div>}
       {sure && <BillFields c={bc} f={bf} set={setBf} amount={v ? toU(v) : 0} spent_on={spentOn} />}
+      {v && sure && occs.length > 0 && <div className="chips" role="group" aria-label="Evento">{chip(!occ, 'Sem evento', () => setOcc(null))}{occs.map((o) => chip(occ === o.id, o.name, () => setOcc(o.id)))}</div>}
       {more && partner && <div className="seg" role="group" aria-label="De quem é">
         {chip(split === 'mine', 'Minha', () => setSplit('mine'))}{chip(split === 'shared', 'Partilhada', () => setSplit('shared'))}{chip(split === 'other', ofName(partner.name), () => setSplit('other'))}
       </div>}

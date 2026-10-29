@@ -566,6 +566,18 @@ set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
 do $$ begin
   assert (select count(*) from nikki.gym_assessments where profile_id <> auth.uid()) + (select count(*) from nikki.gym_prefs where profile_id <> auth.uid()) = 0, 'a Inês não vê o ginásio do Rodrigo';
 end $$;
+-- Eventos: os da casa criam e veem; o housekeeping e quem é de fora não veem nada.
+insert into nikki.occasions (household_id, name, kind, budget) select v::uuid, 'Batizado', 'batizado', 1500 from ctx where k = 'h';
+insert into nikki.occasion_guests (household_id, occasion_id, name, people) select household_id, id, 'Avó', 2 from nikki.occasions;
+do $$ begin assert (select count(*) from nikki.occasion_guests) = 1, 'a casa vê os convidados'; end $$;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';
+do $$ begin
+  assert (select count(*) from nikki.occasions) + (select count(*) from nikki.occasion_guests) = 0, 'o housekeeping não vê eventos';
+end $$;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
+do $$ begin
+  assert (select count(*) from nikki.occasions) = 0, 'quem é de fora não vê eventos';
+end $$;
 rollback;
 
 \echo 'rls_test: tudo certo'
