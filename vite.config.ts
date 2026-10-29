@@ -1,6 +1,8 @@
 import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react-swc';
 import type { Plugin } from 'vite';
+import fs from 'node:fs';
+import { createHash } from 'node:crypto';
 
 declare const process: { env: Record<string, string | undefined> };
 
@@ -14,8 +16,8 @@ const CSP = [
   "worker-src 'self' blob: https://cdn.jsdelivr.net",
   `connect-src 'self' https://${SUPABASE} wss://${SUPABASE} https://cdn.jsdelivr.net`,
   `img-src 'self' data: blob: https://${SUPABASE}`,
-  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-  "font-src https://fonts.gstatic.com",
+  "style-src 'self' 'unsafe-inline'",
+  "font-src 'self' data:",
   "manifest-src 'self'",
   "object-src 'none'",
   "base-uri 'self'",
@@ -27,10 +29,35 @@ const csp = (): Plugin => ({
   transformIndexHtml: (html) => (process.env.VITE_DEMO === '1' ? html : html.replace('<head>', `<head>\n    <meta http-equiv="Content-Security-Policy" content="${CSP}" />\n    <meta name="referrer" content="strict-origin-when-cross-origin" />`)),
 });
 
+// O service worker leva a lista dos ficheiros desta versão (para os guardar ao instalar) e um nome de cache novo a
+// cada versão. Ficam de fora o leitor de PDF e o reconhecimento de texto, que só se carregam quando se usam.
+const swManifest = (): Plugin => ({
+  name: 'nikki-sw',
+  apply: 'build',
+  writeBundle(opts, bundle) {
+    if (process.env.VITE_DEMO === '1') return;
+    const dir = opts.dir!, sw = `${dir}/sw.js`;
+    if (!fs.existsSync(sw)) return;
+    const files = Object.keys(bundle).filter((f) => !/pdf|worker|\.map$|\.html$/.test(f)).sort();
+    const version = createHash('sha1').update(files.join('|')).digest('hex').slice(0, 10);
+    fs.writeFileSync(sw, fs.readFileSync(sw, 'utf8').replace('/*VERSION*/', version).replace('/*PRECACHE*/[]', JSON.stringify(files)));
+  },
+});
+
 // VITE_BASE: o caminho onde a app fica (no GitHub Pages, /nikki/). Por defeito, a raiz.
 export default defineConfig({
   base: process.env.VITE_BASE || '/',
-  plugins: [react(), csp()],
+  plugins: [react(), csp(), swManifest()],
+  build: {
+    // A demonstração é uma página só: a letra vai lá dentro.
+    assetsInlineLimit: process.env.VITE_DEMO === '1' ? 64_000 : 4096,
+    rollupOptions: {
+      output: {
+        // As bibliotecas mudam pouco: num ficheiro à parte, ficam guardadas no telemóvel de uma versão para a outra.
+        manualChunks: (id) => (/node_modules\/(react|react-dom|scheduler|react-router|react-router-dom|@supabase)\//.test(id) ? 'vendor' : undefined),
+      },
+    },
+  },
   resolve: { alias: { '@': new URL('./src', import.meta.url).pathname } },
   test: { environment: 'node', include: ['src/**/*.test.ts'] },
 });
