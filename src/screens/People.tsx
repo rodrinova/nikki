@@ -14,7 +14,7 @@ import { usePaid } from './Housekeeping';
 import { morning } from '@/lib/digest';
 import { todayStr } from '@/lib/dates';
 
-const inviteUrl = (token: string) => `${location.origin}/convite/${token}`;
+const inviteUrl = (token: string) => `${location.origin}${import.meta.env.BASE_URL}convite/${token}`;
 
 /** Partilha pelo menu do telemóvel (WhatsApp, Mensagens…) ou copia, se não houver. */
 export async function shareInvite(i: Pick<InviteRow, 'token' | 'code'>, house: string, toast: (m: string) => void) {

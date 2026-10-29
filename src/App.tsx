@@ -156,7 +156,7 @@ function useIntro() {
 export default function App() {
   const [intro, endIntro] = useIntro();
   return (
-    <Router>
+    <Router basename={DEMO ? undefined : import.meta.env.BASE_URL.replace(/\/$/, '') || undefined}>
       {intro && <Intro onDone={endIntro} />}
       <OverlayProvider>
         <SessionProvider><Shell /></SessionProvider>

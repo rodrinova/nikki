@@ -39,7 +39,7 @@ export function Login() {
     setBusy(true);
     const { error } = await supabase.auth.signInWithOtp({
       email: email.trim(),
-      options: { emailRedirectTo: location.origin, data: mode === 'new' ? { name: name.trim() } : undefined },
+      options: { emailRedirectTo: `${location.origin}${import.meta.env.BASE_URL}`, data: mode === 'new' ? { name: name.trim() } : undefined },
     });
     setBusy(false);
     if (error) return setErr(error.status === 429 ? 'Muitos pedidos seguidos. Espera um minuto e tenta outra vez.' : error.message);
