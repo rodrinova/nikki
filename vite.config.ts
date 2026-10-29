@@ -52,7 +52,8 @@ export default defineConfig({
     // A demonstração é uma página só: a letra vai lá dentro.
     assetsInlineLimit: process.env.VITE_DEMO === '1' ? 64_000 : 4096,
     rollupOptions: {
-      output: {
+      // A demonstração é uma página só: o código vai todo junto (sem partes à parte nem ecrãs carregados depois).
+      output: process.env.VITE_DEMO === '1' ? { inlineDynamicImports: true } : {
         // As bibliotecas mudam pouco: num ficheiro à parte, ficam guardadas no telemóvel de uma versão para a outra.
         manualChunks: (id) => (/node_modules\/(react|react-dom|scheduler|react-router|react-router-dom|@supabase)\//.test(id) ? 'vendor' : undefined),
       },
