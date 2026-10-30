@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback, useEffect, useState, type ComponentType } from 'react';
+import { Suspense, useCallback, useEffect, useState } from 'react';
 import { BrowserRouter, Link, MemoryRouter, Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom';
 import { DEMO } from '@/lib/supabase';
 import { SessionProvider, useSession } from '@/data/session';
@@ -17,23 +17,29 @@ import { Shop } from '@/screens/Shop';
 import { People, Profile } from '@/screens/People';
 import { Gate, Modules } from '@/screens/Modules';
 import { Tickets, lastPlace } from '@/screens/Tickets';
-import { Admin, useAdminBadge } from '@/screens/Admin';
-import { CarScreen, Garage } from '@/screens/Garage';
+import { useAdminBadge } from '@/data/adminBadge';
+import { Loading, later } from '@/ui/lazy';
 import { QuickAdd } from '@/screens/QuickAdd';
-import { BillScreen, Casa, CasaPart, CasaSetup } from '@/screens/Casa';
-import { HkDay, HkPart, Housekeeping } from '@/screens/Housekeeping';
-import { OccasionScreen, Occasions } from '@/screens/Occasions';
 import { Goals } from '@/screens/Goals';
-import { Housekeeper } from '@/screens/Housekeeper';
 import { moduleOf } from '@/lib/modules';
 
-// Ecrãs menos usados: só se carregam quando se abrem (a app abre mais depressa com a rede lenta). Se o ficheiro já
-// não existir (saiu uma versão nova entretanto), recarrega a app para a versão nova.
-const later = <T extends Record<string, ComponentType<any>>, K extends keyof T>(load: () => Promise<T>, name: K) =>
-  lazy(() => load().then((m) => ({ default: m[name] })).catch(() => { location.reload(); return new Promise<never>(() => {}); }));
+// Ecrãs menos usados (ou só de algumas pessoas): só se carregam quando se abrem.
 const Wealth = later(() => import('@/screens/Wealth'), 'Wealth');
 const Gym = later(() => import('@/screens/Gym'), 'Gym');
 const GymMetric = later(() => import('@/screens/Gym'), 'GymMetric');
+const Occasions = later(() => import('@/screens/Occasions'), 'Occasions');
+const OccasionScreen = later(() => import('@/screens/Occasions'), 'OccasionScreen');
+const Garage = later(() => import('@/screens/GarageScreens'), 'Garage');
+const CarScreen = later(() => import('@/screens/GarageScreens'), 'CarScreen');
+const Casa = later(() => import('@/screens/CasaScreens'), 'Casa');
+const CasaPart = later(() => import('@/screens/CasaScreens'), 'CasaPart');
+const BillScreen = later(() => import('@/screens/CasaScreens'), 'BillScreen');
+const CasaSetup = later(() => import('@/screens/CasaScreens'), 'CasaSetup');
+const Housekeeping = later(() => import('@/screens/HousekeepingScreens'), 'Housekeeping');
+const HkDay = later(() => import('@/screens/HousekeepingScreens'), 'HkDay');
+const HkPart = later(() => import('@/screens/HousekeepingScreens'), 'HkPart');
+const Admin = later(() => import('@/screens/Admin'), 'Admin');
+const Housekeeper = later(() => import('@/screens/Housekeeper'), 'Housekeeper');
 
 /**
  * Só o início tem barra de topo: a marca e o perfil. Os outros ecrãs começam no «Voltar».
@@ -80,7 +86,7 @@ function Shell() {
   useEffect(() => { document.body.classList.toggle('nobar', !onHub); }, [onHub]);
   useEffect(() => { scrollTo(0, 0); if (pathname !== '/melhorar' && pathname !== '/perfil') lastPlace.path = pathname; }, [pathname]);
 
-  if (!ready) return <div className="center" style={{ color: 'var(--ink)' }}><Face h={40} mode="busy" label="A carregar" /></div>;
+  if (!ready) return <Loading page />;
   if (!session) return (
     <div className="app"><main className="screen">
       <Routes>
@@ -96,19 +102,19 @@ function Shell() {
     return (
       <div className="app"><main className="screen"><Routes>
         <Route path="/historia" element={<Story />} />
-        {appAdmin && <Route path="/admin" element={<Admin />} />}
+        {appAdmin && <Route path="/admin" element={<Suspense fallback={<Loading />}><Admin /></Suspense>} />}
         <Route path="*" element={gate} />
       </Routes></main><SheetHost /></div>
     );
   }
   // Quem faz o housekeeping tem a sua NIKKI: só a lista da visita, as mensagens e as compras.
-  if (house.role === 'staff') return <><Housekeeper /><SheetHost /></>;
+  if (house.role === 'staff') return <><Suspense fallback={<Loading page />}><Housekeeper /></Suspense><SheetHost /></>;
   return (
     <HouseProvider>
       <HousePull />
       {onHub && <TopBar />}
       <div className="app"><main className="screen" key={pathname}>
-        <Suspense fallback={<div className="lazy-wait" aria-busy="true"><Face h={28} mode="busy" label="A abrir" /></div>}>
+        <Suspense fallback={<Loading label="A abrir" />}>
         <Routes>
           <Route path="/" element={<Hub />} />
           <Route path="/espacos" element={<Spaces />} />

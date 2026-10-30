@@ -15,9 +15,18 @@
     <link rel="icon" href="/icons/icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
     <title>NIKKI</title>
+    <!-- Antes do código chegar: o fundo certo e a cara da NIKKI a piscar, no mesmo sítio do ecrã «A carregar» da app. -->
+    <style>
+      html,body{margin:0;background:#0B0B0B;color:#F4F4F4}
+      @media (prefers-color-scheme: light){html,body{background:#EFEFEF;color:#0B0B0B}}
+      .boot{display:grid;place-items:center;min-height:100vh;min-height:100dvh}
+      .boot .eyes{transform-box:fill-box;transform-origin:50% 50%;animation:bootBlink 1.1s ease-in-out infinite}
+      @keyframes bootBlink{0%,55%,100%{transform:scaleY(1)}70%{transform:scaleY(.08)}}
+      @media (prefers-reduced-motion: reduce){.boot .eyes{animation:none}}
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root"><div class="boot" role="status" aria-busy="true"><svg height="40" width="51.1" viewBox="49 22 46 36" fill="currentColor" role="img" aria-label="A carregar"><path d="M62.15 38.89L52.62 24H51.2L62.15 41.11Z M62.15 38.89L51.2 56H52.62L62.15 41.11Z"/><path d="M81.35 38.89L90.88 24H92.3L81.35 41.11Z M81.35 38.89L92.3 56H90.88L81.35 41.11Z"/><path class="eyes" d="M62.15 24H65.35V56H62.15Z"/><path class="eyes" d="M78.15 24H81.35V56H78.15Z"/></svg></div></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

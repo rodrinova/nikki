@@ -5,6 +5,7 @@ import { useSession } from '@/data/session';
 import { useHouse } from '@/data/house';
 import { useOverlays } from '@/ui/overlays';
 import { Icon } from '@/ui/Icon';
+import { Loading } from '@/ui/lazy';
 import { eur, parseAmount, toU } from '@/lib/money';
 import { todayStr } from '@/lib/dates';
 import { shortDate } from '@/lib/admin';
@@ -117,7 +118,7 @@ export function OccasionScreen() {
   const stats = useStats();
   const [sp, setSp] = useSearchParams();
   const o = occasions.rows.find((x) => x.id === id);
-  if (!o) return <><Top title="Evento" /><p className="s">{occasions.loading ? 'A carregar…' : 'Este evento já não existe.'}</p></>;
+  if (!o) return <><Top title="Evento" />{occasions.loading ? <Loading /> : <p className="s">Este evento já não existe.</p>}</>;
   const s = stats(o);
   const part = (PARTS.find(([k]) => k === sp.get('ver'))?.[0] ?? 'convidados') as Part;
   async function archive(v: boolean) {

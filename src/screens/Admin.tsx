@@ -4,6 +4,7 @@ import { useSession } from '@/data/session';
 import { useOverlays } from '@/ui/overlays';
 import { Icon } from '@/ui/Icon';
 import { Face } from '@/brand/Face';
+import { Loading } from '@/ui/lazy';
 import { MODULES, moduleName } from '@/lib/modules';
 import { ago, fillWeeks, hoursLabel, shortDate } from '@/lib/admin';
 import { todayStr } from '@/lib/dates';
@@ -57,16 +58,6 @@ function useAdminData() {
 }
 
 /** Para o início e o perfil do administrador: pedidos à espera e tickets novos. */
-export function useAdminBadge() {
-  const { appAdmin } = useSession();
-  const [b, setB] = useState({ pending: 0, novo: 0 });
-  useEffect(() => {
-    if (!appAdmin) return;
-    call<Kpis>('admin_kpis').then((k) => setB({ pending: k.accounts.pending, novo: k.tickets.novo }), () => undefined);
-  }, [appAdmin]);
-  return b;
-}
-
 export function Admin() {
   const { d, setD, err, load } = useAdminData();
   const [tab, setTab] = useState<Tab | null>(null);
@@ -85,7 +76,7 @@ export function Admin() {
       <p className="s">Contas, casas, módulos e tickets. Aqui nunca aparece o que está dentro das casas: dinheiro, agendas, listas.</p>
       <div className="chips" role="tablist" aria-label="Secções">{TABS.map((t) => <button key={t} role="tab" className="press" aria-pressed={cur === t} aria-selected={cur === t} onClick={() => setTab(t)}>{label[t]}</button>)}</div>
       {err && <p className="err">{err === 'só para a administração da app' ? 'Este painel é só para a administração da app.' : err}</p>}
-      {!d && !err && <div className="center" style={{ color: 'var(--ink)', minHeight: 160 }}><Face h={32} mode="busy" label="A carregar" /></div>}
+      {!d && !err && <Loading />}
       {d && cur === 'pedidos' && <Requests people={pending} onDone={load} drop={(id) => setD({ ...d, people: d.people.filter((p) => p.id !== id) })} />}
       {d && cur === 'pessoas' && <People people={d.people} onDone={load} />}
       {d && cur === 'casas' && <Houses houses={d.houses} />}

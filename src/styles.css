@@ -871,7 +871,11 @@ button.ctile{border:0;text-align:left;align-items:flex-start;width:100%;font:inh
 .gym-table table{width:100%;border-collapse:collapse;font-size:var(--t-s);font-variant-numeric:tabular-nums;margin-top:8px}
 .gym-table th,.gym-table td{text-align:right;padding:6px 4px;border-bottom:1px solid var(--line)}
 .gym-table th:first-child,.gym-table td:first-child{text-align:left}
-.lazy-wait{display:grid;place-items:center;min-height:50vh;color:var(--sub)}
+.wait{display:grid;place-items:center;min-height:50vh;color:var(--ink)}
+.wait-page{min-height:100vh;min-height:100dvh}
+.wait-full{position:fixed;inset:0;z-index:80;min-height:0;background:var(--ground)}
+.wait:not(.wait-page) .face{animation:waitIn 240ms var(--ease-out) 120ms both}
+@keyframes waitIn{from{opacity:0;transform:scale(.92)}}
 
 /* Eventos */
 .occ{display:flex;flex-direction:column;gap:10px;padding:18px;color:inherit;text-decoration:none}

@@ -1,10 +1,11 @@
-import { useRef, useState } from 'react';
+import { Suspense, useRef, useState } from 'react';
 import { DEMO } from '@/lib/supabase';
 import { Icon } from '@/ui/Icon';
 import { addDays, monthKey, todayStr } from '@/lib/dates';
 import { readInvoice, type InvoiceRead } from '@/lib/invoice';
 import { imagesText, invoiceText, type ReadStep } from '@/lib/ocr';
-import { Scanner } from '@/ui/Scanner';
+import { Loading, later } from '@/ui/lazy';
+const Scanner = later(() => import('@/ui/Scanner'), 'Scanner');
 
 // A fatura de uma conta com consumo (água, luz, gás), pedida quando se regista a despesa e só nas casas que
 // acompanham os consumos. Lê-se no telemóvel (PDF ou fotografia): consumo, período e se é acerto. O ficheiro não
@@ -39,7 +40,7 @@ export function BillInvoice({ name, onRead }: { name: string; onRead: (r: Invoic
   return (
     <div className="bill-inv">
       <input ref={ref} type="file" accept="application/pdf,image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) go(() => invoiceText(f, (s, p) => setStep({ s, p }))); }} />
-      {scan && <Scanner title={`Fatura: ${name}`} onCancel={() => setScan(false)} onDone={(pages) => { setScan(false); go(async () => ({ text: await imagesText(pages, (s, p) => setStep({ s, p })), source: 'foto' })); }} />}
+      {scan && <Suspense fallback={<Loading full label="A abrir o scanner" />}><Scanner title={`Fatura: ${name}`} onCancel={() => setScan(false)} onDone={(pages) => { setScan(false); go(async () => ({ text: await imagesText(pages, (s, p) => setStep({ s, p })), source: 'foto' })); }} /></Suspense>}
       <p className="s">Para os consumos, a fatura de {name}: a NIKKI lê o consumo e o período aqui no telemóvel.</p>
       <div className="two-btn">
         <button type="button" className="btn quiet press" disabled={!!step} onClick={() => setScan(true)}><Icon n="cam" s={18} /> Fotografar</button>

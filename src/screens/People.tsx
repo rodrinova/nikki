@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { useSession } from '@/data/session';
 import { useLive } from '@/data/live';
 import type { InviteRow } from '@/data/house';
-import { useAdminBadge } from './Admin';
+import { useAdminBadge } from '@/data/adminBadge';
 import { useOverlays } from '@/ui/overlays';
 import { Icon } from '@/ui/Icon';
 import { Top } from './Home';
