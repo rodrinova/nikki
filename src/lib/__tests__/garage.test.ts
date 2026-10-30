@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { consumption, fixedIn, flags, kmIn, nextYear, period, perKm, anniversary, iucDue, longRun, paymentKind, pricePerLitre, waitingFull, yearlyInsurance, type CarLog } from '../garage';
+import { consumption, fixedIn, flags, forgotten, kmIn, nextYear, period, perKm, anniversary, iucDue, longRun, paymentKind, pricePerLitre, waitingFull, yearlyInsurance, type CarLog } from '../garage';
 
 let n = 0;
 const log = (d: string, odo: number | null, litres: number | null, full = true, kind: CarLog['kind'] = 'fuel'): CarLog =>
@@ -136,5 +136,37 @@ describe('os números principais do carro', () => {
     const months = (88 / 30.44); // 1 ago a 28 out
     expect(f.fixedMonth).toBe(Math.round(40 * 100_000 + (270 * 100_000) / months)); // 480 €/ano = 40 €/mês
     expect(f.perKm).not.toBeNull();
+  });
+});
+
+describe('esqueci-me: abastecimento que faltou, pelas medianas', () => {
+  const priced = (d: string, odo: number | null, litres: number, eur: number, full = true): CarLog => ({ ...log(d, odo, litres, full), amount: eur });
+  // Três troços normais a 6 L/100 km e um que salta um depósito (1200 km com 36 L = 3 L/100 km).
+  const base = [priced('2026-01-01', 10000, 30, 51), priced('2026-01-20', 10500, 30, 51), priced('2026-02-10', 11000, 30, 52.5),
+    priced('2026-03-01', 11500, 30, 54), priced('2026-04-02', 12700, 36, 63)];
+  it('o troço com um depósito a menos fica a rever', () => {
+    const c = consumption(base);
+    expect(c.suspects.map((x) => x.km)).toEqual([1200]);
+    expect(c.ref).toBe(6);
+  });
+  it('estima os litros pela mediana do consumo e o valor pelo preço mediano desse intervalo', () => {
+    const c = consumption(base), seg = c.suspects[0];
+    const f = forgotten(base, seg, c.ref)!;
+    expect(f.litres).toBe(36); // 1200 km × 6 L/100 km = 72 L; registados 36
+    expect(f.ppl).toBeCloseTo((54 / 30 + 63 / 36) / 2, 10); // os dois abastecimentos do intervalo
+    expect(f.amount).toBeCloseTo(36 * f.ppl!, 2);
+    expect(f.logged_on).toBe('2026-03-17'); // o meio de 1 mar → 2 abr
+  });
+  it('com o estimado, o troço conta (à mediana) e sai da revisão; não é marcado por não ter km', () => {
+    const c = consumption(base), f = forgotten(base, c.suspects[0], c.ref)!;
+    const est: CarLog = { ...log(f.logged_on, null, f.litres, false), amount: f.amount, estimated: true };
+    const after = consumption([...base, est]);
+    expect(after.suspects).toEqual([]);
+    expect(after.segments.at(-1)!.l100).toBeCloseTo(6, 10);
+    expect(flags([...base, est])).toEqual([]);
+  });
+  it('não estima quando não falta nada ou não há referência', () => {
+    expect(forgotten(base, { from: '2026-01-01', to: '2026-01-20', km: 500, litres: 40 }, 6)).toBeNull();
+    expect(forgotten(base, { from: '2026-01-01', to: '2026-01-20', km: 500, litres: 10 }, null)).toBeNull();
   });
 });

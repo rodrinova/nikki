@@ -143,7 +143,7 @@ function useHouseData() {
     hkLog: useLive<HkLogRow>('hk_log', kh, 'id, task_id, done_on, done_by, created_at', { column: 'done_on', ascending: false }),
     hkMessages: useLive<HkMessageRow>('hk_messages', kh, 'id, author_id, body, photo_path, created_at', { column: 'created_at' }),
     hkPaid: useLive<HkPaidRow>('hk_paid', kh, 'hk_id, month, expense_id, paid_by, created_at', { column: 'month' }),
-    carLogs: useLive<CarLog>('car_logs', gh, 'id, car_id, logged_on, odometer, litres, full_tank, kind, expense_id, amount, note, created_at', { column: 'logged_on' }),
+    carLogs: useLive<CarLog>('car_logs', gh, 'id, car_id, logged_on, odometer, litres, full_tank, kind, expense_id, amount, note, estimated, created_at', { column: 'logged_on' }),
   };
   const monthTotals = useMonthTotals(ph ?? null, d.expenses.rows);
   const gym = useGym(on('ginasio') ? me?.id : undefined);
