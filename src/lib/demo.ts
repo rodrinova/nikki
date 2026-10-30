@@ -141,6 +141,10 @@ function seed() {
     ];
     db.occasion_gifts = [{ id: 'demo-p1', household_id: H, occasion_id: BAT, from_name: 'Avós Fernandes', amount: '200.00', item: null, thanked: false, created_at: ago(3) }];
   }
+  // Histórico mais antigo do Golf, com um abastecimento esquecido: o troço até ao de há dois meses fica a rever
+  // (1100 km com 38 L) e a Garagem propõe «Esqueci-me».
+  { const m3 = prevMonth(m2), m4 = prevMonth(m3);
+    for (const [on, odo, l, v] of [[`${m4}-05`, 39500, 38.0, '64.20'], [`${m3}-02`, 40100, 37.5, '63.40']] as const) db.car_logs.push({ id: uid(), household_id: H, car_id: GOLF, logged_on: on, odometer: odo, litres: l.toFixed(2), full_tank: true, kind: 'fuel', expense_id: null, amount: v, created_by: R, created_at: `${on}T12:00:00Z` }); }
   // Oficina e portagens do Golf (as portagens entram no €/km, não nos fixos) e um elétrico dos dois, com carregamentos.
   const extra = (car: string, on: string, kind: string, amount: string, note: string, by: string, odometer: number | null, split: 'mine' | 'shared') => {
     const id = uid();

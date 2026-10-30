@@ -150,7 +150,7 @@ function useHouseData() {
     occItems: useLive<OccItem>('occasion_items', eh, 'id, occasion_id, kind, title, due_on, done', { column: 'created_at' }),
     occVendors: useLive<Vendor>('occasion_vendors', eh, 'id, occasion_id, name, service, contact, total, paid', { column: 'created_at' }),
     occGifts: useLive<Gift>('occasion_gifts', eh, 'id, occasion_id, from_name, amount, item, thanked', { column: 'created_at' }),
-    carLogs: useLive<CarLog>('car_logs', gh, 'id, car_id, logged_on, odometer, litres, full_tank, kind, expense_id, amount, note, created_at', { column: 'logged_on' }),
+    carLogs: useLive<CarLog>('car_logs', gh, 'id, car_id, logged_on, odometer, litres, full_tank, kind, expense_id, amount, note, estimated, created_at', { column: 'logged_on' }),
   };
   const monthTotals = useMonthTotals(ph ?? null, d.expenses.rows);
   const gym = useGym(on('ginasio') ? me?.id : undefined);
