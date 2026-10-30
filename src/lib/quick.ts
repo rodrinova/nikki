@@ -101,7 +101,16 @@ export function parseQuick(text: string, today: string, ctx: QuickCtx = {}): Qui
 
   // O carro e o evento, pelos nomes da casa (o nome inteiro, sem acentos).
   for (const c of ctx.cars ?? []) { const n = norm(c.name).toLowerCase().trim(); if (n && take(new RegExp(`\\s(?:(?:do|da|no|na|o|a) )?${esc(n)}\\s`))) { out.car = c.id; out.category = 'Carros'; break; } }
-  for (const v of ctx.occasions ?? []) { const n = norm(v.name).toLowerCase().trim(); if (n && new RegExp(`\\s${esc(n)}\\s`).test(t)) { take(new RegExp(`\\s(?:(?:do|da|para o|para a) )?${esc(n)}\\s`)); out.occasion = v.id; break; } }
+  // O evento: pelo nome inteiro ou, se não, por uma palavra marcante dele que só ele tem («casamento» → «O nosso casamento»).
+  const occs = (ctx.occasions ?? []).map((v) => ({ id: v.id, n: norm(v.name).toLowerCase().trim() })).filter((v) => v.n);
+  const occWords = (n: string) => n.split(/\s+/).filter((w) => w.length >= 5);
+  for (const v of occs) {
+    if (new RegExp(`\\s${esc(v.n)}\\s`).test(t)) { take(new RegExp(`\\s(?:(?:do|da|para o|para a) )?${esc(v.n)}\\s`)); out.occasion = v.id; break; }
+  }
+  if (!out.occasion) for (const v of occs) {
+    const w = occWords(v.n).find((x) => new RegExp(`\\s${esc(x)}\\s`).test(t) && occs.filter((o) => occWords(o.n).includes(x)).length === 1);
+    if (w) { take(new RegExp(`\\s(?:(?:do|da|no|na|para o|para a) )?${esc(w)}\\s`)); out.occasion = v.id; break; }
+  }
 
   // O valor (depois das datas e das partes, para «12/10» e «60/40» não contarem como valor).
   const am = take(/\s(\d{1,6}(?:[.,]\d{1,2})?)\s?(?:€|eur|euros)?\s/);

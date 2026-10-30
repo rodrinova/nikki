@@ -79,6 +79,10 @@ describe('escrever tudo de uma vez', () => {
     expect(parseQuick('15 #saude vitaminas', T, ctx)).toMatchObject({ note: 'Vitaminas', category: 'Saúde' });
     expect(parseQuick('60 galp golf', T, ctx)).toMatchObject({ amount: '60', note: 'Galp', category: 'Carros', car: 'g' });
     expect(parseQuick('300 flores casamento', T, ctx)).toMatchObject({ amount: '300', note: 'Flores', occasion: 'c' });
+    const two = { ...ctx, occasions: [{ id: 'n', name: 'O nosso casamento' }, { id: 'b', name: 'Batizado da Matilde' }] };
+    expect(parseQuick('551,25 BOSS casamento 15/09', T, two)).toMatchObject({ amount: '551.25', note: 'BOSS', occasion: 'n', day: '2026-09-15' });
+    expect(parseQuick('40 bolo do batizado', T, two)).toMatchObject({ note: 'Bolo', occasion: 'b' });
+    expect(parseQuick('40 matilde prenda', T, two).occasion).toBe('b');
   });
   it('tudo junto, por qualquer ordem', () => {
     expect(parseQuick('ontem 62,40 jantar fora restaurante partilhada pagou a Inês', T, ctx)).toEqual({
