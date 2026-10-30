@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useState, type ComponentType } from 'react';
 import { BrowserRouter, Link, MemoryRouter, Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom';
 import { DEMO } from '@/lib/supabase';
 import { SessionProvider, useSession } from '@/data/session';
@@ -18,16 +18,22 @@ import { People, Profile } from '@/screens/People';
 import { Gate, Modules } from '@/screens/Modules';
 import { Tickets, lastPlace } from '@/screens/Tickets';
 import { Admin, useAdminBadge } from '@/screens/Admin';
-import { Wealth } from '@/screens/Wealth';
 import { CarScreen, Garage } from '@/screens/Garage';
 import { QuickAdd } from '@/screens/QuickAdd';
 import { BillScreen, Casa, CasaPart, CasaSetup } from '@/screens/Casa';
 import { HkDay, HkPart, Housekeeping } from '@/screens/Housekeeping';
 import { OccasionScreen, Occasions } from '@/screens/Occasions';
 import { Goals } from '@/screens/Goals';
-import { Gym, GymMetric } from '@/screens/Gym';
 import { Housekeeper } from '@/screens/Housekeeper';
 import { moduleOf } from '@/lib/modules';
+
+// Ecrãs menos usados: só se carregam quando se abrem (a app abre mais depressa com a rede lenta). Se o ficheiro já
+// não existir (saiu uma versão nova entretanto), recarrega a app para a versão nova.
+const later = <T extends Record<string, ComponentType<any>>, K extends keyof T>(load: () => Promise<T>, name: K) =>
+  lazy(() => load().then((m) => ({ default: m[name] })).catch(() => { location.reload(); return new Promise<never>(() => {}); }));
+const Wealth = later(() => import('@/screens/Wealth'), 'Wealth');
+const Gym = later(() => import('@/screens/Gym'), 'Gym');
+const GymMetric = later(() => import('@/screens/Gym'), 'GymMetric');
 
 /**
  * Só o início tem barra de topo: a marca e o perfil. Os outros ecrãs começam no «Voltar».
@@ -102,6 +108,7 @@ function Shell() {
       <HousePull />
       {onHub && <TopBar />}
       <div className="app"><main className="screen" key={pathname}>
+        <Suspense fallback={<div className="lazy-wait" aria-busy="true"><Face h={28} mode="busy" label="A abrir" /></div>}>
         <Routes>
           <Route path="/" element={<Hub />} />
           <Route path="/espacos" element={<Spaces />} />
@@ -134,6 +141,7 @@ function Shell() {
           <Route path="/em-breve/:k" element={<SoonRoute />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        </Suspense>
       </main></div>
       <BottomBar />
       <SheetHost />

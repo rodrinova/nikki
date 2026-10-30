@@ -1,3 +1,4 @@
+import { cache } from '@/lib/cache';
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
@@ -41,6 +42,9 @@ export const useSession = () => {
 };
 
 const HOUSE_KEY = 'nikki_house';
+// Resumo da conta guardado neste aparelho (quem sou, as casas, quem lá vive): a app abre logo com ele e confirma
+// com a rede a seguir. Apaga-se ao sair, com a cópia dos dados.
+const SNAP = (uid: string) => `nikki_session_${uid}`;
 const COLORS = ['#8EA6BD', '#D29B7A', '#94B096', '#B7A2C9', '#C9B37A'];
 
 export function SessionProvider({ children }: { children: ReactNode }) {
@@ -57,18 +61,35 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => { setSession(data.session); if (!data.session) setReady(true); });
-    const { data } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
+    const { data } = supabase.auth.onAuthStateChange((e, s) => {
+      setSession(s);
+      if (e === 'SIGNED_OUT') { cache.clear(); try { Object.keys(localStorage).filter((k) => k.startsWith('nikki_session_')).forEach((k) => store.remove(k)); } catch { /* sem armazenamento */ } }
+    });
     return () => data.subscription.unsubscribe();
   }, []);
+
+  // Com sessão e um resumo guardado: mostra-o já (a rede confirma em reload).
+  useEffect(() => {
+    const uid = session?.user.id;
+    if (!uid || ready) return;
+    try {
+      const v = JSON.parse(store.get(SNAP(uid)) ?? 'null');
+      if (!v) return;
+      setMe(v.me); setAppAdmin(v.appAdmin); setHouses(v.houses); setMembers(v.members); setStaff(v.staff); setRatioRow(v.ratioRow);
+      setReady(true);
+    } catch { /* resumo estragado: espera pela rede */ }
+  }, [session?.user.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const reload = useCallback(async () => {
     const uid = session?.user.id;
     if (!uid) { setMe(null); setAppAdmin(false); setHouses([]); setMembers([]); setReady(true); return; }
-    const [{ data: p }, { data: ms }, { data: adm }] = await Promise.all([
+    const [{ data: p, error: pe }, { data: ms }, { data: adm }] = await Promise.all([
       supabase.from('profiles').select('id, name, color, status, request, requested_at').eq('id', uid).maybeSingle(),
       supabase.from('memberships').select('household_id, role, households(name)').eq('profile_id', uid),
       supabase.rpc('is_app_admin'),
     ]);
+    // Sem rede: fica o resumo guardado, se houver.
+    if (pe && store.get(SNAP(uid))) { setReady(true); return; }
     setMe(p as Me | null);
     setAppAdmin(adm === true);
     // Última visita (uma vez por arranque): a administração vê quem usa a app, nunca o quê.
@@ -77,6 +98,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setHouses(hs);
     const h = hs.find((x) => x.id === houseId) ?? hs[0] ?? null;
     if (h && h.id !== houseId) { setHouseId(h.id); store.set(HOUSE_KEY, h.id); }
+    let snap: { members: Member[]; staff: Profile[]; ratioRow: State['ratioRow'] } = { members: [], staff: [], ratioRow: null };
     if (h) {
       const [{ data: mm }, { data: rr }] = await Promise.all([
         supabase.from('memberships').select('profile_id, role, profiles(id, name, color)').eq('household_id', h.id).order('joined_at'),
@@ -85,8 +107,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       const all = (mm ?? []).map((m: any, k: number) => ({ id: m.profile_id, role: m.role, name: m.profiles?.name ?? '—', color: m.profiles?.color ?? COLORS[k % COLORS.length] }));
       setMembers(all.filter((m) => m.role !== 'staff'));
       setStaff(all.filter((m) => m.role === 'staff').map(({ id, name, color }) => ({ id, name, color })));
-      setRatioRow((rr ?? [])[0] ? { ...(rr as any)[0], ratio_a: Number((rr as any)[0].ratio_a) } : null);
+      const ratio = (rr ?? [])[0] ? { ...(rr as any)[0], ratio_a: Number((rr as any)[0].ratio_a) } : null;
+      setRatioRow(ratio);
+      snap = { members: all.filter((m) => m.role !== 'staff'), staff: all.filter((m) => m.role === 'staff').map(({ id, name, color }) => ({ id, name, color })), ratioRow: ratio };
     } else { setMembers([]); setStaff([]); setRatioRow(null); }
+    store.set(SNAP(uid), JSON.stringify({ me: p, appAdmin: adm === true, houses: hs, ...snap }));
     setReady(true);
   }, [session?.user.id, houseId]);
 
