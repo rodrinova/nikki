@@ -190,3 +190,25 @@ export function parseAmount(s: string): string | null {
   const [i, f = ''] = t.split('.');
   return `${Number(i)}.${(f + '00').slice(0, 2)}`;
 }
+
+/**
+ * A parte de `who` mês a mês nos últimos `n` meses (do mais antigo ao corrente, que vem marcado como em curso) e a média
+ * dos meses completos dessa janela, desde o primeiro registo (o mês corrente nunca conta). Sem nenhum mês completo: null.
+ */
+export function monthlySeries(expenses: Expense[], who: string, today: string, n = 12) {
+  const cur = monthKey(today);
+  const keys: string[] = [cur];
+  while (keys.length < n) keys.unshift(prevMonth(keys[0]));
+  const by = new Map<string, number>();
+  let first: string | null = null;
+  for (const e of expenses) {
+    const p = partOf(e, who);
+    if (!p) continue;
+    const k = monthKey(e.spent_on);
+    by.set(k, (by.get(k) ?? 0) + p);
+    if (!first || k < first) first = k;
+  }
+  const months = keys.map((key) => ({ key, total: by.get(key) ?? 0, current: key === cur }));
+  const done = months.filter((m) => !m.current && first !== null && m.key >= first);
+  return { months, avg: done.length ? Math.round(done.reduce((t, m) => t + m.total, 0) / done.length) : null };
+}
