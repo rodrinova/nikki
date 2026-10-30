@@ -162,11 +162,15 @@ describe('o excedente do fundo de emergência passa para o fundo de maneio', () 
 });
 
 describe('cushionMin', () => {
-  it('2 000 € sem filhos e mais 500 € por cada filho', () => {
+  it('2 000 € por adulto e mais 500 € por cada filho', () => {
     expect(cushionMin()).toBe(2_000 * U);
-    expect(cushionMin(0)).toBe(2_000 * U);
-    expect(cushionMin(1)).toBe(2_500 * U);
-    expect(cushionMin(3)).toBe(3_500 * U);
+    expect(cushionMin(0, 2)).toBe(4_000 * U);
+    expect(cushionMin(1, 2)).toBe(4_500 * U);
+    expect(cushionMin(3, 1)).toBe(3_500 * U);
+  });
+  it('na vista de uma pessoa: os seus 2 000 € e a sua parte dos filhos', () => {
+    expect(cushionMin(2, 1, 0.5)).toBe(2_500 * U);
+    expect(cushionMin(0, 1, 0.5)).toBe(2_000 * U);
   });
   it('ignora valores sem sentido', () => {
     expect(cushionMin(-2)).toBe(2_000 * U);

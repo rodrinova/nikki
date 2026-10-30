@@ -210,5 +210,5 @@ export function monthlySeries(expenses: Expense[], who: string, today: string, n
   }
   const months = keys.map((key) => ({ key, total: by.get(key) ?? 0, current: key === cur }));
   const done = months.filter((m) => !m.current && first !== null && m.key >= first);
-  return { months, avg: done.length ? Math.round(done.reduce((t, m) => t + m.total, 0) / done.length) : null };
+  return { months, first, avg: done.length ? Math.round(done.reduce((t, m) => t + m.total, 0) / done.length) : null };
 }

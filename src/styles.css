@@ -916,3 +916,10 @@ button.ctile{border:0;text-align:left;align-items:flex-start;width:100%;font:inh
 .yb:focus-visible .yb-bar{stroke:var(--ink);stroke-width:2}
 .ybars-avg{stroke:var(--accent);stroke-width:1.5;stroke-dasharray:4 3}
 .ybars-avg-k{display:inline-block;width:14px;height:0;border-top:1.5px dashed var(--accent);vertical-align:middle;margin-right:6px}
+/* Gráficos com escala: dois dedos (o resto da página continua a deslizar na vertical) */
+.net-chart svg,.ybars svg{touch-action:pan-y;user-select:none;-webkit-user-select:none}
+.zoom-hint{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:0;font-size:12px}
+.zoom-hint button{border:0;background:none;color:var(--ink);text-decoration:underline;font-size:12px;padding:6px 0;flex-shrink:0}
+/* Despesas pagas por ti: uma risca laranja discreta à esquerda e um fundo levemente quente */
+.rows > .paid-me{position:relative;background:linear-gradient(90deg,color-mix(in srgb,var(--accent) 7%,transparent),transparent 70%)}
+.rows > .paid-me::before{content:'';position:absolute;left:-10px;top:12px;bottom:12px;width:3px;border-radius:2px;background:var(--accent);opacity:.75}
