@@ -4,7 +4,7 @@ import { useHouse, type AssetRow, type GoalRow } from './house';
 import { monthKey, todayStr } from '@/lib/dates';
 import { partOf, toU } from '@/lib/money';
 import {
-  EMERGENCY_MONTHS, cushionMin, avgMonthly, badges, freeMonths, fundCheck, healthScore, incomeMonthly, liqOf, monthPlan, splitFunds,
+  EMERGENCY_MONTHS, cushionMin, avgMonthly, badges, freeMonths, fundCheck, healthScore, incomeMonthly, liqOf, monthPlan, netSeries, splitFunds,
   realReturn, savings, suggestGoal, type FundRole,
 } from '@/lib/wealth';
 
@@ -36,6 +36,10 @@ export function useWealth(view: WealthView) {
       return { ...a, value, part, mine: Math.round(value * part), liq: liqOf(a.kind), real: realReturn(Number(a.expected_return)) };
     });
     const mine = items.filter((a) => a.part > 0);
+    // Na vista de uma pessoa, a lista mostra só o que é dela e o que é dos dois.
+    const shown = casa ? items : mine;
+    // Evolução: os valores registados (com data) de cada ativo, pela parte de quem vê.
+    const history = netSeries(assets.rows.map((a) => ({ id: a.id, part: partOfAsset(a), archived: a.archived })), snapshots.rows.map((s) => ({ asset_id: s.asset_id, on_date: s.on_date, value: toU(s.value) })));
 
     // Despesa média: da casa (totais por mês, com as «só minhas» de cada um) ou a parte de quem vê.
     let spend;
@@ -77,7 +81,7 @@ export function useWealth(view: WealthView) {
     const score = healthScore(scoreIn);
     const goal = suggestGoal({ ...scoreIn, plan: plan ?? monthPlan(0, 0, 0) }, score.total, today);
     return {
-      casa, solo, items, mine, net, spend, income, incomeRows, emergency, cushion, emergencyTarget, cushionTarget, sv, plan, fm, passiveYear,
+      casa, solo, items, mine, shown, history, net, spend, income, incomeRows, emergency, cushion, emergencyTarget, cushionTarget, sv, plan, fm, passiveYear,
       score, badges: badges(scoreIn), goal, ready: !assets.loading && !snapshots.loading && (!casa || !monthTotals.loading),
     };
   }, [view, me, partner, myShare, house?.children, assets.rows, assets.loading, snapshots.rows, snapshots.loading, incomes.rows, incomeEntries.rows, expenses.rows, monthTotals.rows, monthTotals.loading]);

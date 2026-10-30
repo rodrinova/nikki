@@ -893,3 +893,8 @@ button.ctile{border:0;text-align:left;align-items:flex-start;width:100%;font:inh
 .kids-n{display:inline-flex;align-items:center;gap:10px;font-size:var(--t-s)}
 .kids-n .tb{min-width:36px;padding:0}
 .kids-n .tb:disabled{opacity:.4}
+.net-chart{margin:6px 0 0}
+.net-chart svg{width:100%;height:auto;display:block;touch-action:pan-y}
+.net-line{stroke:var(--ink)}
+.net-area{fill:var(--ink);opacity:.06}
+.net-dot{fill:var(--ink)}

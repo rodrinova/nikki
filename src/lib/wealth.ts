@@ -249,3 +249,32 @@ export function suggestGoal(x: ScoreIn & { plan: ReturnType<typeof monthPlan> },
   if (x.savingsRate !== null && x.savingsRate < 0.2) return { title: 'Poupar 20% do que entra', metric: 'savings_rate', target: 20, due: monthsAhead(today, 6) };
   return { title: `Chegar a ${Math.floor(x.freeMonths) + 1} meses livres`, metric: 'free_months', target: Math.floor(x.freeMonths) + 1, due: monthsAhead(today, 24) };
 }
+
+export interface SeriesAsset { id: string; part: number; archived: boolean }
+export interface SeriesSnap { asset_id: string; on_date: string; value: number }
+
+/**
+ * Evolução do património: um ponto por cada dia com um valor registado. Em cada dia, cada ativo vale o último valor
+ * registado até aí (vezes a parte de quem vê). Um ativo retirado do património conta até ao último valor registado.
+ */
+export function netSeries(assets: SeriesAsset[], snaps: SeriesSnap[]): { on: string; v: number }[] {
+  const by = new Map(assets.filter((a) => a.part > 0).map((a) => [a.id, a]));
+  const rows = snaps.filter((s) => by.has(s.asset_id)).sort((a, b) => (a.on_date < b.on_date ? -1 : a.on_date > b.on_date ? 1 : 0));
+  const lastOn = new Map<string, string>();
+  for (const s of rows) lastOn.set(s.asset_id, s.on_date);
+  const cur = new Map<string, number>();
+  const out: { on: string; v: number }[] = [];
+  for (let i = 0; i < rows.length; i++) {
+    const s = rows[i];
+    cur.set(s.asset_id, s.value);
+    if (rows[i + 1]?.on_date === s.on_date) continue;
+    let v = 0;
+    for (const [id, val] of cur) {
+      const a = by.get(id)!;
+      if (a.archived && lastOn.get(id)! < s.on_date) continue;
+      v += val * a.part;
+    }
+    out.push({ on: s.on_date, v: Math.round(v) });
+  }
+  return out;
+}
