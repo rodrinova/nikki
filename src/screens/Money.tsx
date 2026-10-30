@@ -33,9 +33,12 @@ export function useMonth(at?: string) {
     const today = todayStr(), key = at ?? monthKey(today);
     const spend = expenses.rows.filter((e) => e.category !== INVEST);
     const m = monthSpend(spend, me?.id ?? '', key);
-    // Os eventos (casamento, batizado…) contam no mês, mas não no «mês normal».
-    const normal = normalMonth(spend.filter((e) => !e.occasion_id), me?.id ?? '', today);
-    return { key, today, current: key === monthKey(today), ...m, normal, pace: pace(m.total, normal, today) };
+    // Os eventos (casamento, batizado…) contam no total do mês, mas à parte: o ritmo, o normal e as comparações
+    // são só com o dia a dia (senão um casamento faria qualquer mês parecer fora do normal).
+    const daily = spend.filter((e) => !e.occasion_id);
+    const everyday = monthSpend(daily, me?.id ?? '', key).total;
+    const normal = normalMonth(daily, me?.id ?? '', today);
+    return { key, today, current: key === monthKey(today), ...m, everyday, events: m.total - everyday, normal, pace: pace(everyday, normal, today) };
   }, [expenses.rows, me?.id, at]);
 }
 
@@ -86,20 +89,23 @@ const monthTitle = (k: string, year = monthKey(todayStr()).slice(0, 4)) => { con
 
 function Spend() {
   const { me, partner } = useSession();
-  const { expenses } = useHouse();
+  const { expenses, occasions } = useHouse();
   const [key, setKey] = useMonthParam();
   const m = useMonth(key);
   const p = m.pace;
   const seen = useSeen('money');
   const spendRows = useMemo(() => expenses.rows.filter((e) => e.category !== INVEST && !e.occasion_id), [expenses.rows]);
-  const year = useMemo(() => monthlySeries(spendRows, me?.id ?? '', todayStr()), [spendRows, me?.id]);
   // Para o gráfico: desde o primeiro registo (até 10 anos), com pelo menos 12 meses.
   const hist = useMemo(() => {
     const s = monthlySeries(spendRows, me?.id ?? '', todayStr(), 120);
     const i = s.first ? s.months.findIndex((m) => m.key >= s.first!) : s.months.length;
-    return { months: s.months.slice(Math.min(i, s.months.length - 12)), first: s.first };
-  }, [spendRows, me?.id]);
-  const vsAvg = !m.current && year.avg && m.total > 0 ? Math.round((m.total / year.avg - 1) * 100) : null;
+    // O que foi de eventos, mês a mês, por cima de cada barra (contam no mês, mas à parte).
+    const ev = monthlySeries(expenses.rows.filter((e) => e.category !== INVEST && !!e.occasion_id), me?.id ?? '', todayStr(), 120);
+    const evBy = new Map(ev.months.map((x) => [x.key, x.total]));
+    return { months: s.months.slice(Math.min(i, s.months.length - 12)).map((x) => ({ ...x, events: evBy.get(x.key) ?? 0 })) };
+  }, [spendRows, expenses.rows, me?.id]);
+  const evNames = useMemo(() => [...new Set(expenses.rows.filter((e) => e.occasion_id && monthKey(e.spent_on) === key).map((e) => occasions.rows.find((o) => o.id === e.occasion_id)?.name).filter(Boolean))].join(', '), [expenses.rows, occasions.rows, key]);
+  const vsAvg = !m.current && m.normal && m.everyday > 0 ? Math.round((m.everyday / m.normal - 1) * 100) : null;
   return (
     <>
       <div className="mnav">
@@ -107,7 +113,8 @@ function Spend() {
         <span className="mnav-t">{monthTitle(key)}{!m.current && <button type="button" className="mnav-now press" onClick={() => setKey(monthKey(todayStr()))}>Este mês</button>}</span>
         <button type="button" className="tb press" aria-label="Mês seguinte" disabled={m.current} onClick={() => setKey(nextMonth(key))}><Icon n="arrow" s={16} /></button>
       </div>
-      <div className="swap" key={key}><p className="xl">{eur(m.total, 0)}<small>€</small></p><p className="s" style={{ marginTop: 8 }}>{partner ? `A tua parte em ${monthName(m.key)}` : monthTitle(m.key)}{vsAvg !== null ? ` · ${vsAvg === 0 ? 'na média' : `${Math.abs(vsAvg)}% ${vsAvg > 0 ? 'acima' : 'abaixo'} da média`}` : ''}</p></div>
+      <div className="swap" key={key}><p className="xl">{eur(m.total, 0)}<small>€</small></p><p className="s" style={{ marginTop: 8 }}>{partner ? `A tua parte em ${monthName(m.key)}` : monthTitle(m.key)}{vsAvg !== null ? ` · ${vsAvg === 0 ? 'no teu normal' : `${Math.abs(vsAvg)}% ${vsAvg > 0 ? 'acima' : 'abaixo'} do teu normal`}` : ''}</p></div>
+      {m.events > 0 && <p className="s why"><span className="dot" aria-hidden="true" /><span>{eur(m.everyday, 0)} € do dia a dia + {eur(m.events, 0)} € {evNames ? `do ${evNames}` : 'de eventos'}. Os eventos contam à parte: ficam fora do ritmo e do normal.</span></p>}
       {partner && <Hint show={seen < 3}>A tua parte é o que é só teu mais a tua percentagem das partilhadas. Não depende de quem pagou.</Hint>}
       {m.current && (p.fresh
         ? <p className="s why"><span className="dot" aria-hidden="true" /><span>Ritmo: no fim do primeiro mês completo a NIKKI já conhece o teu normal e começa a comparar.</span></p>
@@ -120,7 +127,7 @@ function Spend() {
           </div>
           <Hint show={seen < 3}>Cada bloco é um dia de um mês normal. Os cheios já foram gastos; os laranja são gasto adiantado.</Hint>
         </>)}
-      <YearBars months={hist.months} first={hist.first} sel={key} onPick={setKey} />
+      <YearBars months={hist.months} normal={m.normal} sel={key} onPick={setKey} />
       <div className="tile card rows">
         {m.current && !p.fresh && <div><span className="k">Fecho previsto{seen < 3 && <span className="s" style={{ display: 'block' }}>se o resto do mês for normal</span>}</span><span className="v">{eur(p.forecast, 0)} €</span></div>}
         {m.byCat.length > 0 && <Link className="press" to={m.current ? '/dinheiro/categorias' : `/dinheiro/categorias?mes=${key}`}><span className="k">Categorias</span><span className="v">{m.byCat.length}<Icon n="arrow" s={16} /></span></Link>}
@@ -132,19 +139,18 @@ function Spend() {
 }
 
 /**
- * Gasto mês a mês (a tua parte, sem investir nem eventos) face à média dos meses que se veem; abre nos últimos 12.
- * Dois dedos mudam a escala (de 3 meses a tudo); um toque numa barra abre esse mês.
+ * Gasto mês a mês (a tua parte, sem investir): o dia a dia em barra e, por cima e mais claro, o que foi de eventos.
+ * A linha é o teu normal (o mesmo do ritmo: média do dia a dia nos últimos 12 meses completos). Abre nos últimos 12;
+ * dois dedos mudam a escala (de 3 meses a tudo); um toque numa barra abre esse mês.
  */
-function YearBars({ months, first, sel, onPick }: { months: { key: string; total: number; current: boolean }[]; first: string | null; sel: string; onPick: (k: string) => void }) {
+function YearBars({ months, normal, sel, onPick }: { months: { key: string; total: number; events: number; current: boolean }[]; normal: number | null; sel: string; onPick: (k: string) => void }) {
   const n = months.length;
   const z = useZoom(0, n, Math.min(n, 3), [Math.max(0, n - 12), n]);
-  if (!months.some((m) => m.total > 0)) return null;
+  if (!months.some((m) => m.total + m.events > 0)) return null;
   const [a, b] = z.win;
   const W = 340, H = 120, T = 14, B = 18;
   const vis = months.map((m, i) => ({ ...m, i })).filter((m) => m.i + 1 > a + 1e-9 && m.i < b - 1e-9);
-  const done = vis.filter((m) => !m.current && first !== null && m.key >= first);
-  const avg = done.length ? Math.round(done.reduce((t, m) => t + m.total, 0) / done.length) : null;
-  const hi = Math.max(...vis.map((m) => m.total), avg ?? 0) || 1;
+  const hi = Math.max(...vis.map((m) => m.total + m.events), normal ?? 0) || 1;
   const unit = W / (b - a), gap = Math.min(4, unit * 0.2), bw = unit - gap;
   const y = (v: number) => T + (1 - v / hi) * (H - T - B);
   const many = vis.length > 14, step = Math.ceil(vis.length / 12);
@@ -154,23 +160,26 @@ function YearBars({ months, first, sel, onPick }: { months: { key: string; total
     return monthName(m.key).slice(0, 1).toUpperCase();
   };
   const full = Math.round(b - a);
+  const anyEv = vis.some((m) => m.events > 0);
   return (
     <figure className="ybars" aria-label="Gasto mês a mês">
-      <div className="wbar"><span className="s">{full >= n && n > 12 ? `Desde ${monthName(months[0].key).slice(0, 3)} ${months[0].key.slice(0, 4)}` : `${full} meses`}</span>{avg !== null && <span className="s"><i className="ybars-avg-k" aria-hidden="true" />média {eur(avg, 0)} €</span>}</div>
+      <div className="wbar"><span className="s">{full >= n && n > 12 ? `Desde ${monthName(months[0].key).slice(0, 3)} ${months[0].key.slice(0, 4)}` : `${full} meses`}</span>{normal !== null && <span className="s"><i className="ybars-avg-k" aria-hidden="true" />o teu normal {eur(normal, 0)} €</span>}</div>
       <svg viewBox={`0 0 ${W} ${H}`} role="group" {...z.bind}>
         {vis.map((m) => {
-          const x = (m.i - a) * unit + gap / 2, h = Math.max(m.total > 0 ? 2 : 0, H - B - y(m.total));
+          const x = (m.i - a) * unit + gap / 2, h = Math.max(m.total > 0 ? 2 : 0, H - B - y(m.total)), he = m.events > 0 ? Math.max(2, H - B - y(m.events)) : 0;
           return (
-            <g key={m.key} className={`yb${m.key === sel ? ' on' : ''}${m.current ? ' cur' : ''}`} role="button" tabIndex={0} aria-label={`${monthTitle(m.key)}: ${eur(m.total, 0)} €${m.current ? ' (em curso)' : ''}`} aria-pressed={m.key === sel}
+            <g key={m.key} className={`yb${m.key === sel ? ' on' : ''}${m.current ? ' cur' : ''}`} role="button" tabIndex={0} aria-label={`${monthTitle(m.key)}: ${eur(m.total, 0)} € do dia a dia${m.events > 0 ? ` e ${eur(m.events, 0)} € de eventos` : ''}${m.current ? ' (em curso)' : ''}`} aria-pressed={m.key === sel}
               onClick={() => onPick(m.key)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPick(m.key); } }}>
               <rect x={x - gap / 2} y={0} width={unit} height={H} className="yb-hit" />
               <rect x={x} y={H - B - h} width={bw} height={h} rx={Math.min(3, bw / 3)} className="yb-bar" />
+              {he > 0 && <rect x={x} y={H - B - h - he - 1} width={bw} height={he} rx={Math.min(3, bw / 3)} className="yb-ev" />}
               <text x={x + bw / 2} y={H - 4} textAnchor="middle" className="gc-ax">{lab(m)}</text>
             </g>
           );
         })}
-        {avg !== null && <line x1={0} x2={W} y1={y(avg)} y2={y(avg)} className="ybars-avg" />}
+        {normal !== null && <line x1={0} x2={W} y1={y(normal)} y2={y(normal)} className="ybars-avg" />}
       </svg>
+      {anyEv && <p className="s ybars-key"><i aria-hidden="true" />eventos, por cima do dia a dia (ficam fora do normal)</p>}
       {n > 3 && <ZoomHint z={z} />}
     </figure>
   );

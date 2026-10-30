@@ -99,10 +99,11 @@ export function monthSpend(expenses: Expense[], who: string, key: string) {
 }
 
 /**
- * Normal de `who`: média dos últimos meses completos (até 6) com dados, desde o primeiro registo.
- * O mês corrente nunca conta. Sem nenhum mês completo, devolve null (a app diz "primeiro mês").
+ * Normal de `who`: média dos últimos meses completos (até 12) com dados, desde o primeiro registo. É o mesmo número
+ * no ritmo, na linha do gráfico e nas comparações de cada mês. O mês corrente nunca conta. Sem nenhum mês completo,
+ * devolve null (a app diz "primeiro mês"). Quem chama tira os eventos e o investimento.
  */
-export function normalMonth(expenses: Expense[], who: string, today: string, max = 6): number | null {
+export function normalMonth(expenses: Expense[], who: string, today: string, max = 12): number | null {
   const mine = expenses.filter((e) => partOf(e, who) > 0);
   if (!mine.length) return null;
   const first = mine.reduce((m, e) => (e.spent_on < m ? e.spent_on : m), mine[0].spent_on);

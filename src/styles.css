@@ -933,3 +933,7 @@ button.ctile{border:0;text-align:left;align-items:flex-start;width:100%;font:inh
 .speed .btn{margin:8px 0 4px}
 .qk-got{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .qk-got > span:not(.s){padding:2px 8px;border-radius:999px;background:var(--accent-soft);color:var(--ink);font-size:12px}
+.yb-ev{fill:none;stroke:var(--sub);stroke-width:1;stroke-dasharray:2 2}
+.yb.on .yb-ev{stroke:var(--ink)}
+.ybars-key{display:flex;align-items:center;gap:6px;margin:0;font-size:12px}
+.ybars-key i{display:inline-block;width:12px;height:8px;border:1px dashed var(--sub);border-radius:2px}
