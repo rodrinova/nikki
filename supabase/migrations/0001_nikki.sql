@@ -236,6 +236,8 @@ alter table nikki.cars add column if not exists energy text not null default 'co
 alter table nikki.car_logs drop constraint if exists car_logs_kind_check;
 alter table nikki.car_logs add constraint car_logs_kind_check check (kind in ('fuel', 'charge', 'service', 'toll', 'other'));
 alter table nikki.car_logs add column if not exists note text check (length(note) <= 60);
+-- «Esqueci-me»: abastecimento que faltou, estimado pelas medianas (sem km e sem despesa).
+alter table nikki.car_logs add column if not exists estimated boolean not null default false;
 
 create table if not exists nikki.deadlines (
   id uuid primary key default gen_random_uuid(),
@@ -1289,6 +1291,117 @@ alter default privileges in schema nikki revoke all on tables from anon;
 grant execute on function nikki.has_room(uuid), nikki.in_house(uuid), nikki.is_active(), nikki.is_admin(uuid), nikki.is_app_admin(),
   nikki.is_member(uuid), nikki.is_staff(uuid), nikki.pair_balance(uuid, uuid, uuid), nikki.shares_household(uuid) to authenticated;
 
+-- ───────────────────────── eventos (casamento, batizado, bodas, festas…) ─────────────────────────
+-- Um centro de custos com data: orçamento, despesas ligadas (expenses.occasion_id; contam no mês mas ficam fora das
+-- médias), convidados e respostas, compras e tarefas, fornecedores e presentes. Arquiva-se no fim.
+-- (A Agenda já usa nikki.events; aqui chama-se occasions.)
+create table if not exists nikki.occasions (
+  id uuid primary key default gen_random_uuid(),
+  household_id uuid not null references nikki.households (id) on delete cascade,
+  name text not null check (length(trim(name)) between 1 and 60),
+  kind text not null default 'festa' check (kind in ('casamento', 'batizado', 'aniversario', 'bodas', 'festa', 'viagem', 'outro')),
+  on_date date,
+  place text check (length(place) <= 120),
+  budget numeric(12, 2) check (budget >= 0),
+  archived boolean not null default false,
+  created_by uuid not null default auth.uid() references nikki.profiles (id),
+  created_at timestamptz not null default now()
+);
+create index if not exists occasions_household on nikki.occasions (household_id, archived);
+alter table nikki.expenses add column if not exists occasion_id uuid references nikki.occasions (id) on delete set null;
+create index if not exists expenses_occasion on nikki.expenses (occasion_id) where occasion_id is not null;
+
+create table if not exists nikki.occasion_guests (
+  id uuid primary key default gen_random_uuid(),
+  household_id uuid not null references nikki.households (id) on delete cascade,
+  occasion_id uuid not null references nikki.occasions (id) on delete cascade,
+  name text not null check (length(trim(name)) between 1 and 80),
+  people smallint not null default 1 check (people between 1 and 20), -- quantos vêm com este convite
+  rsvp text not null default 'pending' check (rsvp in ('pending', 'yes', 'no', 'maybe')),
+  grp text check (length(grp) <= 40), -- família, amigos, trabalho, mesa 3…
+  note text check (length(note) <= 200),
+  created_at timestamptz not null default now()
+);
+create index if not exists occasion_guests_occ on nikki.occasion_guests (occasion_id);
+
+create table if not exists nikki.occasion_items (
+  id uuid primary key default gen_random_uuid(),
+  household_id uuid not null references nikki.households (id) on delete cascade,
+  occasion_id uuid not null references nikki.occasions (id) on delete cascade,
+  kind text not null default 'todo' check (kind in ('buy', 'todo')),
+  title text not null check (length(trim(title)) between 1 and 80),
+  due_on date,
+  done boolean not null default false,
+  done_by uuid references nikki.profiles (id) on delete set null,
+  created_at timestamptz not null default now()
+);
+create index if not exists occasion_items_occ on nikki.occasion_items (occasion_id);
+
+create table if not exists nikki.occasion_vendors (
+  id uuid primary key default gen_random_uuid(),
+  household_id uuid not null references nikki.households (id) on delete cascade,
+  occasion_id uuid not null references nikki.occasions (id) on delete cascade,
+  name text not null check (length(trim(name)) between 1 and 60),
+  service text check (length(service) <= 60), -- quinta, fotografia, bolo…
+  contact text check (length(contact) <= 120),
+  total numeric(12, 2) check (total >= 0), -- o combinado
+  paid numeric(12, 2) not null default 0 check (paid >= 0), -- já pago (sinal e prestações)
+  created_at timestamptz not null default now()
+);
+create index if not exists occasion_vendors_occ on nikki.occasion_vendors (occasion_id);
+
+create table if not exists nikki.occasion_gifts (
+  id uuid primary key default gen_random_uuid(),
+  household_id uuid not null references nikki.households (id) on delete cascade,
+  occasion_id uuid not null references nikki.occasions (id) on delete cascade,
+  from_name text not null check (length(trim(from_name)) between 1 and 80),
+  amount numeric(12, 2) check (amount >= 0), -- dinheiro (envelope, transferência)
+  item text check (length(item) <= 80), -- ou o presente
+  thanked boolean not null default false,
+  created_at timestamptz not null default now()
+);
+create index if not exists occasion_gifts_occ on nikki.occasion_gifts (occasion_id);
+
+alter table nikki.household_modules drop constraint if exists household_modules_module_check;
+alter table nikki.household_modules add constraint household_modules_module_check check (module in ('contas', 'compras', 'agenda', 'casa', 'garagem', 'objetivos', 'patrimonio', 'ginasio', 'extratos', 'housekeeping', 'eventos'));
+
+-- Só os da casa (o housekeeping não vê eventos: têm dinheiro e convidados).
+do $$
+declare t text;
+begin
+  foreach t in array array['occasions', 'occasion_guests', 'occasion_items', 'occasion_vendors', 'occasion_gifts'] loop
+    execute format('alter table nikki.%I enable row level security', t);
+    execute format('grant select, insert, update, delete on nikki.%I to authenticated', t);
+    execute format('grant all on nikki.%I to service_role', t);
+    if not exists (select 1 from pg_policies where schemaname = 'nikki' and tablename = t and policyname = t || '_house') then
+      execute format('create policy %I on nikki.%I for all to authenticated using (nikki.is_member(household_id)) with check (nikki.is_member(household_id))', t || '_house', t);
+    end if;
+    if exists (select 1 from pg_publication where pubname = 'supabase_realtime')
+       and not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'nikki' and tablename = t) then
+      execute format('alter publication supabase_realtime add table nikki.%I', t);
+    end if;
+  end loop;
+end $$;
+
+-- Despesa da casa por mês para as médias (Património): sem investimento e sem eventos (um casamento não é um mês normal).
+create or replace function nikki.house_month_totals(h uuid, since date) returns table (month text, total numeric)
+language sql stable security definer set search_path = '' as $$
+  select to_char(e.spent_on, 'YYYY-MM'), sum(e.amount)
+  from nikki.expenses e
+  where e.household_id = h and nikki.is_member(h) and e.spent_on >= since and e.category <> 'Future Me' and e.occasion_id is null
+  group by 1 order by 1;
+$$;
+
+-- Gasto de cada evento (só os totais): inclui as despesas «só minhas» de cada um ligadas ao evento, que o outro não
+-- vê uma a uma.
+create or replace function nikki.occasion_totals(h uuid) returns table (occasion_id uuid, total numeric)
+language sql stable security definer set search_path = '' as $$
+  select e.occasion_id, sum(e.amount) from nikki.expenses e
+  where e.household_id = h and nikki.is_member(h) and e.occasion_id is not null
+  group by 1;
+$$;
+revoke execute on function nikki.occasion_totals(uuid) from public, anon;
+grant execute on function nikki.occasion_totals(uuid) to authenticated;
 -- ───────────────────────── rendimentos: fixos ou pelos registos ─────────────────────────
 -- Cada fonte é «fixa» (valor × vezes por ano) ou «pelos registos» (cada entrada com data e valor; o habitual é a
 -- média dos últimos 12 meses completos). Pelos registos, o valor da fonte fica vazio.

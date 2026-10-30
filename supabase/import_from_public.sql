@@ -24,7 +24,7 @@ select 'EMAIL_DO_RODRIGO'::text as ra_email,
 -- As categorias antigas e os nomes novos. As que não estão aqui ficam com o nome antigo.
 create temp table imp_cat (old text primary key, new text not null) on commit drop;
 insert into imp_cat values
-  ('Rides', 'Carros'), ('Nest', 'Casa'), ('The Big Day', 'Casamento'), ('Lifestyle', 'Lazer'),
+  ('Rides', 'Carros'), ('Nest', 'Casa'), ('The Big Day', 'Outros'), ('Lifestyle', 'Lazer'),
   ('Glow Up', 'Beleza'), ('Future Me', 'Future Me'), ('Tax Season', 'Impostos'), ('My Things', 'Coisas minhas'),
   ('Bits & Bobs', 'Outros'), ('Treats & Gifts', 'Presentes'), ('Eating Out', 'Restaurantes'),
   ('Wellness', 'Saúde'), ('Bills & Services', 'Contas'), ('Groceries', 'Supermercado'), ('Fresh Entry', 'Outros');
@@ -92,6 +92,17 @@ union all
 select lower(trim(c.j->>'name')), n.id from old_cars c join nikki.cars n on n.external_ref = 'old:car:' || (c.j->>'id')
 where lower(trim(c.j->>'name')) not in (select lower(trim(j->>'name')) from old_cars group by 1 having count(*) > 1);
 
+-- ───────── o casamento: um evento arquivado ─────────
+-- As despesas «The Big Day» da app antiga ficam ligadas ao evento «Casamento» (arquivado, com a data da última),
+-- com a categoria «Outros». O evento cria-se uma vez; numa nova importação, reaproveita-se.
+insert into nikki.occasions (household_id, name, kind, on_date, archived, created_by)
+select i.h, 'Casamento', 'casamento', (select max((j->>'date')::date) from old_tx where j->>'category' = 'The Big Day'), true, i.ra
+from imp i
+where exists (select 1 from old_tx where j->>'category' = 'The Big Day')
+  and not exists (select 1 from nikki.occasions o where o.household_id = i.h and o.kind = 'casamento' and o.name = 'Casamento');
+create temp table imp_wedding on commit drop as
+select o.id from nikki.occasions o, imp i where o.household_id = i.h and o.kind = 'casamento' and o.name = 'Casamento' order by o.created_at limit 1;
+
 -- ───────── despesas ─────────
 -- A partilha vem do valor ponderado (weighted_amount), que era o que contava nas contas a dois da app antiga:
 --   0 → só de quem pagou; igual ao valor → toda do outro; o resto → partilhada, com a parte de quem pagou.
@@ -120,7 +131,7 @@ select s.*,
 from s;
 
 insert into nikki.expenses (household_id, created_by, paid_by, other_id, amount, spent_on, category, split, payer_share,
-                            note, car_id, source, external_ref)
+                            note, car_id, occasion_id, source, external_ref)
 select i.h, x.paid_by, x.paid_by, case when x.split = 'mine' then null when x.paid_by = i.ra then i.ig else i.ra end,
        round(x.amount, 2), (x.j->>'date')::date, coalesce(c.new, nullif(x.j->>'category', ''), 'Outros'), x.split,
        case when x.split = 'shared' then round(1 - x.owed / x.amount, 3) end,
@@ -128,13 +139,14 @@ select i.h, x.paid_by, x.paid_by, case when x.split = 'mine' then null when x.pa
        case when x.j->>'category' = 'Rides' then
          coalesce((select id from imp_car where key = x.j->>'car' limit 1), (select id from imp_car where key = lower(trim(x.j->>'car')) limit 1))
        end,
+       case when x.j->>'category' = 'The Big Day' then (select id from imp_wedding) end,
        'import', 'old:tx:' || x.id
 from imp_tx x cross join imp i left join imp_cat c on c.old = x.j->>'category'
 where x.skip is null
 on conflict (household_id, external_ref) where external_ref is not null do update
   set created_by = excluded.created_by, paid_by = excluded.paid_by, other_id = excluded.other_id, amount = excluded.amount,
       spent_on = excluded.spent_on, category = excluded.category, split = excluded.split, payer_share = excluded.payer_share,
-      note = excluded.note, car_id = excluded.car_id, updated_at = now();
+      note = excluded.note, car_id = excluded.car_id, occasion_id = excluded.occasion_id, updated_at = now();
 
 -- Abastecimentos, oficina e outros dos carros: a Garagem lê-os daqui.
 insert into nikki.car_logs (household_id, car_id, logged_on, odometer, litres, full_tank, kind, expense_id, amount, created_by, external_ref)
@@ -233,7 +245,7 @@ update nikki.cars c set archived = true from imp i where c.household_id = i.h an
 
 -- Os módulos que estes dados usam ficam ligados.
 insert into nikki.household_modules (household_id, module, enabled_by)
-select i.h, m, i.ra from imp i, unnest(array['garagem', 'patrimonio']) m
+select i.h, m, i.ra from imp i, unnest(array['garagem', 'patrimonio', 'eventos']) m
 on conflict do nothing;
 
 -- ───────── conferir ─────────
