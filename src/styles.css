@@ -888,3 +888,4 @@ button.ctile{border:0;text-align:left;align-items:flex-start;width:100%;font:inh
 .tb.rsvp-maybe{background:transparent;box-shadow:inset 0 0 0 1px var(--line)}
 .occ-rows > div{gap:10px}
 .occ-rows > div > .st2{flex:1;min-width:0}
+.networth{display:flex;flex-direction:column;gap:8px;min-height:0}

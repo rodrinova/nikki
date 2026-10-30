@@ -20,8 +20,9 @@ begin
   assert nikki.pair_balance(h, ra, ig) = -539.25 and nikki.pair_balance(h, ig, ra) = 539.25, 'saldo entre nós';
   assert (select archived and kind = 'casamento' and on_date = '2026-02-14' from nikki.occasions where name = 'Casamento'), 'o casamento é um evento arquivado';
   assert (select o.name || '/' || e.category from nikki.expenses e join nikki.occasions o on o.id = e.occasion_id where e.note = 'Fotógrafo') = 'Casamento/Outros', 'despesa ligada ao evento';
-  assert (select amount || '/' || times_per_year from nikki.incomes where profile_id = ra) = '1800.00/12', 'rendimento médio de 12 meses';
-  assert not exists (select 1 from nikki.incomes where profile_id = ig), 'o mês corrente não conta';
+  assert (select mode from nikki.incomes where profile_id = ra) = 'log' and (select amount from nikki.incomes where profile_id = ra) is null, 'rendimento pelos registos';
+  assert (select count(*) from nikki.income_entries e join nikki.incomes n on n.id = e.income_id where n.profile_id = ra) = 13, 'as entradas do Rodrigo';
+  assert (select count(*) from nikki.income_entries e join nikki.incomes n on n.id = e.income_id where n.profile_id = ig) = 1, 'e a da Inês';
   assert (select kind || '/' || invested || '/' || expected_return from nikki.assets where name = 'Casa') = 'casa/false/30.00', 'casa fora da independência, taxa limitada';
   assert (select string_agg(on_date || '=' || value, ',' order by on_date) from nikki.asset_snapshots s join nikki.assets a on a.id = s.asset_id where a.name = 'VWCE')
          = '2026-06-01=10500.00,2026-10-20=12000.00', 'histórico: o último do dia e o valor atual';

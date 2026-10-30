@@ -4,7 +4,7 @@ import { useHouse, type AssetRow, type GoalRow } from './house';
 import { monthKey, todayStr } from '@/lib/dates';
 import { partOf, toU } from '@/lib/money';
 import {
-  CUSHION_MIN, EMERGENCY_MONTHS, avgMonthly, badges, freeMonths, fundCheck, healthScore, liqOf, monthPlan, monthlyIncome,
+  CUSHION_MIN, EMERGENCY_MONTHS, avgMonthly, badges, freeMonths, fundCheck, healthScore, incomeMonthly, liqOf, monthPlan, splitFunds,
   realReturn, savings, suggestGoal, type FundRole,
 } from '@/lib/wealth';
 
@@ -19,7 +19,7 @@ export interface WealthAsset extends AssetRow { value: number; part: number; min
  */
 export function useWealth(view: WealthView) {
   const { me, partner, myShare } = useSession();
-  const { assets, snapshots, incomes, expenses, monthTotals } = useHouse();
+  const { assets, snapshots, incomes, incomeEntries, expenses, monthTotals } = useHouse();
   return useMemo(() => {
     const today = todayStr();
     const solo = !partner;
@@ -47,16 +47,29 @@ export function useWealth(view: WealthView) {
     }
 
     const incomeRows = incomes.rows.filter((r) => casa || r.profile_id === me?.id);
-    const income = monthlyIncome(incomeRows.map((r) => ({ amount: toU(r.amount), times_per_year: r.times_per_year })));
+    // Rendimento habitual: fixo (valor × vezes por ano) ou pelos registos (média dos últimos 12 meses completos).
+    const entries = incomeEntries.rows.map((e) => ({ income_id: e.income_id, received_on: e.received_on, amount: toU(e.amount) }));
+    const income = incomeMonthly(incomeRows.map((r) => ({ id: r.id, mode: r.mode ?? 'fixed', amount: r.amount === null ? null : toU(r.amount), times_per_year: r.times_per_year })), entries, today);
+    // Os fundos de cada um só com o que é seu ou partilhado (pela sua parte): o que é do outro nunca entra.
     const fund = (role: FundRole) => {
       const list = mine.filter((a) => a.role === role).map((a) => ({ ...a, check: fundCheck(a.kind, role) }));
       return { list, value: list.filter((a) => a.check.ok).reduce((t, a) => t + a.mine, 0) };
     };
-    const emergency = fund('emergency'), cushion = fund('cushion');
+    const emRaw = fund('emergency'), cuRaw = fund('cushion');
     const emergencyTarget = spend ? spend.avg * EMERGENCY_MONTHS : null;
+    // O que passar da meta do fundo de emergência (e estiver disponível no próprio dia) conta no fundo de maneio.
+    const split = splitFunds(emRaw.list.filter((a) => a.check.ok).map((a) => ({ value: a.mine, liq: a.liq })), cuRaw.list.filter((a) => a.check.ok).map((a) => ({ value: a.mine })), emergencyTarget);
+    const emergency = { ...emRaw, value: split.emergency, overflow: split.overflow }, cushion = { ...cuRaw, value: split.cushion, overflow: split.overflow };
     const cushionTarget = Math.round(CUSHION_MIN * (casa ? 1 : myShare));
     const sv = income > 0 && spend ? savings(income, spend.avg) : null;
     const plan = sv ? monthPlan(sv.surplus, (emergencyTarget ?? 0) - emergency.value, cushionTarget - cushion.value) : null;
+    // Património total (o que vale tudo, casa e carros incluídos): da casa, ou o teu com a tua parte do partilhado.
+    const net = {
+      total: mine.reduce((t, a) => t + a.mine, 0),
+      invested: mine.filter((a) => a.liq !== 'out').reduce((t, a) => t + a.mine, 0),
+      own: mine.filter((a) => a.owner_id !== null).reduce((t, a) => t + a.mine, 0),
+      shared: mine.filter((a) => a.owner_id === null).reduce((t, a) => t + a.mine, 0),
+    };
     const pools = mine.map((a) => ({ value: a.mine, real: a.real, liq: a.liq }));
     const fm = spend ? freeMonths(pools, spend.avg) : 0;
     const passiveYear = pools.filter((p) => p.liq !== 'out').reduce((t, p) => t + p.value * p.real, 0);
@@ -64,10 +77,10 @@ export function useWealth(view: WealthView) {
     const score = healthScore(scoreIn);
     const goal = suggestGoal({ ...scoreIn, plan: plan ?? monthPlan(0, 0, 0) }, score.total, today);
     return {
-      casa, solo, items, mine, spend, income, incomeRows, emergency, cushion, emergencyTarget, cushionTarget, sv, plan, fm, passiveYear,
+      casa, solo, items, mine, net, spend, income, incomeRows, emergency, cushion, emergencyTarget, cushionTarget, sv, plan, fm, passiveYear,
       score, badges: badges(scoreIn), goal, ready: !assets.loading && !snapshots.loading && (!casa || !monthTotals.loading),
     };
-  }, [view, me, partner, myShare, assets.rows, assets.loading, snapshots.rows, snapshots.loading, incomes.rows, expenses.rows, monthTotals.rows, monthTotals.loading]);
+  }, [view, me, partner, myShare, assets.rows, assets.loading, snapshots.rows, snapshots.loading, incomes.rows, incomeEntries.rows, expenses.rows, monthTotals.rows, monthTotals.loading]);
 }
 
 export type Wealth = ReturnType<typeof useWealth>;

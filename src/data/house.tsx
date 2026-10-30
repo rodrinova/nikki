@@ -31,7 +31,8 @@ export interface CarRow { id: string; owner_id: string | null; name: string; pla
 export interface EventRow { id: string; title: string; starts_at: string; ends_at: string | null; all_day: boolean; owner_id: string | null; private: boolean; created_by: string; location: string | null; kind: 'event' | 'birthday'; repeat: Repeat; weekdays: number[] | null; month_mode: 'day' | 'nth'; until_on: string | null; skip_dates: string[] | null; remind_days: number | null }
 export interface AssetRow { id: string; owner_id: string | null; name: string; kind: string; expected_return: number | string; role: 'emergency' | 'cushion' | null; archived: boolean; created_at: string }
 export interface SnapshotRow { asset_id: string; on_date: string; value: number | string; created_at: string }
-export interface IncomeRow { id: string; profile_id: string; kind: 'salario' | 'alimentacao' | 'complemento' | 'outro'; label: string | null; amount: number | string; times_per_year: number }
+export interface IncomeRow { id: string; profile_id: string; kind: 'salario' | 'alimentacao' | 'complemento' | 'outro'; label: string | null; amount: number | string | null; times_per_year: number; mode: 'fixed' | 'log' }
+export interface IncomeEntryRow { id: string; income_id: string; received_on: string; amount: number | string; note: string | null; created_at: string }
 export interface GoalRow { id: string; owner_id: string | null; title: string; metric: string; target: number | string; start_value: number | string | null; due_on: string; status: string; created_by: string; created_at: string }
 export interface ModuleRow { module: ModuleKey; enabled_at: string; enabled_by: string | null }
 export interface HkRow { id: string; profile_id: string | null; name: string; weekdays: number[]; start_time: string | null; monthly_pay: number | string | null; pay_day: number | null; pay_nth: number | null; pay_weekday: number | null; pay_remind: number | null; bill_id: string | null; archived: boolean; created_at: string }
@@ -131,7 +132,8 @@ function useHouseData() {
     goals: useLive<GoalRow>('goals', h, 'id, owner_id, title, metric, target, start_value, due_on, status, created_by, created_at', { column: 'created_at' }),
     assets: useLive<AssetRow>('assets', ph, 'id, owner_id, name, kind, expected_return, role, archived, created_at', { column: 'created_at' }),
     snapshots: useLive<SnapshotRow>('asset_snapshots', ph, 'asset_id, on_date, value, created_at', { column: 'on_date' }),
-    incomes: useLive<IncomeRow>('incomes', ph, 'id, profile_id, kind, label, amount, times_per_year', { column: 'created_at' }),
+    incomes: useLive<IncomeRow>('incomes', ph, 'id, profile_id, kind, label, amount, times_per_year, mode', { column: 'created_at' }),
+    incomeEntries: useLive<IncomeEntryRow>('income_entries', ph, 'id, income_id, received_on, amount, note, created_at', { column: 'received_on', ascending: false }),
     cars: useLive<CarRow>('cars', gh, 'id, owner_id, name, plate, annual_insurance, annual_tax, annual_other, archived, created_at, registered_on, insurer, insurance_renews_on, tank_litres, energy', { column: 'created_at' }),
     homes: useLive<HomeRow>('homes', ch, 'id, household_id, name, tenure, imi, archived, updated_at, track_usage', { column: 'updated_at' }),
     bills: useLive<BillRow>('bills', ch, 'id, kind, name, provider, keywords, every_months, due_day, expected, unit, contract_ends_on, owner_id, home_id, archived, created_at', { column: 'created_at' }),
@@ -156,9 +158,9 @@ function useHouseData() {
   const gym = useGym(on('ginasio') ? me?.id : undefined);
   const busy = useBusy(h, d.events.rows);
   // Voltar a ler tudo (puxar para atualizar).
-  const { expenses: e, transfers: t, openings: op, shop: s, deadlines: dl, events: ev, modules: mo, goals: go, assets: as, snapshots: sn, incomes: inc, cars: ca, carLogs: cl, homes: ho, bills: bi, billPayments: bp, chores: chs, choreLogs: chl, warranties: wa, todos: td, hk, hkTasks: hkt, hkLog: hkl, hkMessages: hkm, hkPaid: hkp, occasions: oc, occGuests: og, occItems: oi, occVendors: ov, occGifts: of } = d;
-  const reloadAll = useCallback(() => Promise.all([e.reload(), t.reload(), op.reload(), s.reload(), dl.reload(), ev.reload(), mo.reload(), go.reload(), as.reload(), sn.reload(), inc.reload(), ca.reload(), cl.reload(), ho.reload(), bi.reload(), bp.reload(), chs.reload(), chl.reload(), wa.reload(), td.reload(), hk.reload(), hkt.reload(), hkl.reload(), hkm.reload(), hkp.reload(), oc.reload(), og.reload(), oi.reload(), ov.reload(), of.reload(), busy.reload(), monthTotals.reload()]),
-    [e.reload, t.reload, op.reload, s.reload, dl.reload, ev.reload, mo.reload, go.reload, as.reload, sn.reload, inc.reload, ca.reload, cl.reload, ho.reload, bi.reload, bp.reload, chs.reload, chl.reload, wa.reload, td.reload, hk.reload, hkt.reload, hkl.reload, hkm.reload, hkp.reload, oc.reload, og.reload, oi.reload, ov.reload, of.reload, busy.reload, monthTotals.reload]);
+  const { expenses: e, transfers: t, openings: op, shop: s, deadlines: dl, events: ev, modules: mo, goals: go, assets: as, snapshots: sn, incomes: inc, incomeEntries: ie, cars: ca, carLogs: cl, homes: ho, bills: bi, billPayments: bp, chores: chs, choreLogs: chl, warranties: wa, todos: td, hk, hkTasks: hkt, hkLog: hkl, hkMessages: hkm, hkPaid: hkp, occasions: oc, occGuests: og, occItems: oi, occVendors: ov, occGifts: of } = d;
+  const reloadAll = useCallback(() => Promise.all([e.reload(), t.reload(), op.reload(), s.reload(), dl.reload(), ev.reload(), mo.reload(), go.reload(), as.reload(), sn.reload(), inc.reload(), ie.reload(), ca.reload(), cl.reload(), ho.reload(), bi.reload(), bp.reload(), chs.reload(), chl.reload(), wa.reload(), td.reload(), hk.reload(), hkt.reload(), hkl.reload(), hkm.reload(), hkp.reload(), oc.reload(), og.reload(), oi.reload(), ov.reload(), of.reload(), busy.reload(), monthTotals.reload()]),
+    [e.reload, t.reload, op.reload, s.reload, dl.reload, ev.reload, mo.reload, go.reload, as.reload, sn.reload, inc.reload, ie.reload, ca.reload, cl.reload, ho.reload, bi.reload, bp.reload, chs.reload, chl.reload, wa.reload, td.reload, hk.reload, hkt.reload, hkl.reload, hkm.reload, hkp.reload, oc.reload, og.reload, oi.reload, ov.reload, of.reload, busy.reload, monthTotals.reload]);
   return { ...d, busy, monthTotals, gym, on, reloadAll };
 }
 

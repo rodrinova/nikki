@@ -182,19 +182,19 @@ from imp i cross join lateral (select j from old_open order by j->>'created_at' 
 on conflict (household_id, profile_a, profile_b) do update set cutover = excluded.cutover, amount_a = excluded.amount_a;
 
 -- ───────── rendimentos ─────────
--- A app antiga guardava cada recebimento com data; a nova guarda o rendimento habitual. Fica a média mensal dos
--- últimos 12 meses completos de cada um (12 vezes por ano), para rever na app.
-insert into nikki.incomes (household_id, profile_id, kind, label, amount, times_per_year, created_by, external_ref)
-select i.h, pg_temp.who(r.j->>'user_id'), 'salario', 'Média de 12 meses (app antiga)',
-       round(sum(pg_temp.num(r.j->>'amount')) / 12, 2), 12, pg_temp.who(r.j->>'user_id'), 'old:income:' || (r.j->>'user_id')
+-- A app antiga guardava cada recebimento com data: na nova, cada pessoa fica com um rendimento «pelos registos» e
+-- as entradas com a data e o valor (o habitual é a média dos últimos 12 meses completos).
+insert into nikki.incomes (household_id, profile_id, kind, label, mode, amount, times_per_year, created_by, external_ref)
+select distinct i.h, pg_temp.who(r.j->>'user_id'), 'salario', 'Rendimentos (app antiga)', 'log', null::numeric, 12, pg_temp.who(r.j->>'user_id'), 'old:income:' || (r.j->>'user_id')
 from old_inc r cross join imp i
-where (r.j->>'date')::date >= date_trunc('month', current_date) - interval '12 months'
-  and (r.j->>'date')::date < date_trunc('month', current_date)
-  and pg_temp.who(r.j->>'user_id') is not null
-group by i.h, r.j->>'user_id'
-having sum(pg_temp.num(r.j->>'amount')) > 0
+where pg_temp.who(r.j->>'user_id') is not null
 on conflict (household_id, external_ref) where external_ref is not null do update
-  set amount = excluded.amount, updated_at = now();
+  set mode = 'log', amount = null, updated_at = now();
+insert into nikki.income_entries (household_id, income_id, received_on, amount, external_ref, created_by)
+select n.household_id, n.id, (r.j->>'date')::date, round(pg_temp.num(r.j->>'amount'), 2), 'old:inc:' || (r.j->>'id'), n.profile_id
+from old_inc r join nikki.incomes n on n.household_id = (select h from imp) and n.external_ref = 'old:income:' || (r.j->>'user_id')
+where pg_temp.num(r.j->>'amount') > 0
+on conflict (household_id, external_ref) where external_ref is not null do update set received_on = excluded.received_on, amount = excluded.amount;
 
 -- ───────── património ─────────
 -- property → casa (fora das contas da independência), vehicle → carro (idem), savings → conta remunerada,
@@ -234,6 +234,8 @@ delete from nikki.car_logs l using imp i where l.household_id = i.h and l.extern
                                          where x.skip is null and e.car_id is not null);
 delete from nikki.expenses e using imp i where e.household_id = i.h and e.external_ref like 'old:tx:%'
   and substr(e.external_ref, 8) not in (select id from imp_tx where skip is null);
+delete from nikki.income_entries x using imp i where x.household_id = i.h and x.external_ref like 'old:inc:%'
+  and substr(x.external_ref, 9) not in (select j->>'id' from old_inc);
 delete from nikki.transfers t using imp i where t.household_id = i.h and t.external_ref like 'old:settle:%'
   and substr(t.external_ref, 12) not in (select j->>'id' from old_settle);
 delete from nikki.assets a using imp i where a.household_id = i.h and a.external_ref like 'old:asset:%'

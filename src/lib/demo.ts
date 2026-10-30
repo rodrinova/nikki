@@ -83,9 +83,13 @@ function seed() {
   asset('Ações', 'acoes', R, 5300, 7);
   asset('PPR', 'ppr', I, 11200, 4);
   asset('Casa', 'casa', null, 280000, 0);
-  const inc = (who: string, kind: string, amount: string, times: number, label: string | null = null) => db.incomes.push({ id: uid(), household_id: H, profile_id: who, kind, label, amount, times_per_year: times, created_at: ago(100) });
+  const inc = (who: string, kind: string, amount: string, times: number, label: string | null = null) => db.incomes.push({ id: uid(), household_id: H, profile_id: who, kind, label, amount, times_per_year: times, mode: 'fixed', created_at: ago(100) });
   inc(R, 'salario', '1500.00', 14); inc(R, 'alimentacao', '176.00', 11);
   inc(I, 'salario', '1350.00', 14); inc(I, 'alimentacao', '165.00', 11); inc(I, 'complemento', '120.00', 14, 'Isenção de horário');
+  // Um rendimento irregular «pelos registos»: as explicações do Rodrigo, uma entrada por mês, valores diferentes.
+  { const id = uid(); db.incomes.push({ id, household_id: H, profile_id: R, kind: 'complemento', label: 'Explicações', amount: null, times_per_year: 12, mode: 'log', created_at: ago(200) });
+    db.income_entries = [];
+    let k = monthKey(today); for (const v of ['180.00', '240.00', '120.00', '200.00', '160.00', '220.00']) { k = prevMonth(k); db.income_entries.push({ id: uid(), household_id: H, income_id: id, received_on: `${k}-28`, amount: v, note: null, created_by: R, created_at: `${k}-28T18:00:00Z` }); } }
   // Três meses: dois completos (o "normal") e o corrente até hoje. Valores de exemplo.
   const plan: [number, string, string, string, string | null, number | null, string][] = [
     // dia, categoria, valor, pagou, com quem (ou de quem), parte de quem pagou, nota
