@@ -1,4 +1,4 @@
-import { useRef, useState, type FormEvent } from 'react';
+import { Suspense, useRef, useState, type FormEvent } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useSession } from '@/data/session';
 import { useHouse, type ChoreRow, type WarrantyRow } from '@/data/house';
@@ -10,7 +10,8 @@ import { shortDate } from '@/lib/admin';
 import { MAINTENANCE, addPeriod, everyLabel, readReceipt, warrantyState, type Assign, type Unit } from '@/lib/chores';
 import { invoiceText } from '@/lib/ocr';
 import { Shot, rid, shrink } from './Tickets';
-import { Scanner } from '@/ui/Scanner';
+import { Loading, later } from '@/ui/lazy';
+const Scanner = later(() => import('@/ui/Scanner'), 'Scanner');
 import { MaintDoneSheet, useChoreDone } from './Today';
 
 // Casa, fase 2: tarefas que se repetem (de alguém, à vez ou de quem pegar), manutenção (com sugestões) e garantias
@@ -245,7 +246,7 @@ export function WarrantySheet({ w, home }: { w?: WarrantyRow; home: string | nul
         <p className="l">{w ? w.item : 'Nova garantia'}</p>
         <input ref={fileRef} type="file" accept="image/*,application/pdf" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) pick(f); }} />
         {w?.receipt_path && !file && <div className="receipt"><Shot path={w.receipt_path} bucket="receipts" alt="Talão" /><span className="s">Talão guardado. Um toque para ver.</span></div>}
-        {scan && <Scanner title="Digitalizar o talão" single onCancel={() => setScan(false)} onDone={(pages) => { setScan(false); if (pages[0]) pick(new File([pages[0]], 'talao.jpg', { type: 'image/jpeg' })); }} />}
+        {scan && <Suspense fallback={<Loading full label="A abrir o scanner" />}><Scanner title="Digitalizar o talão" single onCancel={() => setScan(false)} onDone={(pages) => { setScan(false); if (pages[0]) pick(new File([pages[0]], 'talao.jpg', { type: 'image/jpeg' })); }} /></Suspense>}
         <div className="tile read-card">
           <span className="st2"><span>{file ? 'Talão digitalizado' : w?.receipt_path ? 'Trocar o talão' : 'O talão'}</span><span className="s">{reading ? 'A ler o talão…' : 'Fica guardado, só para os dois da casa. A NIKKI lê a loja, a data e o valor.'}</span></span>
           <div className="actions"><button type="button" className="btn press" onClick={() => setScan(true)}>Digitalizar <Icon n="doc" s={18} /></button><button type="button" className="btn quiet press" onClick={() => fileRef.current?.click()}>Foto ou PDF</button></div>

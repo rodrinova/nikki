@@ -44,10 +44,25 @@ const swManifest = (): Plugin => ({
   },
 });
 
+// A letra começa a descer logo com a página (antes do CSS a pedir): o texto aparece já na letra certa.
+const fontPreload = (): Plugin => ({
+  name: 'nikki-font-preload',
+  apply: 'build',
+  transformIndexHtml: {
+    order: 'post',
+    handler(html, ctx) {
+      if (process.env.VITE_DEMO === '1' || !ctx.bundle) return html;
+      const f = Object.keys(ctx.bundle).find((k) => /albert-sans.*\.woff2$/.test(k));
+      const base = process.env.VITE_BASE || '/';
+      return f ? html.replace('</title>', `</title>\n    <link rel="preload" href="${base}${f}" as="font" type="font/woff2" crossorigin />`) : html;
+    },
+  },
+});
+
 // VITE_BASE: o caminho onde a app fica (no GitHub Pages, /nikki/). Por defeito, a raiz.
 export default defineConfig({
   base: process.env.VITE_BASE || '/',
-  plugins: [react(), csp(), swManifest()],
+  plugins: [react(), csp(), swManifest(), fontPreload()],
   build: {
     // A demonstração é uma página só: a letra vai lá dentro.
     assetsInlineLimit: process.env.VITE_DEMO === '1' ? 64_000 : 4096,
@@ -55,7 +70,10 @@ export default defineConfig({
       // A demonstração é uma página só: o código vai todo junto (sem partes à parte nem ecrãs carregados depois).
       output: process.env.VITE_DEMO === '1' ? { inlineDynamicImports: true } : {
         // As bibliotecas mudam pouco: num ficheiro à parte, ficam guardadas no telemóvel de uma versão para a outra.
-        manualChunks: (id) => (/node_modules\/(react|react-dom|scheduler|react-router|react-router-dom|@supabase)\//.test(id) ? 'vendor' : undefined),
+        manualChunks: (id) => (/node_modules\/(react|react-dom|scheduler|react-router|react-router-dom|@supabase)\//.test(id) ? 'vendor'
+          // O reconhecimento de texto (e o que ele traz) só se carrega ao ler a primeira fotografia.
+          : /node_modules\/(tesseract\.js|regenerator-runtime|is-url|bmp-js|zlibjs|wasm-feature-detect|opencollective-postinstall)\//.test(id) ? 'ocr'
+          : undefined),
       },
     },
   },
