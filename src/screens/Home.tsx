@@ -328,7 +328,7 @@ export function Spaces() {
     garagem: ((n) => (n ? `${n} ${n === 1 ? 'carro' : 'carros'}` : 'sem carros'))(cars.rows.filter((c) => !c.archived).length),
     patrimonio: w.ready ? `${w.score.total} · ${w.score.level.toLowerCase()}` : '…',
     ginasio: ((x) => (x ? `${fmt(x.s.last, x.f.unit)} · ${x.f.label.toLowerCase()}` : gym.prefs ? 'sem avaliações' : 'por começar'))((() => { const f = gym.fields.find((y) => y.key === gym.prefs?.fields[0]); const s = f ? summary(gym.rows, f.key) : null; return f && s ? { f, s } : null; })()),
-    eventos: ((o) => (o ? `${o.name}${o.on_date ? ` · ${countdown(Math.round((Date.parse(o.on_date + 'T12:00:00') - Date.parse(today + 'T12:00:00')) / 86_400_000))}` : ''}` : 'nenhum a decorrer'))(sortOccasions(occasions.rows).active[0]),
+    eventos: ((o) => (o ? `${o.name}${o.on_date ? ` · ${countdown(Math.round((Date.parse(o.on_date + 'T12:00:00') - Date.parse(today + 'T12:00:00')) / 86_400_000))}` : ''}` : 'nenhum a decorrer'))(sortOccasions(occasions.rows.filter((o) => !o.purchase)).active[0]),
     objetivos: ((n) => (n ? `${n} ${n === 1 ? 'objetivo' : 'objetivos'}` : 'nenhum ainda'))(goals.rows.filter((g) => g.status === 'active').length),
   };
   const lit = MODULES.filter((x) => on(x.k));

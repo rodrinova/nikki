@@ -46,7 +46,7 @@ export function Occasions() {
   const { open } = useOverlays();
   const stats = useStats();
   const [showOld, setShowOld] = useState(false);
-  const { active, archived } = sortOccasions(occasions.rows);
+  const { active, archived } = sortOccasions(occasions.rows.filter((o) => !o.purchase));
   return (
     <>
       <Top title="Eventos" right={<button className="tb press" onClick={() => open(<OccasionSheet />)}>Novo evento</button>} />

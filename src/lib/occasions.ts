@@ -4,7 +4,8 @@
 import { toU } from './money';
 
 export type OccasionKind = 'casamento' | 'batizado' | 'aniversario' | 'bodas' | 'festa' | 'viagem' | 'outro';
-export interface Occasion { id: string; name: string; kind: OccasionKind; on_date: string | null; place: string | null; budget: number | string | null; archived: boolean; created_at: string }
+/** purchase: uma compra extraordinária (um carro, um sofá), com as despesas juntas e à parte do mês; car_id: o carro, na garagem. */
+export interface Occasion { id: string; name: string; kind: OccasionKind; on_date: string | null; place: string | null; budget: number | string | null; archived: boolean; created_at: string; purchase?: boolean; car_id?: string | null }
 export interface Guest { id: string; occasion_id: string; name: string; people: number; rsvp: 'pending' | 'yes' | 'no' | 'maybe'; grp: string | null; note: string | null }
 export interface OccItem { id: string; occasion_id: string; kind: 'buy' | 'todo'; title: string; due_on: string | null; done: boolean }
 export interface Vendor { id: string; occasion_id: string; name: string; service: string | null; contact: string | null; total: number | string | null; paid: number | string }

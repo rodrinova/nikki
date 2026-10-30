@@ -243,10 +243,13 @@ function MonthlyCost({ car, logs }: { car: CarRow; logs: CarLog[] }) {
 export function CarScreen() {
   const { id } = useParams();
   const { house } = useSession();
-  const { cars, deadlines } = useHouse();
+  const { cars, deadlines, occasions, expenses } = useHouse();
   const { open } = useOverlays();
   const owner = useOwnerLabel();
   const car = cars.rows.find((c) => c.id === id);
+  // A compra do carro (compra extraordinária ligada a ele): quanto já se pagou, à parte do custo por km.
+  const buy = car ? occasions.rows.find((o) => o.purchase && o.car_id === car.id) : undefined;
+  const bought = buy ? expenses.rows.filter((e) => e.occasion_id === buy.id).reduce((t, e) => t + toU(e.amount), 0) : 0;
   const s = useCarStats(car, '12m');
   if (!car || !s) return <><Top title="Garagem" />{cars.loading ? <Loading /> : <p className="s">Este carro já não está na garagem.</p>}</>;
   const admin = !!house && house.role !== 'staff'; // os dois da casa são iguais
@@ -260,6 +263,7 @@ export function CarScreen() {
       <Top title={car.name} right={admin ? <button className="tb press" onClick={() => open(<CarSheet car={car} />)}>Editar</button> : null} />
       <p className="s">{car.plate ? `${car.plate} · ` : ''}{owner(car.owner_id)}{car.insurer ? ` · seguro ${car.insurer}` : ''}{car.archived ? ' · arquivado' : ''}</p>
       <MainFigures car={car} s={s} />
+      {buy && <p className="s why"><span className="dot" aria-hidden="true" /><span>Compra: {eur(bought, 0)} € pagos até agora em «{buy.name}». Fica à parte do custo por km e do mês normal.</span></p>}
       {electric(car) && <p className="s why"><span className="dot" aria-hidden="true" /><span>Carro elétrico: o consumo em kWh/100 km chega em breve. Para já, a NIKKI conta os km, o €/km (com os carregamentos) e os fixos.</span></p>}
       {!electric(car) && s.waiting && <p className="s why"><span className="dot" aria-hidden="true" /><span>À espera de um depósito cheio{s.waiting !== 'nunca' ? ` desde ${dt(s.waiting)}` : ''}: o consumo só se mede de cheio a cheio.{s.long ? ` A longo prazo, ${L100(s.long.l100)} L/100 km${s.long.error !== null ? ` (± ${L100(s.long.error)})` : ''}, com todos os litros e km desde o primeiro cheio.` : ''}</span></p>}
       {!electric(car) && <ConsumptionChart s={s} />}

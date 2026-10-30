@@ -147,7 +147,8 @@ function useHouseData() {
     hkLog: useLive<HkLogRow>('hk_log', kh, 'id, task_id, done_on, done_by, created_at', { column: 'done_on', ascending: false }),
     hkMessages: useLive<HkMessageRow>('hk_messages', kh, 'id, author_id, body, photo_path, created_at', { column: 'created_at' }),
     hkPaid: useLive<HkPaidRow>('hk_paid', kh, 'hk_id, month, expense_id, paid_by, created_at', { column: 'month' }),
-    occasions: useLive<Occasion>('occasions', eh, 'id, name, kind, on_date, place, budget, archived, created_at', { column: 'created_at' }),
+    // Os eventos e as compras extraordinárias (estas não dependem do módulo Eventos).
+    occasions: useLive<Occasion>('occasions', h, 'id, name, kind, on_date, place, budget, archived, created_at, purchase, car_id', { column: 'created_at' }),
     occGuests: useLive<Guest>('occasion_guests', eh, 'id, occasion_id, name, people, rsvp, grp, note', { column: 'created_at' }),
     occItems: useLive<OccItem>('occasion_items', eh, 'id, occasion_id, kind, title, due_on, done', { column: 'created_at' }),
     occVendors: useLive<Vendor>('occasion_vendors', eh, 'id, occasion_id, name, service, contact, total, paid', { column: 'created_at' }),
