@@ -1447,3 +1447,18 @@ alter table nikki.households add column if not exists children smallint not null
 -- prestações, extras), contam no mês mas à parte (fora do ritmo e do normal). Se for um carro, liga-se à garagem.
 alter table nikki.occasions add column if not exists purchase boolean not null default false;
 alter table nikki.occasions add column if not exists car_id uuid references nikki.cars (id) on delete set null;
+
+-- ───────────────────────── entrar noutro aparelho ─────────────────────────
+-- Num aparelho com sessão, a NIKKI dá um código curto (10 minutos, uma só vez). No aparelho novo (outro telemóvel,
+-- o computador, a app no ecrã principal do iPhone) escreve-se o código e entra-se, cada aparelho com a sua sessão.
+-- Guarda-se só o resumo (sha-256) do código. Só a função device-link (chave de serviço) lê e escreve aqui.
+create table if not exists nikki.device_codes (
+  code_hash text primary key,
+  profile_id uuid not null references nikki.profiles (id) on delete cascade,
+  expires_at timestamptz not null,
+  used_at timestamptz,
+  created_at timestamptz not null default now()
+);
+alter table nikki.device_codes enable row level security;
+revoke all on nikki.device_codes from anon, authenticated, public;
+grant all on nikki.device_codes to service_role;
