@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
+import type { Gift, Guest, OccItem, Occasion, Vendor } from '@/lib/occasions';
 import { supabase } from '@/lib/supabase';
 import { monthKey, nextMonth, parseDate, prevMonth, todayStr } from '@/lib/dates';
 import { store } from '@/lib/store';
@@ -13,7 +14,7 @@ import type { Repeat } from '@/lib/agenda';
 import type { HkLog, HkTask } from '@/lib/hk';
 import type { Assessment, GymField } from '@/lib/gym';
 
-export interface ExpenseRow extends Expense { created_by: string; note: string | null; created_at: string; car_id?: string | null; source?: string }
+export interface ExpenseRow extends Expense { created_by: string; note: string | null; created_at: string; car_id?: string | null; source?: string; occasion_id?: string | null }
 export interface TransferRow extends Transfer { id: string; created_by: string }
 /** Saldo de abertura do par (vindo da app antiga): amount_a > 0 = profile_a adiantou mais até ao corte. */
 export interface OpeningRow { profile_a: string; profile_b: string; cutover: string; amount_a: number | string }
@@ -118,9 +119,10 @@ function useHouseData() {
   const gh = on('garagem') ? h : null;
   const ch = on('casa') ? h : null;
   const kh = on('housekeeping') ? h : null;
+  const eh = on('eventos') ? h : null;
   const d = {
     modules,
-    expenses: useLive<ExpenseRow>('expenses', h, 'id, paid_by, other_id, amount, split, payer_share, spent_on, category, created_by, note, created_at, car_id, source', { column: 'spent_on', ascending: false }),
+    expenses: useLive<ExpenseRow>('expenses', h, 'id, paid_by, other_id, amount, split, payer_share, spent_on, category, created_by, note, created_at, car_id, source, occasion_id', { column: 'spent_on', ascending: false }),
     transfers: useLive<TransferRow>('transfers', h, 'id, from_id, to_id, amount, made_on, created_by', { column: 'made_on', ascending: false }),
     openings: useLive<OpeningRow>('ledger_openings', h, 'profile_a, profile_b, cutover, amount_a'),
     shop: useLive<ShopItem>('shopping_items', h, 'id, name, aisle, done, done_by, created_by, created_at', { column: 'created_at' }),
@@ -143,15 +145,20 @@ function useHouseData() {
     hkLog: useLive<HkLogRow>('hk_log', kh, 'id, task_id, done_on, done_by, created_at', { column: 'done_on', ascending: false }),
     hkMessages: useLive<HkMessageRow>('hk_messages', kh, 'id, author_id, body, photo_path, created_at', { column: 'created_at' }),
     hkPaid: useLive<HkPaidRow>('hk_paid', kh, 'hk_id, month, expense_id, paid_by, created_at', { column: 'month' }),
+    occasions: useLive<Occasion>('occasions', eh, 'id, name, kind, on_date, place, budget, archived, created_at', { column: 'created_at' }),
+    occGuests: useLive<Guest>('occasion_guests', eh, 'id, occasion_id, name, people, rsvp, grp, note', { column: 'created_at' }),
+    occItems: useLive<OccItem>('occasion_items', eh, 'id, occasion_id, kind, title, due_on, done', { column: 'created_at' }),
+    occVendors: useLive<Vendor>('occasion_vendors', eh, 'id, occasion_id, name, service, contact, total, paid', { column: 'created_at' }),
+    occGifts: useLive<Gift>('occasion_gifts', eh, 'id, occasion_id, from_name, amount, item, thanked', { column: 'created_at' }),
     carLogs: useLive<CarLog>('car_logs', gh, 'id, car_id, logged_on, odometer, litres, full_tank, kind, expense_id, amount, note, estimated, created_at', { column: 'logged_on' }),
   };
   const monthTotals = useMonthTotals(ph ?? null, d.expenses.rows);
   const gym = useGym(on('ginasio') ? me?.id : undefined);
   const busy = useBusy(h, d.events.rows);
   // Voltar a ler tudo (puxar para atualizar).
-  const { expenses: e, transfers: t, openings: op, shop: s, deadlines: dl, events: ev, modules: mo, goals: go, assets: as, snapshots: sn, incomes: inc, cars: ca, carLogs: cl, homes: ho, bills: bi, billPayments: bp, chores: chs, choreLogs: chl, warranties: wa, todos: td, hk, hkTasks: hkt, hkLog: hkl, hkMessages: hkm, hkPaid: hkp } = d;
-  const reloadAll = useCallback(() => Promise.all([e.reload(), t.reload(), op.reload(), s.reload(), dl.reload(), ev.reload(), mo.reload(), go.reload(), as.reload(), sn.reload(), inc.reload(), ca.reload(), cl.reload(), ho.reload(), bi.reload(), bp.reload(), chs.reload(), chl.reload(), wa.reload(), td.reload(), hk.reload(), hkt.reload(), hkl.reload(), hkm.reload(), hkp.reload(), busy.reload(), monthTotals.reload()]),
-    [e.reload, t.reload, op.reload, s.reload, dl.reload, ev.reload, mo.reload, go.reload, as.reload, sn.reload, inc.reload, ca.reload, cl.reload, ho.reload, bi.reload, bp.reload, chs.reload, chl.reload, wa.reload, td.reload, hk.reload, hkt.reload, hkl.reload, hkm.reload, hkp.reload, busy.reload, monthTotals.reload]);
+  const { expenses: e, transfers: t, openings: op, shop: s, deadlines: dl, events: ev, modules: mo, goals: go, assets: as, snapshots: sn, incomes: inc, cars: ca, carLogs: cl, homes: ho, bills: bi, billPayments: bp, chores: chs, choreLogs: chl, warranties: wa, todos: td, hk, hkTasks: hkt, hkLog: hkl, hkMessages: hkm, hkPaid: hkp, occasions: oc, occGuests: og, occItems: oi, occVendors: ov, occGifts: of } = d;
+  const reloadAll = useCallback(() => Promise.all([e.reload(), t.reload(), op.reload(), s.reload(), dl.reload(), ev.reload(), mo.reload(), go.reload(), as.reload(), sn.reload(), inc.reload(), ca.reload(), cl.reload(), ho.reload(), bi.reload(), bp.reload(), chs.reload(), chl.reload(), wa.reload(), td.reload(), hk.reload(), hkt.reload(), hkl.reload(), hkm.reload(), hkp.reload(), oc.reload(), og.reload(), oi.reload(), ov.reload(), of.reload(), busy.reload(), monthTotals.reload()]),
+    [e.reload, t.reload, op.reload, s.reload, dl.reload, ev.reload, mo.reload, go.reload, as.reload, sn.reload, inc.reload, ca.reload, cl.reload, ho.reload, bi.reload, bp.reload, chs.reload, chl.reload, wa.reload, td.reload, hk.reload, hkt.reload, hkl.reload, hkm.reload, hkp.reload, oc.reload, og.reload, oi.reload, ov.reload, of.reload, busy.reload, monthTotals.reload]);
   return { ...d, busy, monthTotals, gym, on, reloadAll };
 }
 

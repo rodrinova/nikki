@@ -27,6 +27,7 @@ insert into public.transactions (date, amount, category, paid_by, shared, split_
   ('2026-02-20', 200, 'Rides', 'IG', true, 'equal', 'Revisão', 'Zoe', 'Repair', null, null, null),          -- Rodrigo deve 100; carro pelo nome
   ('2026-03-01', 500, 'Future Me', 'RA', false, 'none', 'ETF', null, null, null, null, null),
   ('2026-03-02', 0, 'Bits & Bobs', 'RA', false, 'none', 'zero', null, null, null, null, null),
+  ('2026-02-14', 900, 'The Big Day', 'IG', true, 'equal', 'Fotógrafo', null, null, null, null, null),            -- Rodrigo deve 450
   ('2025-12-01', 100, 'Nest', 'RA', true, 'equal', 'antes do corte', null, null, null, null, null);
 insert into public.settlements (date, amount, note) values ('2026-02-25', 20, 'MB Way'), ('2026-03-03', -5, 'troco');
 insert into public.ledger_opening_balance (cutover_date, amount_ra) values ('2026-01-01', 15.75);
