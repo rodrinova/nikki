@@ -22,6 +22,7 @@ import { CarScreen, Garage } from '@/screens/Garage';
 import { QuickAdd } from '@/screens/QuickAdd';
 import { BillScreen, Casa, CasaPart, CasaSetup } from '@/screens/Casa';
 import { HkDay, HkPart, Housekeeping } from '@/screens/Housekeeping';
+import { OccasionScreen, Occasions } from '@/screens/Occasions';
 import { Goals } from '@/screens/Goals';
 import { Housekeeper } from '@/screens/Housekeeper';
 import { moduleOf } from '@/lib/modules';
@@ -123,6 +124,8 @@ function Shell() {
           <Route path="/casa/:part" element={<Gate k="casa"><CasaPart /></Gate>} />
           <Route path="/ginasio" element={<Gate k="ginasio"><Gym /></Gate>} />
           <Route path="/ginasio/:key" element={<Gate k="ginasio"><GymMetric /></Gate>} />
+          <Route path="/eventos" element={<Gate k="eventos"><Occasions /></Gate>} />
+          <Route path="/eventos/:id" element={<Gate k="eventos"><OccasionScreen /></Gate>} />
           <Route path="/objetivos" element={<Gate k="objetivos"><Goals /></Gate>} />
           <Route path="/housekeeping" element={<Gate k="housekeeping"><Housekeeping /></Gate>} />
           <Route path="/housekeeping/dia/:day" element={<Gate k="housekeeping"><HkDay /></Gate>} />

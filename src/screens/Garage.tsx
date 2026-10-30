@@ -13,7 +13,7 @@ import { eur, parseAmount, toU } from '@/lib/money';
 import { addDays, dayLabel, monthKey, monthName, prevMonth, todayStr } from '@/lib/dates';
 import { shortDate } from '@/lib/admin';
 import {
-  L100, anniversary, consumption, fixedIn, flags, iucDue, kmIn, longRun, nextYear, paymentKind, perKm, period, waitingFull,
+  L100, anniversary, consumption, fixedIn, flags, forgotten, iucDue, kmIn, longRun, nextYear, paymentKind, perKm, period, waitingFull,
   yearFigures, yearlyInsurance, type CarLog,
 } from '@/lib/garage';
 import { Top } from './Home';
@@ -349,7 +349,7 @@ export function CarScreen() {
       {(s.flags.length > 0 || s.all.suspects.length > 0) && <section className="stack" aria-label="A rever">
         <span className="s">A rever</span>
         <div className="tile card rows">
-          {s.all.suspects.map((x) => <div key={'s' + x.to}><span className="st2"><span>{dt(x.from)} → {dt(x.to)} · {L100(x.l100)} L/100 km</span><span className="s warn">{x.why}. Fica fora da média.</span></span></div>)}
+          {s.all.suspects.map((x) => <div key={'s' + x.to}><span className="st2"><span>{dt(x.from)} → {dt(x.to)} · {L100(x.l100)} L/100 km</span><span className="s warn">{x.why}. Fica fora da média.</span></span>{!car.archived && <Forgot car={car} logs={s.logs} seg={x} refL100={s.all.ref} />}</div>)}
           {s.flags.map((f, j) => { const l = s.logs.find((x) => x.id === f.id)!; return <div key={f.id + j}><span className="st2"><span>{dt(l.logged_on)}{l.odometer !== null ? ` · ${km(l.odometer)}` : ''}</span><span className="s warn">{f.why}</span></span></div>; })}
         </div>
       </section>}
@@ -478,6 +478,30 @@ export function checkEntry(car: CarRow, f: CarEntry, last: number | null): strin
   return { litres: l, odometer: o };
 }
 const hasOdo = (k: CarLog['kind']) => k === 'fuel' || k === 'charge' || k === 'service';
+
+/**
+ * «Esqueci-me»: completa um troço a rever com o abastecimento que faltou, estimado pelas medianas (litros pelo
+ * consumo mediano do carro, valor pelo preço mediano por litro desse intervalo). Fica marcado como estimado, sem km
+ * e sem despesa (não se sabe quem pagou); apaga-se como qualquer registo.
+ */
+function Forgot({ car, logs, seg, refL100 }: { car: CarRow; logs: CarLog[]; seg: { from: string; to: string; km: number; litres: number }; refL100: number | null }) {
+  const { me, house } = useSession();
+  const { carLogs } = useHouse();
+  const { toast } = useOverlays();
+  const [busy, setBusy] = useState(false);
+  const f = forgotten(logs, seg, refL100);
+  if (!f) return null;
+  const litres = f.litres.toFixed(1).replace('.', ',');
+  const save = async () => {
+    setBusy(true);
+    const { error } = await supabase.from('car_logs').insert({ household_id: house!.id, car_id: car.id, logged_on: f.logged_on, odometer: null, litres: f.litres, full_tank: false, kind: 'fuel', expense_id: null, amount: f.amount, note: 'Esqueci-me (estimado)', estimated: true, created_by: me!.id });
+    setBusy(false);
+    if (error) { toast(error.message); return; }
+    carLogs.reload();
+    toast(`Completado com ≈ ${litres} L${f.amount ? ` e ${eur(toU(f.amount))} €` : ''}, pelas medianas.`, { ok: true });
+  };
+  return <button className="tb press" disabled={busy} onClick={save} aria-label={`Esqueci-me de registar: juntar cerca de ${litres} litros`}>Esqueci-me</button>;
+}
 
 /** Grava o registo do carro ligado à despesa (com o valor, para os dois verem a Garagem igual). */
 export function useSaveCarLog() {

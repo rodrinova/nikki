@@ -63,7 +63,7 @@ function seed() {
     ],
     households: [{ id: H, name: 'A nossa casa', created_at: ago(210) }],
     memberships: [{ household_id: H, profile_id: R, role: 'admin', joined_at: ago(210) }, { household_id: H, profile_id: I, role: 'member', joined_at: ago(209) }, { household_id: H, profile_id: M, role: 'staff', joined_at: ago(69) }],
-    household_modules: [['contas', 210], ['compras', 210], ['agenda', 210], ['casa', 210], ['housekeeping', 70], ['garagem', 45], ['ginasio', 120], ['objetivos', 20], ['patrimonio', 120]].map(([m, d]) => ({ household_id: H, module: m, enabled_at: ago(d as number), enabled_by: R })),
+    household_modules: [['contas', 210], ['compras', 210], ['agenda', 210], ['casa', 210], ['housekeeping', 70], ['garagem', 45], ['ginasio', 120], ['objetivos', 20], ['patrimonio', 120], ['eventos', 30]].map(([m, d]) => ({ household_id: H, module: m, enabled_at: ago(d as number), enabled_by: R })),
     share_ratios: [{ household_id: H, profile_a: R, profile_b: I, ratio_a: 0.5 }],
     invites: [], tickets: [], goals: [], assets: [], asset_snapshots: [], incomes: [], cars: [], car_logs: [], homes: [], bills: [], bill_payments: [], chores: [], chore_logs: [], todos: [], warranties: [], calendar_links: [], housekeeping: [], hk_tasks: [], hk_log: [], hk_messages: [], hk_paid: [], gym_fields: [], gym_prefs: [], gym_assessments: [],
     expenses: [], transfers: [], deadlines: [], shopping_items: [], events: [],
@@ -119,6 +119,32 @@ function seed() {
   }
   // Um abastecimento parcial do Golf a meio do mês passado (entra no troço seguinte).
   { const id = uid(), on = `${m1}-18`; db.expenses.push({ id, household_id: H, created_by: R, paid_by: R, other_id: null, amount: '25.00', split: 'mine', payer_share: null, spent_on: on, category: 'Carros', note: 'Combustível · Golf', car_id: GOLF, source: 'manual', created_at: `${on}T18:00:00Z` }); carLog(GOLF, on, 42130, 14.4, false, id, R, '25.00'); }
+  // Eventos: um batizado daqui a três semanas (a meio da preparação) e o casamento, já arquivado.
+  { const BAT = 'demo-batizado', CAS = 'demo-casamento', on = addDays(today, 22);
+    db.occasions = [
+      { id: BAT, household_id: H, name: 'Batizado da Matilde', kind: 'batizado', on_date: on, place: 'Quinta do Lago, Sintra', budget: '1500.00', archived: false, created_by: I, created_at: ago(40) },
+      { id: CAS, household_id: H, name: 'O nosso casamento', kind: 'casamento', on_date: addDays(today, -400), place: null, budget: '18000.00', archived: true, created_by: R, created_at: ago(700) },
+    ];
+    const ex = (id: string, occ: string, d: string, amount: string, cat: string, note: string, by: string, split: string) => db.expenses.push({ id, household_id: H, created_by: by, paid_by: by, other_id: split === 'mine' ? null : by === R ? I : R, amount, split, payer_share: split === 'shared' ? 0.5 : null, spent_on: d, category: cat, note, car_id: null, source: 'manual', occasion_id: occ, created_at: `${d}T12:00:00Z` });
+    ex(uid(), BAT, addDays(today, -12), '300.00', 'Restaurantes', 'Sinal da quinta', I, 'shared');
+    ex(uid(), BAT, addDays(today, -5), '64.90', 'Casa', 'Vestido de batizado', I, 'mine');
+    ex(uid(), BAT, addDays(today, -2), '38.50', 'Casa', 'Lembranças', R, 'shared');
+    for (const [d, v, c, n] of [[-430, '4500.00', 'Restaurantes', 'Quinta (2.ª prestação)'], [-410, '1800.00', 'Lazer', 'Fotografia'], [-402, '950.00', 'Roupa', 'Fato']] as const) ex(uid(), CAS, addDays(today, d), v, c, n, R, 'shared');
+    let g = 0;
+    db.occasion_guests = ([['Avós Fernandes', 2, 'yes', 'Família'], ['Avó Lurdes', 1, 'yes', 'Família'], ['Tios do Porto', 4, 'pending', 'Família'], ['Padrinhos', 2, 'yes', 'Família'], ['Marta e Rui', 3, 'maybe', 'Amigos'], ['Sofia', 1, 'no', 'Amigos'], ['Equipa da Inês', 2, 'pending', 'Trabalho']] as const)
+      .map(([name, people, rsvp, grp]) => ({ id: `demo-g${++g}`, household_id: H, occasion_id: BAT, name, people, rsvp, grp, note: null, created_at: ago(30 - g) }));
+    db.occasion_items = ([['todo', 'Marcar a cerimónia na igreja', addDays(today, -6), true], ['todo', 'Confirmar o número de pessoas à quinta', addDays(today, -1), false], ['todo', 'Escolher o menu', addDays(today, 7), false], ['buy', 'Velas e toalha de batismo', addDays(today, 14), false], ['buy', 'Lembranças (40)', null, true]] as const)
+      .map(([kind, title, due_on, done], j) => ({ id: `demo-i${j}`, household_id: H, occasion_id: BAT, kind, title, due_on, done, done_by: done ? I : null, created_at: ago(20 - j) }));
+    db.occasion_vendors = [
+      { id: 'demo-v1', household_id: H, occasion_id: BAT, name: 'Quinta do Lago', service: 'Almoço', contact: '219 000 000', total: '1050.00', paid: '300.00', created_at: ago(15) },
+      { id: 'demo-v2', household_id: H, occasion_id: BAT, name: 'Pastelaria Doce', service: 'Bolo', contact: null, total: '120.00', paid: '0.00', created_at: ago(10) },
+    ];
+    db.occasion_gifts = [{ id: 'demo-p1', household_id: H, occasion_id: BAT, from_name: 'Avós Fernandes', amount: '200.00', item: null, thanked: false, created_at: ago(3) }];
+  }
+  // Histórico mais antigo do Golf, com um abastecimento esquecido: o troço até ao de há dois meses fica a rever
+  // (1100 km com 38 L) e a Garagem propõe «Esqueci-me».
+  { const m3 = prevMonth(m2), m4 = prevMonth(m3);
+    for (const [on, odo, l, v] of [[`${m4}-05`, 39500, 38.0, '64.20'], [`${m3}-02`, 40100, 37.5, '63.40']] as const) db.car_logs.push({ id: uid(), household_id: H, car_id: GOLF, logged_on: on, odometer: odo, litres: l.toFixed(2), full_tank: true, kind: 'fuel', expense_id: null, amount: v, created_by: R, created_at: `${on}T12:00:00Z` }); }
   // Oficina e portagens do Golf (as portagens entram no €/km, não nos fixos) e um elétrico dos dois, com carregamentos.
   const extra = (car: string, on: string, kind: string, amount: string, note: string, by: string, odometer: number | null, split: 'mine' | 'shared') => {
     const id = uid();
@@ -538,8 +564,15 @@ export function createDemoClient() {
         // Só totais por mês, sem o investimento; inclui as «só minhas» de cada um (como a função da base).
         if (!db.memberships.some((m) => m.profile_id === me && m.household_id === args.h)) return { data: [], error: null };
         const by = new Map<string, number>();
-        for (const e of db.expenses) if (e.household_id === args.h && e.spent_on >= args.since && e.category !== 'Future Me') by.set(e.spent_on.slice(0, 7), (by.get(e.spent_on.slice(0, 7)) ?? 0) + Number(e.amount));
+        for (const e of db.expenses) if (e.household_id === args.h && e.spent_on >= args.since && e.category !== 'Future Me' && !e.occasion_id) by.set(e.spent_on.slice(0, 7), (by.get(e.spent_on.slice(0, 7)) ?? 0) + Number(e.amount));
         return { data: [...by].sort().map(([month, total]) => ({ month, total: total.toFixed(2) })), error: null };
+      }
+      if (name === 'occasion_totals') {
+        // Só os totais de cada evento, com as «só minhas» de cada um (como a função da base).
+        if (!db.memberships.some((m) => m.profile_id === me && m.household_id === args.h && m.role !== 'staff')) return { data: [], error: null };
+        const by = new Map<string, number>();
+        for (const e of db.expenses) if (e.household_id === args.h && e.occasion_id) by.set(e.occasion_id, (by.get(e.occasion_id) ?? 0) + Number(e.amount));
+        return { data: [...by].map(([occasion_id, total]) => ({ occasion_id, total: total.toFixed(2) })), error: null };
       }
       if (name === 'touch') { if (p) p.last_seen_at = new Date().toISOString(); return { data: null, error: null }; }
       if (name === 'request_account') {

@@ -872,3 +872,19 @@ button.ctile{border:0;text-align:left;align-items:flex-start;width:100%;font:inh
 .gym-table th,.gym-table td{text-align:right;padding:6px 4px;border-bottom:1px solid var(--line)}
 .gym-table th:first-child,.gym-table td:first-child{text-align:left}
 .lazy-wait{display:grid;place-items:center;min-height:50vh;color:var(--sub)}
+
+/* Eventos */
+.occ{display:flex;flex-direction:column;gap:10px;padding:18px;color:inherit;text-decoration:none}
+.occ-money{display:flex;align-items:baseline;gap:8px}
+.occ-bar{display:block;height:3px;background:var(--tile-2);border-radius:2px;overflow:hidden}
+.occ-bar span{display:block;height:3px;background:var(--ink)}
+.occ-bar span.over{background:var(--accent)}
+.field.narrow{flex:0 0 64px;text-align:center;padding:0 8px}
+.field.narrow-date{flex:0 0 150px;padding:0 10px}
+.item .nm .due{display:block;font-size:var(--t-s);color:var(--sub)}
+.item .nm .due.warn{color:var(--accent)}
+.tb.rsvp-yes{background:var(--ink);color:var(--ground)}
+.tb.rsvp-no{color:var(--sub);text-decoration:line-through}
+.tb.rsvp-maybe{background:transparent;box-shadow:inset 0 0 0 1px var(--line)}
+.occ-rows > div{gap:10px}
+.occ-rows > div > .st2{flex:1;min-width:0}
