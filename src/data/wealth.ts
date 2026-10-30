@@ -4,7 +4,7 @@ import { useHouse, type AssetRow, type GoalRow } from './house';
 import { monthKey, todayStr } from '@/lib/dates';
 import { partOf, toU } from '@/lib/money';
 import {
-  CUSHION_MIN, EMERGENCY_MONTHS, avgMonthly, badges, freeMonths, fundCheck, healthScore, incomeMonthly, liqOf, monthPlan, splitFunds,
+  EMERGENCY_MONTHS, cushionMin, avgMonthly, badges, freeMonths, fundCheck, healthScore, incomeMonthly, liqOf, monthPlan, splitFunds,
   realReturn, savings, suggestGoal, type FundRole,
 } from '@/lib/wealth';
 
@@ -18,7 +18,7 @@ export interface WealthAsset extends AssetRow { value: number; part: number; min
  * e a parte dela nos dos dois (a partilha das despesas), a despesa média dela (a parte dela) e os rendimentos dela.
  */
 export function useWealth(view: WealthView) {
-  const { me, partner, myShare } = useSession();
+  const { me, partner, myShare, house } = useSession();
   const { assets, snapshots, incomes, incomeEntries, expenses, monthTotals } = useHouse();
   return useMemo(() => {
     const today = todayStr();
@@ -60,7 +60,7 @@ export function useWealth(view: WealthView) {
     // O que passar da meta do fundo de emergência (e estiver disponível no próprio dia) conta no fundo de maneio.
     const split = splitFunds(emRaw.list.filter((a) => a.check.ok).map((a) => ({ value: a.mine, liq: a.liq })), cuRaw.list.filter((a) => a.check.ok).map((a) => ({ value: a.mine })), emergencyTarget);
     const emergency = { ...emRaw, value: split.emergency, overflow: split.overflow }, cushion = { ...cuRaw, value: split.cushion, overflow: split.overflow };
-    const cushionTarget = Math.round(CUSHION_MIN * (casa ? 1 : myShare));
+    const cushionTarget = Math.round(cushionMin(house?.children) * (casa ? 1 : myShare));
     const sv = income > 0 && spend ? savings(income, spend.avg) : null;
     const plan = sv ? monthPlan(sv.surplus, (emergencyTarget ?? 0) - emergency.value, cushionTarget - cushion.value) : null;
     // Património total (o que vale tudo, casa e carros incluídos): da casa, ou o teu com a tua parte do partilhado.
@@ -80,7 +80,7 @@ export function useWealth(view: WealthView) {
       casa, solo, items, mine, net, spend, income, incomeRows, emergency, cushion, emergencyTarget, cushionTarget, sv, plan, fm, passiveYear,
       score, badges: badges(scoreIn), goal, ready: !assets.loading && !snapshots.loading && (!casa || !monthTotals.loading),
     };
-  }, [view, me, partner, myShare, assets.rows, assets.loading, snapshots.rows, snapshots.loading, incomes.rows, incomeEntries.rows, expenses.rows, monthTotals.rows, monthTotals.loading]);
+  }, [view, me, partner, myShare, house?.children, assets.rows, assets.loading, snapshots.rows, snapshots.loading, incomes.rows, incomeEntries.rows, expenses.rows, monthTotals.rows, monthTotals.loading]);
 }
 
 export type Wealth = ReturnType<typeof useWealth>;

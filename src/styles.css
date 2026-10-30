@@ -889,3 +889,7 @@ button.ctile{border:0;text-align:left;align-items:flex-start;width:100%;font:inh
 .occ-rows > div{gap:10px}
 .occ-rows > div > .st2{flex:1;min-width:0}
 .networth{display:flex;flex-direction:column;gap:8px;min-height:0}
+.kids{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.kids-n{display:inline-flex;align-items:center;gap:10px;font-size:var(--t-s)}
+.kids-n .tb{min-width:36px;padding:0}
+.kids-n .tb:disabled{opacity:.4}
