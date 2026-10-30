@@ -933,7 +933,14 @@ button.ctile{border:0;text-align:left;align-items:flex-start;width:100%;font:inh
 .speed .btn{margin:8px 0 4px}
 .qk-got{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .qk-got > span:not(.s){padding:2px 8px;border-radius:999px;background:var(--accent-soft);color:var(--ink);font-size:12px}
-.yb-ev{fill:none;stroke:var(--sub);stroke-width:1;stroke-dasharray:2 2}
-.yb.on .yb-ev{stroke:var(--ink)}
-.ybars-key{display:flex;align-items:center;gap:6px;margin:0;font-size:12px}
-.ybars-key i{display:inline-block;width:12px;height:8px;border:1px dashed var(--sub);border-radius:2px}
+.yb-ev{opacity:.75}
+.yb.on .yb-ev{opacity:1}
+.yb-ev-bg{fill:color-mix(in srgb,var(--viz-1) 35%,var(--tile))}
+.yb-ev-st{fill:var(--viz-1)}
+.ybars-cap{margin:0}
+.ybars-cap b{font-weight:400;color:var(--viz-1)}
+.ybars-key{display:flex;align-items:center;gap:14px;margin:0;font-size:12px}
+.ybars-key span{display:inline-flex;align-items:center;gap:6px}
+.ybars-key i{display:inline-block;width:12px;height:10px;border-radius:2px}
+.ybars-key .k-day{background:var(--tile-2)}
+.ybars-key .k-ev{background:repeating-linear-gradient(45deg,var(--viz-1) 0 2px,color-mix(in srgb,var(--viz-1) 35%,var(--tile)) 2px 4px)}

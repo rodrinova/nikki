@@ -165,6 +165,11 @@ function YearBars({ months, normal, sel, onPick }: { months: { key: string; tota
     <figure className="ybars" aria-label="Gasto mês a mês">
       <div className="wbar"><span className="s">{full >= n && n > 12 ? `Desde ${monthName(months[0].key).slice(0, 3)} ${months[0].key.slice(0, 4)}` : `${full} meses`}</span>{normal !== null && <span className="s"><i className="ybars-avg-k" aria-hidden="true" />o teu normal {eur(normal, 0)} €</span>}</div>
       <svg viewBox={`0 0 ${W} ${H}`} role="group" {...z.bind}>
+        <defs>
+          <pattern id="yb-stripes" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+            <rect width="5" height="5" className="yb-ev-bg" /><rect width="2.2" height="5" className="yb-ev-st" />
+          </pattern>
+        </defs>
         {vis.map((m) => {
           const x = (m.i - a) * unit + gap / 2, h = Math.max(m.total > 0 ? 2 : 0, H - B - y(m.total)), he = m.events > 0 ? Math.max(2, H - B - y(m.events)) : 0;
           return (
@@ -172,14 +177,18 @@ function YearBars({ months, normal, sel, onPick }: { months: { key: string; tota
               onClick={() => onPick(m.key)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPick(m.key); } }}>
               <rect x={x - gap / 2} y={0} width={unit} height={H} className="yb-hit" />
               <rect x={x} y={H - B - h} width={bw} height={h} rx={Math.min(3, bw / 3)} className="yb-bar" />
-              {he > 0 && <rect x={x} y={H - B - h - he - 1} width={bw} height={he} rx={Math.min(3, bw / 3)} className="yb-ev" />}
+              {he > 0 && <rect x={x} y={H - B - h - he} width={bw} height={he} rx={Math.min(3, bw / 3)} className="yb-ev" fill="url(#yb-stripes)" />}
               <text x={x + bw / 2} y={H - 4} textAnchor="middle" className="gc-ax">{lab(m)}</text>
             </g>
           );
         })}
         {normal !== null && <line x1={0} x2={W} y1={y(normal)} y2={y(normal)} className="ybars-avg" />}
       </svg>
-      {anyEv && <p className="s ybars-key"><i aria-hidden="true" />eventos, por cima do dia a dia (ficam fora do normal)</p>}
+      {(() => {
+        const s = months.find((m) => m.key === sel);
+        return s ? <p className="s ybars-cap">{monthTitle(s.key)}: {eur(s.total, 0)} € do dia a dia{s.events > 0 ? <> + <b>{eur(s.events, 0)} € de eventos</b> = {eur(s.total + s.events, 0)} €</> : ''}</p> : null;
+      })()}
+      {anyEv && <p className="s ybars-key"><span><i className="k-day" aria-hidden="true" />dia a dia</span><span><i className="k-ev" aria-hidden="true" />eventos (por cima; fora do normal)</span></p>}
       {n > 3 && <ZoomHint z={z} />}
     </figure>
   );
