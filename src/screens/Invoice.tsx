@@ -48,7 +48,7 @@ export function BillInvoice({ name, onRead }: { name: string; onRead: (r: Invoic
       </div>
       {DEMO && <button type="button" className="tb quiet press" onClick={() => onRead(readInvoice(sampleText()), 'pdf')}>Fatura de exemplo</button>}
       {step && <p className="s" aria-live="polite">{STEP[step.s]}{step.p ? ` ${Math.round(step.p * 100)}%` : ''}</p>}
-      {fail && <p className="s">Não consegui ler. Tenta o PDF da área de cliente ou uma foto direita, com luz; ou escreve o consumo.</p>}
+      {fail && <p className="s">Esta não consegui ler. Tenta o PDF da área de cliente ou uma foto direita e com luz. Ou escreve o consumo, que também serve.</p>}
     </div>
   );
 }

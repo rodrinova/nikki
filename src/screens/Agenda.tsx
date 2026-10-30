@@ -180,7 +180,7 @@ export function EventSheet({ ev, day }: { ev?: EventRow; day: string }) {
       <p className="l">{ev.title}</p>
       <p className="s">{ev.all_day ? 'Dia inteiro' : `${hm(ev.starts_at)}${ev.ends_at ? `–${hm(ev.ends_at)}` : ''}`}{ev.repeat !== 'none' ? ` · ${repeatLabel(ev)}` : ''}</p>
       {ev.location && <button className="btn quiet wide press" onClick={() => openPlace(ev.location!)}>{ev.location} <Icon n="arrow" s={18} /></button>}
-      <p className="s">Só quem o criou o pode mudar.</p>
+      <p className="s">Só quem o criou o pode mudar. Regras da casa.</p>
     </div>
   );
   return (
@@ -257,7 +257,7 @@ function PhoneSheet() {
     setBusy(false);
     if (error || (data as { error?: string })?.error) return setErr((data as { error?: string })?.error ?? 'Não foi possível ligar ao iCloud. Tenta outra vez.');
     setForm(false); setPass(''); load();
-    toast('Ligado ao iCloud: o calendário «NIKKI» já está no iPhone.', { ok: true });
+    toast('Ligado ao iCloud. O calendário «NIKKI» já está no iPhone.', { ok: true });
   }
   async function google() {
     setBusy(true);
@@ -266,7 +266,7 @@ function PhoneSheet() {
     const url = (data as { url?: string })?.url;
     if (error || !url) return toast('Não foi possível abrir o Google. Tenta outra vez.');
     location.href = url;
-    if (DEMO) { load(); toast('Ligado ao Google: o calendário «NIKKI» já está no telemóvel.', { ok: true }); }
+    if (DEMO) { load(); toast('Ligado ao Google. O calendário «NIKKI» já está no telemóvel.', { ok: true }); }
   }
   async function unlink(provider: 'icloud' | 'google') {
     await call({ action: 'unlink', provider }); load();
@@ -289,7 +289,7 @@ function PhoneSheet() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       <p className="l">No calendário do telemóvel</p>
-      <p className="s">A NIKKI escreve os eventos da casa e os teus num calendário «NIKKI», e o telemóvel mostra-os em segundos.{partner ? ` Os de ${partner.name} não vão.` : ''}</p>
+      <p className="s">A NIKKI escreve os eventos da casa e os teus num calendário «NIKKI». O telemóvel mostra-os em segundos, com o Waze já apontado.{partner ? ` Os de ${partner.name} não vão.` : ''}</p>
       {links === null ? <p className="s">A ver…</p> : <>
         {row('icloud') ? <Status l={row('icloud')!} name="iCloud" /> : form
           ? <form className="form" onSubmit={icloud} autoComplete="off">

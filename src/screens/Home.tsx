@@ -124,8 +124,8 @@ function Now() {
   // Prazos: com a antecedência de cada um (IUC, IMI, seguros e contratos: um mês; o resto: uma semana).
   for (const d of deadlines.rows.filter((x) => !x.paid_at && (on('casa') || (x.car_id && on('garagem'))) && x.due_on <= addDays(today, x.remind_days ?? 7))) {
     const to = d.car_id ? `/garagem/${d.car_id}` : on('casa') ? '/casa/prazos' : undefined, near = d.due_on <= addDays(today, 2);
-    const s = d.kind === 'insurance' ? `Renova ${dayLabel(d.due_on)}. Boa altura para comparar propostas.`
-      : d.kind === 'contract' ? `Acaba ${dayLabel(d.due_on)}. Podes mudar sem penalização.`
+    const s = d.kind === 'insurance' ? `Renova ${dayLabel(d.due_on)}. Pedir duas propostas agora costuma valer um jantar.`
+      : d.kind === 'contract' ? `Acaba ${dayLabel(d.due_on)}. A partir daí, mudar não custa nada.`
         : `${d.kind === 'iuc' || d.kind === 'imi' ? 'Até ' : ''}${dayLabel(d.due_on)}${d.amount ? ` · ${eur(Number(d.amount) * 100_000)} €` : ''}`;
     const car = d.car_id ? cars.rows.find((c) => c.id === d.car_id) : undefined;
     const act = d.kind === 'contract' ? { label: 'Tratado', run: () => open(<ContractSheet d={d} />) }
@@ -134,23 +134,23 @@ function Now() {
   }
   // Casa: contas a pagar nos próximos 2 dias e despesas que parecem contas fixas (a confirmar).
   if (on('casa')) for (const d of casa.dues.filter((x) => x.on <= addDays(today, 2))) items.push({ key: `due:${d.b.id}:${d.on}`, rank: 1, due: d.on, urgent: true, t: d.b.name, s: `Paga-se ${dayLabel(d.on)}${d.amount ? `, ${d.invoice ? '' : 'cerca de '}${eur(d.amount, d.invoice ? 2 : 0)} €` : ''}.`, to: `/casa/conta/${d.b.id}` });
-  if (on('casa') && casa.pending.length) items.push({ key: `pend:${casa.pending.map((x) => x.e.id).sort().join(',')}`, rank: 4, t: casa.pending.length === 1 ? '1 despesa parece uma conta fixa' : `${casa.pending.length} despesas parecem contas fixas`, s: 'Um toque para confirmar.', to: '/casa/contas' });
+  if (on('casa') && casa.pending.length) items.push({ key: `pend:${casa.pending.map((x) => x.e.id).sort().join(',')}`, rank: 4, t: casa.pending.length === 1 ? '1 despesa parece uma conta fixa' : `${casa.pending.length} despesas parecem contas fixas`, s: 'Um toque para confirmar. A NIKKI fez o resto.', to: '/casa/contas' });
   // Aniversários: com os dias de antecedência de cada um (para o presente).
-  for (const b of bdays) items.push({ key: `bday:${b.ev!.id}:${b.day}`, rank: b.day <= addDays(today, 1) ? 1 : 3, due: b.day, urgent: b.day <= addDays(today, 1), t: b.title, s: `${cap1(dayLabel(b.day))}. ${b.day === today ? 'Dá os parabéns!' : 'Já há presente?'}` });
+  for (const b of bdays) items.push({ key: `bday:${b.ev!.id}:${b.day}`, rank: b.day <= addDays(today, 1) ? 1 : 3, due: b.day, urgent: b.day <= addDays(today, 1), t: b.title, s: `${cap1(dayLabel(b.day))}. ${b.day === today ? 'Dá os parabéns. Hoje conta a dobrar.' : 'Já há presente? (A NIKKI não conta.)'}` });
   // Manutenção: duas semanas antes, para marcar o técnico. Garantias: nos últimos 60 dias.
-  if (on('casa')) for (const c of chores.rows.filter((x) => !x.archived && x.kind === 'maintenance' && x.next_on > today && x.next_on <= addDays(today, 14))) { const ha = hkAsk(c); items.push({ key: `mnt:${c.id}:${c.next_on}`, rank: 3, due: c.next_on, t: c.title, s: 'note' in ha ? `${cap1(dayLabel(c.next_on))}. ${ha.note}.` : `${cap1(dayLabel(c.next_on))}. Se precisa de técnico, é altura de marcar.`, to: '/casa/manutencao', ...('act' in ha ? { act: ha.act } : {}) }); }
+  if (on('casa')) for (const c of chores.rows.filter((x) => !x.archived && x.kind === 'maintenance' && x.next_on > today && x.next_on <= addDays(today, 14))) { const ha = hkAsk(c); items.push({ key: `mnt:${c.id}:${c.next_on}`, rank: 3, due: c.next_on, t: c.title, s: 'note' in ha ? `${cap1(dayLabel(c.next_on))}. ${ha.note}.` : `${cap1(dayLabel(c.next_on))}. Se precisa de técnico, marcar agora poupa a espera.`, to: '/casa/manutencao', ...('act' in ha ? { act: ha.act } : {}) }); }
   if (on('casa')) for (const g of warranties.rows.filter((x) => !x.archived)) {
     const st = warrantyState(g.bought_on, Number(g.years), today);
-    if (st.state === 'soon' && st.days <= 60) items.push({ key: `gar:${g.id}:${st.end}`, rank: 4, due: st.end, t: `Garantia: ${g.item}`, s: `Acaba ${dayLabel(st.end)}.`, to: '/casa/garantias' });
+    if (st.state === 'soon' && st.days <= 60) items.push({ key: `gar:${g.id}:${st.end}`, rank: 4, due: st.end, t: `Garantia: ${g.item}`, s: `Acaba ${dayLabel(st.end)}. Se há queixas, é agora.`, to: '/casa/garantias' });
   }
   // Housekeeping: o pagamento do mês (três dias antes) e mensagens novas de quem faz o housekeeping.
   // Antes do dia (com a antecedência escolhida): preparar; no dia ou depois: pagar.
   if (hkCard?.monthly_pay) for (const p of payDue({ ...hkCard, monthly_pay: Number(hkCard.monthly_pay) }, hkPaid, today))
     items.push({ key: `hkpay:${p.month}`, rank: p.late > 0 ? 0 : p.late >= -2 ? 1 : 2, due: p.due, urgent: p.late >= -2, t: p.late < 0 ? `Preparar o housekeeping de ${monthName(p.month)}` : `Housekeeping de ${monthName(p.month)}`,
-      s: p.late < 0 ? `${eur(toU(hkCard.monthly_pay), 0)} € para ${hkCard.name}, a pagar ${dayLabel(p.due)}. Dá tempo de preparar.` : `${eur(toU(hkCard.monthly_pay), 0)} € para ${hkCard.name}, ${p.late > 0 ? 'era para ' : 'paga-se '}${dayLabel(p.due)}.`, to: '/housekeeping', act: { label: 'Paguei', run: () => hkPay(hkCard, p.month) } });
+      s: p.late < 0 ? `${eur(toU(hkCard.monthly_pay), 0)} € para ${hkCard.name}, ${dayLabel(p.due)}. Ainda dá tempo, com calma.` : `${eur(toU(hkCard.monthly_pay), 0)} € para ${hkCard.name}, ${p.late > 0 ? 'era para ' : 'paga-se '}${dayLabel(p.due)}.`, to: '/housekeeping', act: { label: 'Paguei', run: () => hkPay(hkCard, p.month) } });
   // Ginásio: a próxima avaliação (de n em n semanas desde a última).
   const gnext = on('ginasio') && gym.prefs ? nextCheck(gym.rows, gym.prefs.every_weeks, today) : null;
-  if (gnext && gnext.late >= 0) items.push({ key: `gym:${gnext.due}`, rank: 3, due: gnext.due, t: 'Avaliação no ginásio', s: gnext.late > 0 ? `Era ${dayLabel(gnext.due)}. Só tu vês os valores.` : 'Hoje é dia. Só tu vês os valores.', to: '/ginasio' });
+  if (gnext && gnext.late >= 0) items.push({ key: `gym:${gnext.due}`, rank: 3, due: gnext.due, t: 'Avaliação no ginásio', s: gnext.late > 0 ? `Era ${dayLabel(gnext.due)}. Os números são só teus.` : 'Hoje é dia. Os números são só teus.', to: '/ginasio' });
   const hkSeen = store.get(seenKey(house?.id, me?.id)) ?? '';
   const hkNew = hkCard ? hkMessages.rows.filter((m) => m.author_id === hkCard.profile_id && m.created_at > hkSeen) : [];
   if (hkNew.length) items.push({ key: `hkmsg:${hkNew.at(-1)!.id}`, rank: 0.5, urgent: true, // mensagem nova: logo a seguir ao que está atrasado
@@ -170,7 +170,7 @@ function Now() {
   return (
     <section className="tile pane now" aria-label="A NIKKI lembra">
       <div className="pane-top"><span className="s">A NIKKI lembra</span></div>
-      {shown.length === 0 && !undo && <p className="l" style={{ fontSize: 'var(--t-m)' }}>Nada para hoje. Está tudo a tempo.</p>}
+      {shown.length === 0 && !undo && <p className="l" style={{ fontSize: 'var(--t-m)' }}>Nada para hoje. Está tudo a tempo. Aproveita.</p>}
       <ul className="now-list">
         {list.map((it) => <NowRow key={it.key} it={it} onDismiss={() => dismiss(it)} />)}
         {undo && <li className="now-undo s"><span>{undo.t}: {undo.verb}.</span><button className="tb press" onClick={async () => { await undo.run(); setUndo(null); }}>Desfazer</button></li>}
@@ -244,7 +244,7 @@ export function Hub() {
   useEffect(() => {
     const q = new URLSearchParams(location.search).get('calendario');
     if (!q) return;
-    toast(q === 'google' ? 'Ligado ao Google: o calendário «NIKKI» já está no telemóvel.' : 'Não foi possível ligar o calendário. Tenta outra vez.', { ok: q === 'google' });
+    toast(q === 'google' ? 'Ligado ao Google. O calendário «NIKKI» já está no telemóvel.' : 'O calendário não ligou desta vez. Tenta outra vez.', { ok: q === 'google' });
     history.replaceState(null, '', location.pathname);
   }, [toast]);
   // Atalho do ícone (tocar e manter no ecrã principal): «Nova despesa».
@@ -283,15 +283,15 @@ function MonthClose() {
   const done = useCallback(() => { if (c) { store.set(key, c.key); setSeen(c.key); } }, [c, key]);
   if (!c || seen === c.key) return null;
   const name = monthName(c.key);
-  const band = c.pct === null ? 'Primeiro mês completo' : c.pct === 0 ? 'Igual ao teu normal' : `${Math.abs(c.pct)}% ${c.pct < 0 ? 'abaixo' : 'acima'} do teu normal`;
+  const band = c.pct === null ? 'Primeiro mês completo. Parabéns' : c.pct === 0 ? 'Igualzinho ao teu normal' : `${Math.abs(c.pct)}% ${c.pct < 0 ? 'abaixo' : 'acima'} do teu normal`;
   return (
     <Poster
       lines={[name.toUpperCase(), 'FECHOU.']}
       band={band}
       foot={`${partner ? 'A tua parte' : 'Total'} em ${name} · ${eur(c.total, 0)} €`}
       how={c.normal
-        ? <How><p className="s">{eur(c.total)} € em {name} ÷ {eur(c.normal)} € do teu normal = {(c.total / c.normal).toFixed(2).replace('.', ',')}.</p><p className="s">O normal é a média dos meses completos antes de {name}, até 6.</p></How>
-        : <p className="s">A partir de agora, cada mês compara-se com o teu normal.</p>}
+        ? <How><p className="s">{eur(c.total)} € em {name} ÷ {eur(c.normal)} € do teu normal = {(c.total / c.normal).toFixed(2).replace('.', ',')}.</p><p className="s">O teu normal é a média do dia a dia nos 12 meses completos antes de {name}. Os eventos ficam de fora.</p></How>
+        : <p className="s">A partir de agora, cada mês mede-se contra o teu normal. Sem sermões.</p>}
       share={`${cap(name)} fechou: ${band.toLowerCase()}. Contas feitas na NIKKI.`}
       onClose={done}
     />
@@ -354,11 +354,11 @@ export function Soon({ k }: { k: string }) {
   return (
     <>
       <Top title={t} />
-      <p className="l">Chega na próxima fase.</p>
+      <p className="l">Está quase. A chinchila está a roer os últimos pormenores.</p>
       <p className="s" style={{ fontSize: 'var(--t-m)' }}>{d}</p>
       {k === 'patrimonio' && <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         <Year free={0} label="Meses livres: 0 de 12" />
-        <span className="s">Meses livres · 0 de 12. Cada mês do ano pinta-se quando o rendimento dos investimentos já o paga.</span>
+        <span className="s">Meses livres · 0 de 12. Cada mês pinta-se quando os investimentos já o pagam sozinhos.</span>
       </div>}
     </>
   );

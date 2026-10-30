@@ -48,7 +48,7 @@ export function ChoresSection({ kind, home, homeOf }: { kind: 'task' | 'maintena
           </button>
           {c.next_on <= addDays(todayStr(), maint ? 14 : 0) && <DoneButton c={c} />}
         </div>
-      ))}</div> : <p className="s">{maint ? 'Caldeira, filtros, detetores de fumo… Em «Sugestões» escolhes as que se aplicam e a NIKKI lembra a tempo.' : 'Mudar os lençóis, regar as plantas, pôr o lixo… Cada tarefa aparece no «Hoje» de quem for a vez.'}</p>}
+      ))}</div> : <p className="s">{maint ? 'Caldeira, filtros, detetores de fumo… Em «Sugestões» escolhes as que se aplicam e a NIKKI lembra antes de avariar.' : 'Mudar os lençóis, regar as plantas, pôr o lixo… Cada tarefa aparece no «Hoje» de quem for a vez. Acabou-se o «eu fiz da última vez».'}</p>}
     </section>
   );
 }
@@ -90,7 +90,7 @@ function ChoreSheet({ kind, chore, home, preset }: { kind: 'task' | 'maintenance
   }
   async function archive() {
     await supabase.from('chores').update({ archived: true }).eq('id', chore!.id);
-    chores.reload(); close(); toast('Arquivada: fica o histórico.');
+    chores.reload(); close(); toast('Arquivada. Fica o histórico, sai da vista.');
   }
   return (
     <>
@@ -178,7 +178,7 @@ export function WarrantiesSection({ home, homeOf }: { home: string | null; homeO
           <span className="st2"><span>{w.item}</span><span className="s">{w.store ? `${w.store} · ` : ''}{s.state === 'ended' ? `acabou a ${dt(s.end)}` : <span className={s.state === 'soon' ? 'warn' : ''}>até {dt(s.end)}{s.state === 'soon' ? ` · faltam ${s.days} dias` : ''}</span>}</span></span>
           {w.receipt_path ? <Icon n="doc" s={16} /> : null}
         </button>
-      ))}</div> : <p className="s">Tira uma foto ao talão quando comprares um eletrodoméstico ou um móvel: a NIKKI guarda-o e avisa antes de a garantia acabar (em Portugal, 3 anos nos bens novos).</p>}
+      ))}</div> : <p className="s">Tira uma foto ao talão quando comprares um eletrodoméstico: a NIKKI guarda-o e avisa antes de a garantia acabar. Em Portugal são 3 anos. A gaveta dos talões pode reformar-se.</p>}
     </section>
   );
 }

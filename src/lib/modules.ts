@@ -9,14 +9,14 @@ export type ModuleKey = 'contas' | 'compras' | 'agenda' | 'casa' | 'housekeeping
 export interface ModuleInfo { k: ModuleKey; name: string; ic: string; to: string; what: string }
 
 export const MODULES: ModuleInfo[] = [
-  { k: 'compras', name: 'Compras', ic: 'basket', to: '/compras', what: 'Lista partilhada por corredores, em direto quando estão os dois no supermercado.' },
-  { k: 'casa', name: 'Casa', ic: 'house', to: '/casa', what: 'Contas fixas com consumos, despesas reconhecidas sozinhas, IMI, seguro e fidelizações com aviso a tempo.' },
-  { k: 'housekeeping', name: 'Housekeeping', ic: 'broom', to: '/housekeeping', what: 'Quem ajuda em casa: dias de visita, a lista de cada visita, mensagens nos dois sentidos, produtos a pedir e o pagamento do mês.' },
-  { k: 'garagem', name: 'Garagem', ic: 'car', to: '/garagem', what: 'Carros, consumo de cheio a cheio, quanto custa cada quilómetro e os prazos (IUC, inspeção, seguro).' },
-  { k: 'eventos', name: 'Eventos', ic: 'gift', to: '/eventos', what: 'Casamentos, batizados, bodas, festas: orçamento e gastos, convidados e respostas, compras e tarefas, fornecedores e presentes. Arquiva-se no fim.' },
-  { k: 'objetivos', name: 'Objetivos', ic: 'target', to: '/objetivos', what: 'Limites por categoria, saúde financeira e hábitos da casa, medidos com os vossos números e com prazo.' },
-  { k: 'patrimonio', name: 'Património', ic: 'bars', to: '/patrimonio', what: 'Saúde financeira, fundos de emergência e para imprevistos, e quantos meses vivem do que têm.' },
-  { k: 'ginasio', name: 'Ginásio', ic: 'pulse', to: '/ginasio', what: 'Avaliações com as medidas que cada um escolher (peso, gordura, massa muscular, idade metabólica…), com a evolução. Só o próprio vê.' },
+  { k: 'compras', name: 'Compras', ic: 'basket', to: '/compras', what: 'A lista por corredores. Em direto quando estão os dois no supermercado: acabaram-se os dois pacotes de leite.' },
+  { k: 'casa', name: 'Casa', ic: 'house', to: '/casa', what: 'Contas fixas sem sustos: consumos, faturas lidas da fotografia, IMI, seguros e fidelizações com aviso a tempo.' },
+  { k: 'housekeeping', name: 'Housekeeping', ic: 'broom', to: '/housekeeping', what: 'Quem ajuda em casa bem tratado: a lista de cada visita, mensagens com fotografias e o pagamento sempre a tempo.' },
+  { k: 'garagem', name: 'Garagem', ic: 'car', to: '/garagem', what: 'Quanto custa mesmo cada quilómetro, o consumo a sério e o IUC, a inspeção e o seguro com um mês de folga.' },
+  { k: 'eventos', name: 'Eventos', ic: 'gift', to: '/eventos', what: 'Do batizado às bodas: orçamento, convidados, fornecedores e presentes. E as contas do mês ficam à parte.' },
+  { k: 'objetivos', name: 'Objetivos', ic: 'target', to: '/objetivos', what: 'Metas com prazo que se medem sozinhas, com os vossos números. Poucas de cada vez.' },
+  { k: 'patrimonio', name: 'Património', ic: 'bars', to: '/patrimonio', what: 'Estamos bem? Saúde financeira de 0 a 100, os fundos e quantos meses os investimentos pagam. Literacia financeira, sem aulas.' },
+  { k: 'ginasio', name: 'Ginásio', ic: 'pulse', to: '/ginasio', what: 'As medidas que escolheres, com a evolução num gráfico. Só tu vês. Nem a chinchila.' },
 ];
 
 /** Com que módulos começa uma casa nova (igual a nikki.default_modules). */

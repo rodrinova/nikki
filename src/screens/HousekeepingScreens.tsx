@@ -114,7 +114,7 @@ export function HkDay() {
           {just.length ? <div className="tile card rows">{just.map((i) => (
             <div key={i.task.id}><span className="st2"><span>{i.task.title}</span><span className="s">{i.task.chore_id ? 'da manutenção da casa' : i.task.due_on && i.task.due_on < day ? `pedida para ${dayLabel(i.task.due_on)}, ainda por fazer` : !i.task.due_on ? 'para a próxima visita' : 'pontual'}</span></span>
               <button type="button" className="x-btn press" aria-label={`Tirar: ${i.task.title}`} onClick={() => drop(i.task.id)}><Icon n="close" s={14} /></button></div>
-          ))}</div> : <p className="s">Nada de especial. Junte acima o que for só para este dia.</p>}
+          ))}</div> : <p className="s">Nada de especial. Junta acima o que for só para este dia.</p>}
         </section>
         <section className="stack" aria-label="Da rotina">
           <div className="wbar"><span className="s">Da rotina</span><Link className="tb quiet press" to="/housekeeping/tarefas">Mudar a rotina</Link></div>

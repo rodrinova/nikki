@@ -122,7 +122,7 @@ export function BillSheet({ bill, home, draft }: { bill?: BillRow; home?: string
   }
   async function archive() {
     await supabase.from('bills').update({ archived: true }).eq('id', bill!.id);
-    bills.reload(); close(); nav('/casa'); toast('Arquivada: fica o histórico.');
+    bills.reload(); close(); nav('/casa'); toast('Arquivada. Fica o histórico, sai da vista.');
   }
   const owners: [string | null, string][] = partner ? [[null, 'Dos dois'], [me!.id, 'Minha'], [partner.id, `De ${partner.name}`]] : [];
   return (
@@ -260,7 +260,7 @@ export function PaidSheet({ d }: { d: DeadlineRow }) {
     <form onSubmit={save} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <p className="l">{d.title}</p>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}><input className="amount" inputMode="decimal" placeholder="0,00" aria-label="Valor pago" value={amt} onChange={(e) => setAmt(e.target.value)} style={{ width: `${Math.max(4.2, amt.length + 0.6)}ch` }} /><span className="l">€</span></div>
-      {d.kind === 'insurance' && <p className="s">Antes de renovar: pede 2 ou 3 propostas com as mesmas coberturas e leva a melhor à tua seguradora. Se tens crédito, o banco não pode obrigar a que o seguro seja o dele.</p>}
+      {d.kind === 'insurance' && <p className="s">Antes de renovar: pede 2 ou 3 propostas com as mesmas coberturas e leva a melhor à tua seguradora. Se tens crédito, o banco não pode obrigar a que o seguro seja o dele. (Ele vai tentar.)</p>}
       <p className="s why"><span className="dot" aria-hidden="true" /><span>{err || `Fica nas despesas de hoje, em Casa${partner ? ', partilhada' : ''}${d.recurrence === 'yearly' ? `, e o prazo passa para ${dt(nextYear(d.due_on))}` : ''}.`}</span></p>
       <button className="btn wide press">Paguei <Icon n="check" s={20} /></button>
     </form>
@@ -283,12 +283,12 @@ export function ContractSheet({ d }: { d: DeadlineRow }) {
       if (ends) await ensure({ ...b, contract_ends_on: ends });
     }
     deadlines.reload(); bills.reload(); close();
-    toast(ends ? `Nova fidelização até ${dt(ends)}. A NIKKI avisa um mês antes.` : 'Tratado.', { ok: true });
+    toast(ends ? `Nova fidelização até ${dt(ends)}. A NIKKI avisa um mês antes, como desta vez.` : 'Tratado. Um a menos.', { ok: true });
   }
   return (
     <form onSubmit={save} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <p className="l">{d.title}</p>
-      <p className="s">No fim da fidelização podes mudar de operador sem penalização, ou pedir ao atual uma proposta melhor para ficar. Compara pelo preço total, não pelo da promoção.</p>
+      <p className="s">No fim da fidelização podes mudar sem penalização, ou pedir ao atual uma proposta melhor para ficar. Compara o preço total, não o da promoção dos primeiros três meses.</p>
       <label className="form"><span className="s">Nova fidelização até (se renovaste)</span><input className="field" type="date" value={ends} onChange={(e) => setEnds(e.target.value)} /></label>
       <button className="btn wide press">Tratado <Icon n="check" s={20} /></button>
     </form>

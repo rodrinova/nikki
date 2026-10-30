@@ -105,10 +105,10 @@ function GarageSetup() {
     <>
       <GarageArt />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <p className="l">Que carros há em casa?</p>
+        <p className="l">Que carros moram cá em casa?</p>
         <p className="s" style={{ fontSize: 'var(--t-m)' }}>Com a data da matrícula, a NIKKI avisa do IUC um mês antes; com a renovação do seguro, lembra que é altura de renegociar. O depósito ajuda a apanhar abastecimentos esquecidos. Tudo opcional: o que faltar, a NIKKI aprende com os pagamentos.</p>
       </div>
-      {!admin ? <p className="s">Quem administra a casa junta os carros.</p>
+      {!admin ? <p className="s">Quem administra a casa junta os carros. Pede com jeitinho.</p>
         : adding ? <div className="tile" style={{ padding: 16 }}><CarForm onDone={() => setAdding(false)} /></div>
           : <div className="actions">
             <button className="btn quiet press" onClick={() => setAdding(true)}>Juntar outro carro</button>
@@ -235,7 +235,7 @@ function MonthlyCost({ car, logs }: { car: CarRow; logs: CarLog[] }) {
         <button key={x.m} type="button" className={`press${j === sel ? ' on' : ''}`} aria-label={`${monthName(x.m)}: ${eur(x.v, 0)} €`} onClick={() => setSel(j)}><i style={{ height: x.v ? `${Math.max(6, (x.v / max) * 100)}%` : 2 }} className={x.v ? '' : 'zero'} /></button>
       ))}</div>
       <div className="wk-axis s"><span>{monthName(months[0].m).slice(0, 3)}</span><span>{monthName(months[11].m).slice(0, 3)}</span></div>
-      <p className="s">Com seguro, IUC e outros fixos repartidos pelos meses.</p>
+      <p className="s">Com seguro, IUC e outros fixos repartidos pelos meses. O custo real, sem desconto emocional.</p>
     </section>
   );
 }
@@ -306,7 +306,7 @@ export function CarScreen() {
               <span className="mv-v"><span>{a !== null ? `${eur(a)} €` : '—'}</span></span>
             </div>
           );
-        })}</div> : <p className="s">Ainda sem registos. Abastece com o odómetro e os litros, e ao segundo depósito cheio a NIKKI já mede o consumo.</p>}
+        })}</div> : <p className="s">Ainda sem registos. Abastece com os km e os litros: ao segundo depósito cheio, a NIKKI já sabe quanto o carro bebe.</p>}
       </section>
     </>
   );
@@ -339,7 +339,7 @@ function CarForm({ car, onDone }: { car?: CarRow; onDone: () => void }) {
   const money = (s: string) => (s.trim() ? parseAmount(s) : '0');
   async function save(e: FormEvent) {
     e.preventDefault(); setErr('');
-    if (!name.trim()) return setErr('Dá um nome ao carro (ex.: Golf, o Mini da Inês).');
+    if (!name.trim()) return setErr('Falta o nome do carro (ex.: Golf, o Mini, o Bólide).');
     const [a, b, c] = [money(ins), money(tax), money(oth)];
     if (a === null || b === null || c === null) return setErr('Os valores por ano escrevem-se assim: 380 ou 148,37.');
     const t = energy === 'combustao' && tank.trim() ? Number(tank.replace(',', '.')) : null;
@@ -354,7 +354,7 @@ function CarForm({ car, onDone }: { car?: CarRow; onDone: () => void }) {
   async function archive(v: boolean) {
     const { error } = await supabase.from('cars').update({ archived: v }).eq('id', car!.id);
     if (error) { toast(error.message); return; }
-    cars.reload(); onDone(); toast(v ? 'Arquivado: fica o histórico.' : 'De volta à garagem.');
+    cars.reload(); onDone(); toast(v ? 'Arquivado. Fica o histórico, e as saudades.' : 'De volta à garagem.');
   }
   const owners: [string | null, string][] = [[me!.id, 'Meu'], ...(partner ? [[partner.id, `De ${partner.name}`], [null, 'Dos dois']] as [string | null, string][] : [])];
   return (
@@ -371,7 +371,7 @@ function CarForm({ car, onDone }: { car?: CarRow; onDone: () => void }) {
           <label>Data da matrícula<input type="date" value={reg} onChange={(e) => setReg(e.target.value)} /></label>
           {energy === 'combustao' && <label>Depósito (L)<input inputMode="decimal" value={tank} onChange={(e) => setTank(e.target.value)} placeholder="ex.: 50" /></label>}
         </div>
-        <p className="s">{energy === 'eletrico' ? 'Os elétricos estão isentos de IUC.' : 'O IUC paga-se até ao fim do mês da matrícula: a NIKKI avisa um mês antes.'}</p>
+        <p className="s">{energy === 'eletrico' ? 'Os elétricos não pagam IUC. Um ponto para o planeta.' : 'O IUC paga-se até ao fim do mês da matrícula. A NIKKI avisa um mês antes, para não haver multas.'}</p>
         <div className="two">
           <label>Seguradora<input value={insurer} onChange={(e) => setInsurer(e.target.value)} placeholder="ex.: Fidelidade" maxLength={40} /></label>
           <label>Renovação do seguro<input type="date" value={renews} onChange={(e) => setRenews(e.target.value)} /></label>

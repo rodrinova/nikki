@@ -104,7 +104,7 @@ export function CasaPart() {
         {chips}
         {c.pending.length > 0 && <Pending items={c.pending} />}
         {c.active.length ? <div className="bills">{c.active.map((b) => <BillCard key={b.id} b={b} s={c.stats.get(b.id)!} next={c.dues.find((d) => d.b.id === b.id)} place={many && sel === 'all' ? c.places.find((h) => h.id === c.homeOf(b))?.name : undefined} />)}</div>
-          : <button className="tile hint-card press" onClick={() => open(<BillSheet home={here ?? c.first} />)}><span className="st2"><span>Juntar a primeira conta</span><span className="s">Luz, água, internet, renda… A NIKKI liga-lhe as despesas sozinha.</span></span><Icon n="arrow" s={16} /></button>}
+          : <button className="tile hint-card press" onClick={() => open(<BillSheet home={here ?? c.first} />)}><span className="st2"><span>Juntar a primeira conta</span><span className="s">Luz, água, internet, renda… A NIKKI liga-lhe as despesas sozinha. Tu só pagas (isso, infelizmente, continua contigo).</span></span><Icon n="arrow" s={16} /></button>}
         <How>
           <p className="s">€ por mês: cada fatura reparte-se pelos meses que cobre, à proporção dos dias (uma de 2 meses vale metade em cada; um acerto entra nos meses que corrige). Média dos meses com faturas nos últimos 12, sem o mês a decorrer.</p>
           <p className="s">Que conta é: pelo fornecedor ou pelas palavras na nota, pelo valor (que pode variar até ±35% do normal) e pelo dia. Se houver dúvida, por exemplo duas contas do mesmo fornecedor, a NIKKI pergunta.</p>
@@ -192,7 +192,7 @@ function Deadlines({ list }: { list: DeadlineRow[] }) {
           <span className="st2"><span>{d.title}</span><span className="s">{d.kind === 'insurance' ? 'renova ' : d.kind === 'contract' ? 'acaba ' : 'até '}{when(d.due_on)}{d.amount ? ` · ${eur(toU(d.amount))} €` : ''}{d.kind === 'insurance' || d.kind === 'contract' ? ' · um mês antes: pedir propostas e renegociar' : d.recurrence === 'yearly' ? ' · todos os anos' : ''}</span></span>
           {d.kind === 'contract' ? <button className="tb press" onClick={() => open(<ContractSheet d={d} />)}>Tratado</button> : <button className="tb press" onClick={() => open(<PaidSheet d={d} />)}>Paguei</button>}
         </div>
-      ))}</div> : <p className="s">Sem prazos. Junta o IMI, o seguro da casa ou o fim de uma fidelização e a NIKKI avisa um mês antes.</p>}
+      ))}</div> : <p className="s">Sem prazos. Junta o IMI, o seguro da casa ou o fim de uma fidelização: a NIKKI avisa um mês antes e tu poupas o susto.</p>}
     </section>
   );
 }
@@ -247,7 +247,7 @@ export function BillScreen() {
               <span className="mv-v inline"><span>{eur(toU(p.amount!))} €</span>{house && <button className="x-btn press" aria-label="Desligar esta fatura" onClick={() => remove(p)}><Icon n="close" s={14} /></button>}</span>
             </div>
           );
-        })}</div> : <p className="s">Ainda sem faturas. As despesas em Contas ou Casa com {b.provider ?? b.name} na nota ligam-se sozinhas.</p>}
+        })}</div> : <p className="s">Ainda sem faturas. As despesas com {b.provider ?? b.name} na nota ligam-se sozinhas. Magia, só que com regras.</p>}
         {!all && ps.length > 12 && <button className="btn quiet wide press" onClick={() => setAll(true)}>Ver as {ps.length} faturas</button>}
       </section>
     </>
@@ -290,7 +290,7 @@ export function CasaSetup() {
   async function save(e: FormEvent) {
     e.preventDefault(); setErr('');
     const label = name.trim() || (places.length ? '' : 'Casa');
-    if (!label) return setErr('Dá um nome a esta casa (ex.: Praia, Casa dos pais).');
+    if (!label) return setErr('Falta o nome desta casa (ex.: Praia, Casa dos pais).');
     const imiV = owns && imi.trim() ? parseAmount(imi) : null;
     if (owns && imi.trim() && !imiV) return setErr('O IMI escreve-se assim: 320 ou 318,40.');
     if (track === null) return setErr('Falta responder: acompanhar os consumos de água, luz e gás?');
@@ -336,7 +336,7 @@ export function CasaSetup() {
   return (
     <>
       <Top title={home ? home.name : places.length ? 'Outra casa' : 'Casa'} />
-      {isNew && <p className="s" style={{ fontSize: 'var(--t-m)' }}>{places.length ? 'A casa de férias, a dos pais… Cada conta fica na sua casa, e o ano aparece por casa e no total.' : 'Umas perguntas para a NIKKI conhecer a casa. Tudo é opcional: o que faltar, aprende com as despesas.'}</p>}
+      {isNew && <p className="s" style={{ fontSize: 'var(--t-m)' }}>{places.length ? 'A casa de férias, a dos pais… Cada conta fica na sua casa, e o ano aparece por casa e no total.' : 'Umas perguntas para a NIKKI conhecer a casa. Tudo opcional: o que faltar, ela aprende com as despesas.'}</p>}
       <form className="form" onSubmit={save}>
         <label>Nome da casa<input value={name} onChange={(e) => setName(e.target.value)} placeholder={places.length ? 'ex.: Praia' : 'Casa'} maxLength={40} /></label>
         <span className="s">A casa é</span>
@@ -373,7 +373,7 @@ export function CasaSetup() {
             </div>
           );
         })}</div>
-        <p className="s">Seguro da casa e fidelizações: a NIKKI avisa um mês antes, para pedir propostas e renegociar. Outras contas juntam-se depois em «Nova conta».</p>
+        <p className="s">Seguro da casa e fidelizações: a NIKKI avisa um mês antes, para pedir propostas e renegociar com calma. O resto junta-se depois em «Nova conta».</p>
         {err && <p className="err">{err}</p>}
         <button className="btn wide press">Feito <Icon n="check" s={20} /></button>
       </form>
@@ -401,7 +401,7 @@ function ArchiveHome({ home }: { home: HomeRow }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <p className="l">Arquivar {home.name}?</p>
       <p className="s">As {mine.length} {mine.length === 1 ? 'conta' : 'contas'} e as faturas ficam guardadas, mas deixam de contar nos custos por mês e por ano, e as despesas novas já não se ligam a elas.{open.length ? ` ${open.length === 1 ? 'Sai o prazo' : `Saem os ${open.length} prazos`} por pagar desta casa (${open.map((d) => d.title).join(', ')}).` : ''}</p>
-      <p className="s">Se voltarem a esta casa, está em Arquivadas.</p>
+      <p className="s">Se voltarem a esta casa, está em Arquivadas, à espera.</p>
       <button className="btn wide press" onClick={go}>Arquivar <Icon n="check" s={20} /></button>
       <button className="btn quiet wide press" onClick={close}>Cancelar</button>
     </div>

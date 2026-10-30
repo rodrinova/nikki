@@ -70,7 +70,7 @@ export function Money() {
         <button type="button" role="tab" className="press" aria-selected={!us} aria-pressed={!us} onClick={() => setSp({}, { replace: true })}>Gastos</button>
         <button type="button" role="tab" className="press" aria-selected={us} aria-pressed={us} onClick={() => setSp({ ver: 'entre-nos' }, { replace: true })}>Entre nós</button>
       </div>}
-      {partner && <p className="s">{us ? `Quem pagou mais do que o combinado, e como acertar.` : 'O que é teu, mês a mês, pague quem pagar.'}</p>}
+      {partner && <p className="s">{us ? `Quem adiantou mais, e como ficarem quites sem discutir.` : 'O que é teu, mês a mês. Pague quem pagar.'}</p>}
       {us ? <Ledger embedded /> : <Spend />}
     </>
   );
@@ -115,9 +115,9 @@ function Spend() {
       </div>
       <div className="swap" key={key}><p className="xl">{eur(m.total, 0)}<small>€</small></p><p className="s" style={{ marginTop: 8 }}>{partner ? `A tua parte em ${monthName(m.key)}` : monthTitle(m.key)}{vsAvg !== null ? ` · ${vsAvg === 0 ? 'no teu normal' : `${Math.abs(vsAvg)}% ${vsAvg > 0 ? 'acima' : 'abaixo'} do teu normal`}` : ''}</p></div>
       {m.events > 0 && <p className="s why"><span className="dot" aria-hidden="true" /><span>{eur(m.everyday, 0)} € do dia a dia + {eur(m.events, 0)} € {evNames ? `do ${evNames}` : 'de eventos'}. Os eventos contam à parte: ficam fora do ritmo e do normal.</span></p>}
-      {partner && <Hint show={seen < 3}>A tua parte é o que é só teu mais a tua percentagem das partilhadas. Não depende de quem pagou.</Hint>}
+      {partner && <Hint show={seen < 3}>A tua parte: o que é só teu mais a tua fatia das partilhadas. Quem pagou não interessa aqui; interessa em «Entre nós».</Hint>}
       {m.current && (p.fresh
-        ? <p className="s why"><span className="dot" aria-hidden="true" /><span>Ritmo: no fim do primeiro mês completo a NIKKI já conhece o teu normal e começa a comparar.</span></p>
+        ? <p className="s why"><span className="dot" aria-hidden="true" /><span>Ritmo: ao fim do primeiro mês completo a NIKKI conhece o teu normal. Depois, compara sem julgar.</span></p>
         : <>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <div className="bar31" style={{ gridTemplateColumns: `repeat(${p.days},minmax(0,1fr))` }} role="img" aria-label={`Ritmo ${p.pct}%`}>
@@ -125,7 +125,7 @@ function Spend() {
             </div>
             <span className="s">Ritmo · {p.pct === 0 ? 'no ritmo habitual' : `${Math.abs(p.pct)}% ${p.pct > 0 ? 'acima' : 'abaixo'} do ritmo habitual`}</span>
           </div>
-          <Hint show={seen < 3}>Cada bloco é um dia de um mês normal. Os cheios já foram gastos; os laranja são gasto adiantado.</Hint>
+          <Hint show={seen < 3}>Cada bloco é um dia de um mês normal. Os cheios já foram. Os laranja são dias que ainda não chegaram, mas já foram gastos.</Hint>
         </>)}
       <YearBars months={hist.months} normal={m.normal} sel={key} onPick={setKey} />
       <div className="tile card rows">
@@ -231,7 +231,7 @@ function Movements({ monthKey: key }: { monthKey: string }) {
       </div>}
       {last && <p className="s why"><span className="dot" aria-hidden="true" /><span>Registaste até {dayLabel(last.spent_on)}{last.spent_on.slice(0, 4) !== todayStr().slice(0, 4) ? ` ${last.spent_on.slice(0, 4)}` : ''}: a mais recente que pagaste foi {last.note || catLabel(last.category)} ({eur(toU(last.amount))} €).</span></p>}
       {!list.length
-        ? <p className="s">{who === 'me' && month.length ? `Não pagaste nenhuma despesa em ${monthName(key)}.` : `Sem despesas em ${monthName(key)}.`}</p>
+        ? <p className="s">{who === 'me' && month.length ? `Em ${monthName(key)} não pagaste nada. Alguém pagou por ti.` : `Nada em ${monthName(key)}. Ou foi um mês muito zen.`}</p>
         : <div className="tile card rows">{list.slice(0, n).map((e) => (
           <button key={e.id} className={`press${partner && e.paid_by === me?.id ? ' paid-me' : ''}`} onClick={() => open(<ExpenseDetail e={e} label={lbl(e)} />)}>
             <span className="k" style={{ color: 'var(--ink)' }}>{e.note || catLabel(e.category)}<span className="s" style={{ display: 'block' }}>{dayLabel(e.spent_on)} · {lbl(e)}</span></span>
@@ -249,7 +249,7 @@ function ExpenseDetail({ e, label }: { e: ExpenseRow; label: string }) {
   const mine = e.created_by === me?.id || e.paid_by === me?.id;
   async function del() {
     const { error } = await supabase.from('expenses').delete().eq('id', e.id);
-    if (error) toast(error.message); else { close(); toast('Despesa apagada.'); }
+    if (error) toast(error.message); else { close(); toast('Despesa apagada. Como se nunca tivesse existido.'); }
   }
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -344,13 +344,13 @@ export function ExpenseSheet() {
   async function save(e: FormEvent) {
     e.preventDefault();
     const again = ((e.nativeEvent as SubmitEvent).submitter as HTMLElement | null)?.dataset.again === '1';
-    if (!v) return setErr('Falta o valor: por exemplo «12,35 farmácia».');
+    if (!v) return setErr('Falta o valor. Por exemplo: «12,35 farmácia».');
     if (!me || !house) return;
     const spent_on = spentOn;
     if (!sure) return setErr(`Confirma primeiro: ${ask}`);
     const n = car && f ? checkEntry(car, f, last) : null;
     if (typeof n === 'string') return setErr(n);
-    if (car && f && (f.kind === 'fuel' || f.kind === 'charge') && !f.odo.trim() && !noKm) return setErr('E os km do conta-quilómetros? Sem eles, não entra no consumo.');
+    if (car && f && (f.kind === 'fuel' || f.kind === 'charge') && !f.odo.trim() && !noKm) return setErr('E os km do conta-quilómetros? Sem eles, este depósito fica fora do consumo.');
     setBusy(true);
     const { data, error } = await supabase.from('expenses').insert({
       household_id: house.id, created_by: me.id, amount: v, category: cat, spent_on, car_id: car?.id ?? null, occasion_id: allOccs.some((o) => o.id === occ) ? occ : null,
@@ -373,7 +373,7 @@ export function ExpenseSheet() {
       setOldOccs(false); setText(''); setCat(null); setSplit(null); setDay(null); setDate(null); setMore(false); setOk(false); setNoKm(false); setErr(''); setEntry(null); setBf(billEntry()); setPaid(null); setCarId(null); // o evento escolhido mantém-se (várias despesas do mesmo casamento)
       setTimeout(() => amtRef.current?.focus(), 30);
     } else close();
-    if (billErr) toast(`A despesa ficou, mas não ficou ligada à conta: ${billErr}`);
+    if (billErr) toast(`A despesa ficou guardada, mas não se ligou à conta: ${billErr}`);
     // Um pagamento em Carros com «IUC» ou o nome da seguradora na nota ensina a Garagem (mês, data e valor).
     const learned = cat === 'Carros' && note.trim() && (!f || f.kind === 'other' || f.kind === 'service') ? await learn({ car, note }, toU(v), spent_on) : null;
     if (!again || learned) toast(learned ?? `${eur(toU(v))} € · ${car ? car.name : cat}${n && n.litres !== null ? ` · ${String(n.litres).replace('.', ',')} L` : ''}${bc.bill && bf.pick !== 'none' ? ` · ${bc.bill.name}` : ''} · ${dayLabel(spent_on)}${partner ? ' · ' + (split === 'shared' ? 'partilhada' : split === 'mine' ? 'minha' : `de ${partner.name}`) + (partnerPaid ? ` · pagou ${partner.name}` : '') : ''}${occName ? ` · ${occName}` : ''}`, { ok: true });
@@ -444,7 +444,7 @@ function QuickHint({ q, partner, err, cars, occs }: { q: ReturnType<typeof parse
     q.occasion ? occs.find((o) => o.id === q.occasion)?.name ?? '' : '',
   ].filter(Boolean);
   if (got.length) return <p className="s qk-got" style={{ minHeight: 18 }}>{got.map((x) => <span key={x}>{x}</span>)}<span className="s">falta o valor</span></p>;
-  return <p className="s" style={{ minHeight: 18 }}>{`O valor e onde, e o resto se quiseres: «ontem», «dia 3», «partilhada», «minha»${partner ? `, «pagou a ${partner}»` : ''}, «lazer».`}</p>;
+  return <p className="s" style={{ minHeight: 18 }}>{`Escreve como falas: «45 jantar ontem partilhada${partner ? ` pagou a ${partner}` : ''}». O resto a NIKKI adivinha.`}</p>;
 }
 
 export function Cats() {
@@ -454,7 +454,7 @@ export function Cats() {
   return (
     <>
       <Top title="Categorias" />
-      {!m.byCat.length ? <p className="s">{m.current ? 'Ainda sem despesas este mês.' : `Sem despesas em ${monthName(m.key)}.`}</p> : <>
+      {!m.byCat.length ? <p className="s">{m.current ? 'Ainda nada este mês. Promissor.' : `Sem despesas em ${monthName(m.key)}.`}</p> : <>
         <p className="s">A tua parte em {monthName(m.key)}</p>
         <div className="tile card rows">{m.byCat.map(([n, v]) => (
           <div key={n} style={{ flexDirection: 'column', alignItems: 'stretch', justifyContent: 'center', gap: 8, padding: '10px 0' }}>
@@ -474,7 +474,7 @@ export function Ledger({ embedded }: { embedded?: boolean }) {
   const L = useLedger();
   const seen = useSeen('ledger');
   if (!me || !partner || !L) return (
-    <>{!embedded && <Top title="Entre nós" />}<p className="l">Aparecem quando alguém se junta à casa.</p><p className="s" style={{ fontSize: 'var(--t-m)' }}>Mostram quem adiantou mais nas despesas partilhadas.</p><Link className="btn quiet wide press" to="/pessoas">Convidar <Icon n="arrow" s={20} /></Link></>
+    <>{!embedded && <Top title="Entre nós" />}<p className="l">Isto é para dois.</p><p className="s" style={{ fontSize: 'var(--t-m)' }}>Quando alguém se juntar à casa, aqui fica quem adiantou mais. Sem contas de cabeça às duas da manhã.</p><Link className="btn quiet wide press" to="/pessoas">Convidar <Icon n="arrow" s={20} /></Link></>
   );
   // Esforço: quanto cada um pagou do que é partilhado ou do outro.
   const pair = expenses.rows.filter((e) => e.split !== 'mine' && [e.paid_by, e.other_id].includes(me.id) && [e.paid_by, e.other_id].includes(partner.id));
@@ -488,14 +488,14 @@ export function Ledger({ embedded }: { embedded?: boolean }) {
     <>
       {!embedded && <Top title="Entre nós" />}
       <div className="swap"><p className="xl">{eur(Math.abs(L.v))}<small>€</small></p><p className="s" style={{ marginTop: 8 }}>{L.even ? 'Estão quites' : L.v > 0 ? `Adiantaste a mais (o combinado é ${Math.round(myShare * 100)}/${100 - Math.round(myShare * 100)})` : `${partner.name} adiantou a mais (o combinado é ${Math.round(myShare * 100)}/${100 - Math.round(myShare * 100)})`}</p></div>
-      <Hint show={seen < 3}>{`Quanto cada um adiantou face ao combinado (${pct}/${100 - pct}). Não é uma dívida: serve para distribuírem o esforço.`}</Hint>
+      <Hint show={seen < 3}>{`Quanto cada um adiantou face ao combinado (${pct}/${100 - pct}). Não é uma dívida: é só para o esforço ficar bem repartido.`}</Hint>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         <div style={{ display: 'grid', placeItems: 'center', padding: '8px 0 4px', color: 'var(--ink)' }}>
-          <Whiskers h={112} lean={L.lean} label={L.even ? 'Em equilíbrio: os bigodes estão iguais, como no logótipo.' : `${L.lead}: os bigodes do lado de ${L.v > 0 ? 'ti' : partner.name} estão maiores e a laranja.`} />
+          <Whiskers h={112} lean={L.lean} label={L.even ? 'Em equilíbrio: os bigodes estão iguais, como no logótipo. Paz.' : `${L.lead}: os bigodes do lado de ${L.v > 0 ? 'ti' : partner.name} estão maiores e a laranja.`} />
         </div>
         <div className="s" style={{ display: 'flex', justifyContent: 'space-between' }}><span>Tu {Math.round(a)}%</span><span>combinado {pct}/{100 - pct}</span><span>{partner.name} {100 - Math.round(a)}%</span></div>
       </div>
-      {!L.even && <p className="s why"><span className="dot" aria-hidden="true" /><span>Para equilibrar sem transferências, as próximas partilhadas ficam com {L.v > 0 ? partner.name : 'contigo'}.</span></p>}
+      {!L.even && <p className="s why"><span className="dot" aria-hidden="true" /><span>Para equilibrar sem transferências: {L.v > 0 ? `os próximos jantares são com ${partner.name}` : 'os próximos jantares são contigo'}.</span></p>}
       <button className={`btn wide press${L.even ? ' quiet' : ''}`} onClick={() => open(<TransferSheet />)}>{L.even ? 'Registar uma transferência' : 'Equilibrar com uma transferência'}<Icon n="arrow" s={20} /></button>
       <PairLog />
     </>
@@ -537,7 +537,7 @@ function PairLog() {
         {([['new', 'Recentes'], ['old', 'Antigos'], ['big', 'Maior valor']] as [PairSort, string][]).map(([k, l]) => <button key={k} className="press" aria-pressed={sort === k} onClick={() => setSort(k)}>{l}</button>)}
       </div>
       {!shown.length
-        ? <p className="s">{all.length ? 'Nada com estes filtros.' : 'Ainda não há despesas partilhadas nem transferências.'}</p>
+        ? <p className="s">{all.length ? 'Nada com estes filtros. Tenta menos exigência.' : 'Ainda nada a dois. Um jantar partilhado resolve isto.'}</p>
         : <div className="tile card rows">{shown.map((e, j) => {
           const head = months && (j === 0 || monthKey(shown[j - 1].date) !== monthKey(e.date));
           const fx = effect(e.effect, e.kind === 'transfer');
@@ -569,7 +569,7 @@ export function TransferSheet() {
   async function save(e: FormEvent) {
     e.preventDefault();
     const v = parseAmount(amt);
-    if (!v) return setErr('Escreve o valor.');
+    if (!v) return setErr('Falta o valor.');
     const f = from === 'me' ? me! : partner!, t = from === 'me' ? partner! : me!;
     const { error } = await supabase.from('transfers').insert({ household_id: house!.id, from_id: f.id, to_id: t.id, amount: v, created_by: me!.id });
     if (error) return setErr(error.message);

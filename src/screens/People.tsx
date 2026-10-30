@@ -22,7 +22,7 @@ export async function shareInvite(i: Pick<InviteRow, 'token' | 'code'>, house: s
   const text = `Convite para a casa «${house}» na NIKKI. Código: ${i.code}`;
   try { if (navigator.share) { await navigator.share({ title: 'NIKKI', text, url: inviteUrl(i.token) }); return; } }
   catch (e) { if ((e as Error).name === 'AbortError') return; /* partilha recusada: copia */ }
-  try { await navigator.clipboard.writeText(`${text}\n${inviteUrl(i.token)}`); toast('Convite copiado.'); }
+  try { await navigator.clipboard.writeText(`${text}\n${inviteUrl(i.token)}`); toast('Convite copiado. Agora é só colar onde a pessoa vê.'); }
   catch { toast(`Código do convite: ${i.code}`); }
 }
 
@@ -50,7 +50,7 @@ export function InviteForm({ householdId, onDone }: { householdId: string; onDon
       {made.length > 0 && <div className="tile card rows">{made.map((i) => (
         <button key={i.token} className="press" onClick={() => shareInvite(i, house?.name ?? 'NIKKI', toast)}><span>{i.email}<span className="s" style={{ display: 'block' }}>código {i.code} · expira em 7 dias</span></span><span className="v s">Partilhar<Icon n="arrow" s={16} /></span></button>
       ))}</div>}
-      <p className="s">O convite abre-se pela ligação ou com o código.</p>
+      <p className="s">Abre-se pela ligação ou com o código. Um ou outro, como der mais jeito.</p>
     </div>
   );
 }
@@ -77,7 +77,7 @@ export function People() {
       return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <p className="l">Partilha das despesas</p>
-          <p className="s" style={{ fontSize: 'var(--t-m)' }}>Como dividem as partilhadas. Muda as contas a dois e a parte de cada um, daqui para a frente.</p>
+          <p className="s" style={{ fontSize: 'var(--t-m)' }}>Como dividem as partilhadas. Muda daqui para a frente: o passado fica como foi combinado.</p>
           <div className="chips" role="group" aria-label="Predefinições">{[50, 60, 70, 40, 30].map((r) => <button key={r} type="button" className="press" aria-pressed={mine === r} onClick={() => setMine(r)}>{r}/{100 - r}</button>)}</div>
           <label className="knob"><span className="row1"><span>{me!.name} {mine}%</span><span>{partner!.name} {100 - mine}%</span></span><input type="range" min={10} max={90} step={5} value={mine} onChange={(e) => setMine(+e.target.value)} /></label>
           <p className="s">Numa partilhada de 100 €: {me!.name} {mine} €, {partner!.name} {100 - mine} €.</p>
@@ -110,7 +110,7 @@ export function People() {
       {staff.length > 0 && <div className="tile card rows">{staff.map((m) => (
         <Link key={m.id} className="press" to="/housekeeping"><span style={{ display: 'flex', alignItems: 'center', gap: 12 }}><span className="avatar" style={{ ['--c' as any]: m.color }}>{m.name[0]}</span><span>{m.name}<span className="role" style={{ display: 'block' }}>Housekeeping · vê só a lista das visitas, as mensagens e as compras</span></span></span><Icon n="chev" s={16} /></Link>
       ))}</div>}
-      <p className="s">Cada casa tem até duas pessoas, cada uma com o seu login. Os dois podem tudo: convidar, ligar módulos e mudar a partilha.</p>
+      <p className="s">Até duas pessoas por casa, cada uma com o seu login. As duas podem tudo: convidar, ligar módulos, mudar a partilha. Democracia.</p>
     </>
   );
 }
@@ -187,7 +187,7 @@ function Notifications() {
   const today = todayStr();
   const m = me ? morning({ today, me: me.id, events: events.rows, deadlines: deadlines.rows, chores: on('casa') ? chores.rows : [], todos: todos.rows, hk: card ?? null, hkPaid: paid, messages: [] }) : null;
   const why: Partial<Record<PushState, string>> = {
-    install: 'No iPhone: Partilhar → «Adicionar ao ecrã principal» e abre a NIKKI a partir do ícone. Depois liga aqui.',
+    install: 'No iPhone: Partilhar → «Adicionar ao ecrã principal», abre a NIKKI pelo ícone e liga aqui. Três toques, prometido.',
     unsupported: 'Este navegador não recebe notificações.',
     blocked: 'As notificações estão bloqueadas nas definições do telemóvel para a NIKKI.',
     nokey: 'Falta configurar o envio (chave VAPID). Ver supabase/functions/README.md.',
@@ -199,14 +199,14 @@ function Notifications() {
       <div className="tile card rows">
         <div><span className="k">Notificações</span>
           <button type="button" role="switch" aria-checked={lit} aria-label="Notificações" className="sw press" disabled={!['on', 'off'].includes(p.state)}
-            onClick={async () => { if (lit) { await p.disable(); toast('Notificações desligadas.'); } else { const e = await p.enable(); toast(e ?? 'Ligadas. Chegou uma de experiência.', { ok: !e }); } }}><i /></button></div>
-        {lit && <div><span className="k">Resumo às 8h00<span className="s" style={{ display: 'block' }}>Os urgentes chegam sempre</span></span>
+            onClick={async () => { if (lit) { await p.disable(); toast('Notificações desligadas.'); } else { const e = await p.enable(); toast(e ?? 'Ligadas. Acabou de chegar uma, só para veres.', { ok: !e }); } }}><i /></button></div>
+        {lit && <div><span className="k">Resumo às 8h00<span className="s" style={{ display: 'block' }}>Os urgentes chegam sempre. O resto espera pelo café</span></span>
           <button type="button" role="switch" aria-checked={p.morning} aria-label="Resumo às 8h00" className="sw press" onClick={() => p.setMorning(!p.morning)}><i /></button></div>}
       </div>
       {why[p.state] && <p className="s">{why[p.state]}</p>}
       <div className="push-preview" aria-label="O resumo de hoje">
         <span className="s">Hoje às 8h00</span>
-        <p>{m ? m.body : 'Nada para dizer hoje: nesse dia não chega nada.'}</p>
+        <p>{m ? m.body : 'Nada para dizer hoje. Nesses dias, a NIKKI fica calada.'}</p>
       </div>
     </section>
   );

@@ -31,7 +31,7 @@ export function Gym() {
   return (
     <>
       <Top title="Ginásio" right={<button className="tb press" onClick={() => open(<AssessSheet />)}>Nova</button>} />
-      <p className="s">{!next ? 'Ainda sem avaliações. A primeira é o ponto de partida.' : next.late > 0 ? `A próxima avaliação era ${dayLabel(next.due)}.` : `Próxima avaliação: ${dayLabel(next.due)}.`} Só tu vês.</p>
+      <p className="s">{!next ? 'Ainda sem avaliações. A primeira é só o ponto de partida: sem julgamentos.' : next.late > 0 ? `A próxima avaliação era ${dayLabel(next.due)}.` : `Próxima avaliação: ${dayLabel(next.due)}.`} Só tu vês.</p>
       <div className="gym-grid">{fields.map((f) => {
         const s = summary(gym.rows, f.key), t = s?.sincePrev != null ? trend(s.sincePrev, f) : null;
         return (
@@ -42,7 +42,7 @@ export function Gym() {
           </Link>
         );
       })}</div>
-      <p className="s">Face à avaliação anterior. Toque numa medida para ver a evolução e comparar com outras.</p>
+      <p className="s">Face à avaliação anterior. Toca numa medida para ver a evolução e comparar com outras.</p>
       <div className="actions"><button className="btn quiet press" onClick={() => open(<FieldsForm />)}>Medidas e lembrete</button></div>
       {hist.length > 0 && <section className="stack" aria-label="Avaliações">
         <span className="s">Avaliações</span>
@@ -118,7 +118,7 @@ function AssessSheet({ a }: { a?: Assessment }) {
     const { error } = a ? await supabase.from('gym_assessments').update({ measured_on: day, values }).eq('id', a.id) : await supabase.from('gym_assessments').insert({ profile_id: me!.id, measured_on: day, values });
     if (error) return setErr(error.message);
     await gym.reload(); close();
-    toast(a ? 'Avaliação corrigida.' : 'Avaliação guardada. Só tu a vês.', { ok: true });
+    toast(a ? 'Avaliação corrigida.' : 'Avaliação guardada. Fica entre ti e a balança.', { ok: true });
   }
   async function remove() {
     await supabase.from('gym_assessments').delete().eq('id', a!.id);
