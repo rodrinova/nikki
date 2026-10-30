@@ -170,6 +170,24 @@ function useIntro() {
   return [on, useCallback(() => setOn(false), [])] as const;
 }
 
+/**
+ * Uma versão nova da app ficou pronta enquanto esta estava aberta (o service worker trocou): um aviso discreto
+ * para atualizar já, em vez de esperar pela próxima abertura.
+ */
+function UpdateReady() {
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    const sw = typeof navigator !== 'undefined' ? navigator.serviceWorker : undefined;
+    if (!sw || DEMO) return;
+    const had = !!sw.controller; // na primeira instalação não há versão anterior: nada a avisar
+    const on = () => { if (had) setReady(true); };
+    sw.addEventListener('controllerchange', on);
+    return () => sw.removeEventListener('controllerchange', on);
+  }, []);
+  if (!ready) return null;
+  return <button type="button" className="update-pill press" onClick={() => location.reload()}>Versão nova da NIKKI · <b>Atualizar</b></button>;
+}
+
 export default function App() {
   const [intro, endIntro] = useIntro();
   return (
@@ -177,6 +195,7 @@ export default function App() {
       {intro && <Intro onDone={endIntro} />}
       <OverlayProvider>
         <SessionProvider><Shell /></SessionProvider>
+        <UpdateReady />
       </OverlayProvider>
     </Router>
   );
