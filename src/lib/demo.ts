@@ -139,6 +139,11 @@ function seed() {
     ex(uid(), BAT, addDays(today, -5), '64.90', 'Casa', 'Vestido de batizado', I, 'mine');
     ex(uid(), BAT, addDays(today, -2), '38.50', 'Casa', 'Lembranças', R, 'shared');
     ex(uid(), BAT, addDays(today, -40), '400.00', 'Lazer', 'Fotógrafo (sinal)', R, 'shared');
+    // Uma compra extraordinária: o sofá novo, pago em duas vezes (à parte do mês).
+    const SOFA = 'demo-sofa';
+    db.occasions.push({ id: SOFA, household_id: H, name: 'Sofá novo', kind: 'outro', on_date: addDays(today, -50), place: null, budget: null, archived: false, purchase: true, car_id: null, created_by: R, created_at: ago(50) });
+    ex(uid(), SOFA, addDays(today, -50), '300.00', 'Casa', 'Sinal do sofá', R, 'shared');
+    ex(uid(), SOFA, addDays(today, -6), '890.00', 'Casa', 'Sofá: o resto', I, 'shared');
     ex(uid(), BAT, addDays(today, -70), '180.00', 'Casa', 'Convites e decoração', R, 'shared');
     for (const [d, v, c, n] of [[-430, '4500.00', 'Restaurantes', 'Quinta (2.ª prestação)'], [-410, '1800.00', 'Lazer', 'Fotografia'], [-402, '950.00', 'Roupa', 'Fato']] as const) ex(uid(), CAS, addDays(today, d), v, c, n, R, 'shared');
     let g = 0;

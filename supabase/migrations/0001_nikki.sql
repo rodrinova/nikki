@@ -1441,3 +1441,9 @@ end $$;
 -- ───────────────────────── Filhos (meta do fundo para imprevistos) ─────────────────────────
 -- Fundo para imprevistos: pelo menos 2 000 € + 500 € por cada filho da casa.
 alter table nikki.households add column if not exists children smallint not null default 0 check (children between 0 and 20);
+
+-- ───────────────────────── compras extraordinárias ─────────────────────────
+-- Uma compra grande (um carro, um sofá) é um centro de custos como um evento: juntam-se-lhe despesas (entrada,
+-- prestações, extras), contam no mês mas à parte (fora do ritmo e do normal). Se for um carro, liga-se à garagem.
+alter table nikki.occasions add column if not exists purchase boolean not null default false;
+alter table nikki.occasions add column if not exists car_id uuid references nikki.cars (id) on delete set null;

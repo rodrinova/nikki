@@ -114,7 +114,7 @@ function Spend() {
         <button type="button" className="tb press" aria-label="Mês seguinte" disabled={m.current} onClick={() => setKey(nextMonth(key))}><Icon n="arrow" s={16} /></button>
       </div>
       <div className="swap" key={key}><p className="xl">{eur(m.total, 0)}<small>€</small></p><p className="s" style={{ marginTop: 8 }}>{partner ? `A tua parte em ${monthName(m.key)}` : monthTitle(m.key)}{vsAvg !== null ? ` · ${vsAvg === 0 ? 'no teu normal' : `${Math.abs(vsAvg)}% ${vsAvg > 0 ? 'acima' : 'abaixo'} do teu normal`}` : ''}</p></div>
-      {m.events > 0 && <p className="s why"><span className="dot" aria-hidden="true" /><span>{eur(m.everyday, 0)} € do dia a dia + {eur(m.events, 0)} € {evNames ? `do ${evNames}` : 'de eventos'}. Os eventos contam à parte: ficam fora do ritmo e do normal.</span></p>}
+      {m.events > 0 && <p className="s why"><span className="dot" aria-hidden="true" /><span>{eur(m.everyday, 0)} € do dia a dia + {eur(m.events, 0)} € {evNames ? `do ${evNames}` : 'de eventos'}. Eventos e compras extraordinárias contam à parte: ficam fora do ritmo e do normal.</span></p>}
       {partner && <Hint show={seen < 3}>A tua parte: o que é só teu mais a tua fatia das partilhadas. Quem pagou não interessa aqui; interessa em «Entre nós».</Hint>}
       {m.current && (p.fresh
         ? <p className="s why"><span className="dot" aria-hidden="true" /><span>Ritmo: ao fim do primeiro mês completo a NIKKI conhece o teu normal. Depois, compara sem julgar.</span></p>
@@ -133,6 +133,7 @@ function Spend() {
         {m.byCat.length > 0 && <Link className="press" to={m.current ? '/dinheiro/categorias' : `/dinheiro/categorias?mes=${key}`}><span className="k">Categorias</span><span className="v">{m.byCat.length}<Icon n="arrow" s={16} /></span></Link>}
         <ExpenseButton />
       </div>
+      <Purchases />
       <Movements monthKey={key} />
     </>
   );
@@ -186,9 +187,9 @@ function YearBars({ months, normal, sel, onPick }: { months: { key: string; tota
       </svg>
       {(() => {
         const s = months.find((m) => m.key === sel);
-        return s ? <p className="s ybars-cap">{monthTitle(s.key)}: {eur(s.total, 0)} € do dia a dia{s.events > 0 ? <> + <b>{eur(s.events, 0)} € de eventos</b> = {eur(s.total + s.events, 0)} €</> : ''}</p> : null;
+        return s ? <p className="s ybars-cap">{monthTitle(s.key)}: {eur(s.total, 0)} € do dia a dia{s.events > 0 ? <> + <b>{eur(s.events, 0)} € à parte</b> = {eur(s.total + s.events, 0)} €</> : ''}</p> : null;
       })()}
-      {anyEv && <p className="s ybars-key"><span><i className="k-day" aria-hidden="true" />dia a dia</span><span><i className="k-ev" aria-hidden="true" />eventos (por cima; fora do normal)</span></p>}
+      {anyEv && <p className="s ybars-key"><span><i className="k-day" aria-hidden="true" />dia a dia</span><span><i className="k-ev" aria-hidden="true" />eventos e compras (por cima; fora do normal)</span></p>}
       {n > 3 && <ZoomHint z={z} />}
     </figure>
   );
@@ -273,7 +274,9 @@ export function ExpenseSheet() {
   const { cars, carLogs, on, expenses, occasions } = useHouse();
   // Eventos a decorrer (casamento, batizado…): a despesa pode ficar ligada a um. Mantém-se em «Guardar e outra».
   // Os arquivados (um casamento que já foi) também recebem despesas: escrevendo o nome ou em «Outros eventos».
-  const allOccs = on('eventos') ? occasions.rows : [];
+  // Eventos (com o módulo ligado) e compras extraordinárias (sempre): a despesa pode juntar-se a um deles.
+  const allOccs = occasions.rows.filter((o) => o.purchase || on('eventos'));
+  const [newBuy, setNewBuy] = useState(false);
   const [oldOccs, setOldOccs] = useState(false);
   const [occSet, setOcc] = useState<string | null | undefined>(undefined);
   const { close, toast } = useOverlays();
@@ -312,10 +315,12 @@ export function ExpenseSheet() {
   const sameCar = note ? mineCar.find((e) => (e.note ?? '').toLowerCase().startsWith(note.toLowerCase().split(' ')[0])) : undefined;
   const pick = garage.find((c) => c.id === carId) ?? garage.find((c) => c.id === (sameCar ?? mineCar[0])?.car_id) ?? garage.find((c) => c.owner_id === me?.id) ?? garage[0];
   // Os campos do carro: depois do valor, ou logo que a nota diz que é do carro (para começar pela foto do talão).
-  const car = cat === 'Carros' && (q.amount || (note && g.why !== 'default')) ? pick : undefined;
+  // Numa compra extraordinária (a entrada do carro novo, uma prestação) não há abastecimento nem km: fica à parte.
+  const buying = !!allOccs.find((o) => o.id === occ)?.purchase;
+  const car = !buying && cat === 'Carros' && (q.amount || (note && g.why !== 'default')) ? pick : undefined;
   // A despesa de um carro fica, por defeito, de quem é o carro (como na Garagem); pode mudar-se a seguir.
   const splitFor = (c: CarRow): Split => (!partner || c.owner_id === me?.id ? 'mine' : c.owner_id === null ? 'shared' : 'other');
-  const split: Split = splitSet ?? q.split ?? (cat === 'Carros' && pick ? splitFor(pick) : cat !== g.category ? splitOf(cat, expenses.rows as Past[], me?.id ?? '', !!partner) : g.split);
+  const split: Split = splitSet ?? q.split ?? (cat === 'Carros' && pick && !buying ? splitFor(pick) : cat !== g.category ? splitOf(cat, expenses.rows as Past[], me?.id ?? '', !!partner) : g.split);
   // A parte de quem paga numa partilhada: a escrita («60/40») ou a combinada (de quem pagou).
   const payerShare = q.share ?? (paidBy === 'me' ? myShare : 1 - myShare);
   const partnerPaid = !!partner && paidBy === 'partner';
@@ -408,11 +413,13 @@ export function ExpenseSheet() {
         {(f.kind === 'fuel' || f.kind === 'charge') && !f.odo.trim() && <label className="check s"><input type="checkbox" checked={noKm} onChange={(e) => setNoKm(e.target.checked)} /> Não sei os km agora</label>}
       </div>}
       {sure && <BillFields c={bc} f={bf} set={setBf} amount={v ? toU(v) : 0} spent_on={spentOn} />}
-      {v && (sure || more) && allOccs.length > 0 && <div className="chips wrap" role="group" aria-label="Evento">
+      {v && (sure || more) && <div className="chips wrap" role="group" aria-label="Evento ou compra extraordinária">
         {chip(!occ, 'Sem evento', () => setOcc(null))}
-        {allOccs.filter((o) => !o.archived || o.id === occ || oldOccs).map((o) => chip(occ === o.id, o.archived ? `${o.name} (arquivado)` : o.name, () => setOcc(o.id)))}
-        {!oldOccs && allOccs.some((o) => o.archived && o.id !== occ) && chip(false, 'Outros eventos…', () => setOldOccs(true))}
+        {allOccs.filter((o) => !o.archived || o.id === occ || oldOccs).map((o) => chip(occ === o.id, `${o.purchase ? '◆ ' : ''}${o.name}${o.archived ? ' (arquivado)' : ''}`, () => setOcc(o.id)))}
+        {!oldOccs && allOccs.some((o) => o.archived && o.id !== occ) && chip(false, 'Outros…', () => setOldOccs(true))}
+        {chip(newBuy, '+ Compra extraordinária', () => setNewBuy(!newBuy))}
       </div>}
+      {newBuy && <NewPurchase on={spentOn} onMade={(id, isCar) => { setNewBuy(false); setOcc(id); if (isCar && catSet === null) setCat('Carros'); }} />}
       {more && partner && <div className="seg" role="group" aria-label="De quem é">
         {chip(split === 'mine', 'Minha', () => setSplit('mine'))}{chip(split === 'shared', 'Partilhada', () => setSplit('shared'))}{chip(split === 'other', ofName(partner.name), () => setSplit('other'))}
       </div>}
@@ -427,6 +434,92 @@ export function ExpenseSheet() {
       </div>
       {done && <button type="button" className="back press" onClick={close}>Fechar ({done.n} {done.n === 1 ? 'guardada' : 'guardadas'})</button>}
     </form>
+  );
+}
+
+/** Compras extraordinárias: cada uma com o que já se pagou (todas as despesas juntas, de qualquer mês). */
+function Purchases() {
+  const { occasions, expenses } = useHouse();
+  const { open } = useOverlays();
+  const list = occasions.rows.filter((o) => o.purchase && !o.archived);
+  if (!list.length) return null;
+  const paid = (id: string) => expenses.rows.filter((e) => e.occasion_id === id).reduce((t, e) => t + toU(e.amount), 0);
+  return (
+    <section className="stack" aria-label="Compras extraordinárias">
+      <div className="wbar"><span className="s">Compras extraordinárias</span><span className="s">à parte do mês</span></div>
+      <div className="tile card rows">{list.map((o) => (
+        <button key={o.id} className="press" onClick={() => open(<PurchaseSheet id={o.id} />)}>
+          <span className="k" style={{ color: 'var(--ink)' }}>{o.name}<span className="s" style={{ display: 'block' }}>{((n) => `${n} ${n === 1 ? 'despesa' : 'despesas'}`)(expenses.rows.filter((e) => e.occasion_id === o.id).length)}{o.car_id ? ' · na garagem' : ''}</span></span>
+          <span className="v">{eur(paid(o.id), 0)} €<Icon n="arrow" s={16} /></span>
+        </button>
+      ))}</div>
+    </section>
+  );
+}
+
+function PurchaseSheet({ id }: { id: string }) {
+  const { occasions, expenses } = useHouse();
+  const { close, toast } = useOverlays();
+  const o = occasions.rows.find((x) => x.id === id);
+  if (!o) return null;
+  const list = expenses.rows.filter((e) => e.occasion_id === id).sort((a, b) => (a.spent_on < b.spent_on ? 1 : -1));
+  const total = list.reduce((t, e) => t + toU(e.amount), 0);
+  async function archive(v: boolean) {
+    const { error } = await supabase.from('occasions').update({ archived: v }).eq('id', id);
+    if (error) return toast(error.message);
+    occasions.reload(); close(); toast(v ? `${o!.name}: arquivada. Ainda se lhe podem juntar despesas.` : 'De volta às compras.');
+  }
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <p className="l">{o.name}</p>
+      <p className="xl" style={{ margin: 0 }}>{eur(total, 0)}<small>€</small></p>
+      <p className="s">Pago até agora, em {list.length} {list.length === 1 ? 'despesa' : 'despesas'}. Conta no mês de cada uma, mas à parte: o teu normal não sofre com isto.</p>
+      {list.length > 0 && <div className="tile card rows">{list.map((e) => (
+        <div key={e.id}><span className="k" style={{ color: 'var(--ink)' }}>{e.note || catLabel(e.category)}<span className="s" style={{ display: 'block' }}>{dayLabel(e.spent_on)}</span></span><span className="v">{eur(toU(e.amount))} €</span></div>
+      ))}</div>}
+      <p className="s">Para juntar mais (uma prestação, um extra): regista a despesa e escolhe «{o.name}», ou escreve o nome na frase.</p>
+      {o.car_id && <Link className="btn quiet wide press" to={`/garagem/${o.car_id}`} onClick={close}>Ver na garagem <Icon n="arrow" s={20} /></Link>}
+      <button className="back press" onClick={() => archive(!o.archived)}>{o.archived ? 'Reativar' : 'Arquivar (está paga)'}</button>
+    </div>
+  );
+}
+
+/**
+ * Uma compra extraordinária nova (um carro, um sofá, um computador): fica como «categoria» à parte, à qual se vão
+ * juntando despesas (a entrada, as prestações, os extras). Sendo um carro, entra também na garagem.
+ */
+function NewPurchase({ on: day, onMade }: { on: string; onMade: (id: string, isCar: boolean) => void }) {
+  const { me, partner, house } = useSession();
+  const { occasions, cars, modules, on } = useHouse();
+  const { toast } = useOverlays();
+  const [name, setName] = useState('');
+  const [isCar, setIsCar] = useState(false);
+  const [busy, setBusy] = useState(false);
+  async function make() {
+    const n = name.trim();
+    if (!n || !house || !me) return toast('Falta o nome da compra (ex.: Carro novo, Sofá).');
+    setBusy(true);
+    let carId: string | null = null;
+    if (isCar) {
+      if (!on('garagem')) await supabase.from('household_modules').insert({ household_id: house.id, module: 'garagem', enabled_by: me.id });
+      const c = await supabase.from('cars').insert({ household_id: house.id, name: n, owner_id: partner ? null : me.id, annual_insurance: 0, annual_tax: 0, annual_other: 0 }).select('id').single();
+      if (c.error) { setBusy(false); return toast(c.error.message); }
+      carId = (c.data as { id: string }).id;
+    }
+    const { data, error } = await supabase.from('occasions').insert({ household_id: house.id, name: n.slice(0, 60), kind: 'outro', on_date: day, purchase: true, car_id: carId, created_by: me.id }).select('id').single();
+    setBusy(false);
+    if (error) return toast(error.message);
+    occasions.reload(); if (isCar) { cars.reload(); modules.reload(); }
+    toast(isCar ? `${n}: compra criada e já na garagem. Completa lá a matrícula e o seguro.` : `${n}: compra criada. As próximas despesas podem juntar-se aqui.`, { ok: true });
+    onMade((data as { id: string }).id, isCar);
+  }
+  return (
+    <div className="tile card" style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: 14 }}>
+      <span className="s">Compra extraordinária: conta no mês, mas à parte (fora do ritmo e do teu normal). Juntas-lhe a entrada, as prestações e os extras.</span>
+      <input className="field" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex.: Carro novo, Sofá, Computador" maxLength={60} aria-label="Nome da compra" />
+      <label className="check s"><input type="checkbox" checked={isCar} onChange={(e) => setIsCar(e.target.checked)} /> É um carro (entra na garagem)</label>
+      <button type="button" className="btn quiet press" disabled={busy} onClick={make}>Criar e juntar esta despesa</button>
+    </div>
   );
 }
 
