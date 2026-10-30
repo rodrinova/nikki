@@ -8,6 +8,7 @@ import { useAdminBadge } from '@/data/adminBadge';
 import { useOverlays } from '@/ui/overlays';
 import { Icon } from '@/ui/Icon';
 import { Top } from './Home';
+import { marks, requests, spans } from '@/lib/perf';
 import { useHouse } from '@/data/house';
 import { usePush, type PushState } from '@/data/push';
 import { usePaid } from './Housekeeping';
@@ -137,8 +138,41 @@ export function Profile() {
         <Link className="press" to="/historia"><span className="k">A história da NIKKI</span><span className="v"><Icon n="arrow" s={16} /></span></Link>
         {appAdmin && <Link className="press" to="/admin"><span className="k">Administração da app</span><span className="v">{adm.pending + adm.novo > 0 && <span className="badge">{adm.pending + adm.novo}</span>}<Icon n="arrow" s={16} /></span></Link>}
       </div>
+      <Speed />
       <button className="btn quiet wide press" onClick={() => supabase.auth.signOut()}>Sair <Icon n="arrow" s={20} /></button>
     </>
+  );
+}
+
+/**
+ * Rapidez deste aparelho: os tempos do último arranque, para comparar navegadores no mesmo telemóvel (no iPhone
+ * todos usam o mesmo motor; o que muda é o service worker, a cópia local e o Relay Privado do iCloud).
+ */
+function Speed() {
+  const { toast } = useOverlays();
+  const sw = typeof navigator !== 'undefined' && !!navigator.serviceWorker?.controller;
+  const standalone = typeof matchMedia !== 'undefined' && matchMedia('(display-mode: standalone)').matches;
+  const req = requests('supabase.co');
+  const ms = (v?: number) => (v === undefined ? '—' : v < 1000 ? `${v} ms` : `${(v / 1000).toFixed(1).replace('.', ',')} s`);
+  const rows: [string, string][] = [
+    ['Código pronto', ms(marks['código'])],
+    ['Sessão pronta', ms(marks['sessão'])],
+    ['Cópia local no ecrã', ms(marks['cópia local'])],
+    ['Ler a cópia das despesas', ms(spans['ler a cópia das despesas'])],
+    ['Primeiros dados da rede', ms(marks['dados da rede'])],
+    ['Despesas da rede', ms(marks['despesas da rede'])],
+    ['Pedidos à base', req ? `${req.n} · mediana ${ms(req.median)} · máx. ${ms(req.max)}` : '—'],
+    ['Protocolo', req?.proto || '—'],
+    ['Service worker', sw ? 'ativo' : 'não'],
+    ['Aberta', standalone ? 'do ecrã principal' : 'no navegador'],
+  ];
+  const text = rows.map(([k, v]) => `${k}: ${v}`).join('\n');
+  return (
+    <details className="tile card speed">
+      <summary className="s">Rapidez deste aparelho</summary>
+      <div className="rows">{rows.map(([k, v]) => <div key={k}><span className="k">{k}</span><span className="v">{v}</span></div>)}</div>
+      <button type="button" className="btn quiet wide press" onClick={() => { navigator.clipboard?.writeText(text).then(() => toast('Copiado.', { ok: true }), () => toast(text)); }}>Copiar</button>
+    </details>
   );
 }
 
