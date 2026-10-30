@@ -1437,3 +1437,7 @@ do $$ begin
     alter publication supabase_realtime add table nikki.income_entries;
   end if;
 end $$;
+
+-- ───────────────────────── Filhos (meta do fundo para imprevistos) ─────────────────────────
+-- Fundo para imprevistos: pelo menos 2 000 € + 500 € por cada filho da casa.
+alter table nikki.households add column if not exists children smallint not null default 0 check (children between 0 and 20);

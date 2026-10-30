@@ -234,6 +234,30 @@ function Free({ w }: { w: W }) {
   );
 }
 
+/** Filhos da casa: a meta do fundo para imprevistos é 2 000 € + 500 € por cada um. */
+function Kids() {
+  const { house, reload } = useSession();
+  const { toast } = useOverlays();
+  const [n, setN] = useState(house?.children ?? 0);
+  useEffect(() => setN(house?.children ?? 0), [house?.children]);
+  if (!house) return null;
+  const set = async (v: number) => {
+    const was = n; setN(v);
+    const { error } = await supabase.from('households').update({ children: v }).eq('id', house.id);
+    if (error) { setN(was); toast('Não deu para guardar.'); } else reload();
+  };
+  return (
+    <div className="kids">
+      <span className="s">2 000 € + 500 € por filho</span>
+      <span className="kids-n">
+        <button type="button" className="tb press" aria-label="Menos um filho" disabled={n <= 0} onClick={() => set(n - 1)}>−</button>
+        <span aria-live="polite">{n === 0 ? 'Sem filhos' : n === 1 ? '1 filho' : `${n} filhos`}</span>
+        <button type="button" className="tb press" aria-label="Mais um filho" disabled={n >= 20} onClick={() => set(n + 1)}>+</button>
+      </span>
+    </div>
+  );
+}
+
 function FundCard({ w, role }: { w: W; role: FundRole }) {
   const { open } = useOverlays();
   const owner = useOwner();
@@ -248,6 +272,7 @@ function FundCard({ w, role }: { w: W; role: FundRole }) {
       <p className="s">{role === 'emergency'
         ? (w.spend ? `12 meses × ${money(w.spend.avg)} de despesa média.` : 'A meta são 12 meses da despesa média, que a NIKKI calcula no fim do primeiro mês completo.')
         : `Para imprevistos: pelo menos ${money(w.cushionTarget)}, disponível no próprio dia.`}</p>
+      {role === 'cushion' && <Kids />}
       {f.overflow > 0 && <p className="s why"><span className="dot" aria-hidden="true" /><span>{role === 'emergency' ? `O fundo de emergência está completo: ${money(f.overflow)} a mais passam para o ${ROLE.cushion.toLowerCase()}.` : `Inclui ${money(f.overflow)} a mais do fundo de emergência.`}</span></p>}
       {f.list.map((a) => (
         <button key={a.id} type="button" className="fund-acc press" onClick={() => open(<AssetSheet asset={a} />)}>

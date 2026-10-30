@@ -61,7 +61,7 @@ function seed() {
       { id: I, name: 'Inês', color: '#D29B7A', email: 'ines@exemplo.pt', status: 'active', created_at: ago(209), approved_at: ago(209), approved_via: 'invite', last_seen_at: ago(1), request: null, requested_at: null },
       { id: M, name: 'Maria', color: '#94B096', email: 'maria@exemplo.pt', status: 'active', created_at: ago(69), approved_at: ago(69), approved_via: 'invite', last_seen_at: ago(0.1), request: null, requested_at: null },
     ],
-    households: [{ id: H, name: 'A nossa casa', created_at: ago(210) }],
+    households: [{ id: H, name: 'A nossa casa', children: 0, created_at: ago(210) }],
     memberships: [{ household_id: H, profile_id: R, role: 'admin', joined_at: ago(210) }, { household_id: H, profile_id: I, role: 'member', joined_at: ago(209) }, { household_id: H, profile_id: M, role: 'staff', joined_at: ago(69) }],
     household_modules: [['contas', 210], ['compras', 210], ['agenda', 210], ['casa', 210], ['housekeeping', 70], ['garagem', 45], ['ginasio', 120], ['objetivos', 20], ['patrimonio', 120], ['eventos', 30]].map(([m, d]) => ({ household_id: H, module: m, enabled_at: ago(d as number), enabled_by: R })),
     share_ratios: [{ household_id: H, profile_a: R, profile_b: I, ratio_a: 0.5 }],

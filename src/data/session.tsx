@@ -12,7 +12,7 @@ export interface Profile { id: string; name: string; color: string }
 export interface Me extends Profile { status: 'pending' | 'active' | 'paused' | 'declined'; request: { house: string; note: string | null } | null; requested_at: string | null }
 export interface Member extends Profile { role: 'admin' | 'member' }
 /** «staff»: quem faz o housekeeping (vê só as tarefas das visitas, as mensagens e as compras). */
-export interface House { id: string; name: string; role: 'admin' | 'member' | 'staff' }
+export interface House { id: string; name: string; role: 'admin' | 'member' | 'staff'; children: number }
 
 interface State {
   ready: boolean;
@@ -85,7 +85,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     if (!uid) { setMe(null); setAppAdmin(false); setHouses([]); setMembers([]); setReady(true); return; }
     const [{ data: p, error: pe }, { data: ms }, { data: adm }] = await Promise.all([
       supabase.from('profiles').select('id, name, color, status, request, requested_at').eq('id', uid).maybeSingle(),
-      supabase.from('memberships').select('household_id, role, households(name)').eq('profile_id', uid),
+      supabase.from('memberships').select('household_id, role, households(name, children)').eq('profile_id', uid),
       supabase.rpc('is_app_admin'),
     ]);
     // Sem rede: fica o resumo guardado, se houver.
@@ -94,7 +94,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setAppAdmin(adm === true);
     // Última visita (uma vez por arranque): a administração vê quem usa a app, nunca o quê.
     if (touched.current !== uid && (p as Me | null)?.status === 'active') { touched.current = uid; supabase.rpc('touch').then(() => undefined, () => undefined); }
-    const hs: House[] = (ms ?? []).map((m: any) => ({ id: m.household_id, role: m.role, name: m.households?.name ?? 'Casa' }));
+    const hs: House[] = (ms ?? []).map((m: any) => ({ id: m.household_id, role: m.role, name: m.households?.name ?? 'Casa', children: m.households?.children ?? 0 }));
     setHouses(hs);
     const h = hs.find((x) => x.id === houseId) ?? hs[0] ?? null;
     if (h && h.id !== houseId) { setHouseId(h.id); store.set(HOUSE_KEY, h.id); }

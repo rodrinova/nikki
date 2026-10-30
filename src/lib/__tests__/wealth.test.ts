@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { U } from '../money';
-import { avgMonthly, badges, celebrate, nextBadge, freeMonths, fundCheck, healthScore, monthPlan, monthlyIncome, monthsAhead, realReturn, savings, suggestGoal, vacationUntil, sourceMonthly, entriesByMonth, splitFunds } from '../wealth';
+import { avgMonthly, badges, celebrate, nextBadge, freeMonths, fundCheck, healthScore, monthPlan, monthlyIncome, monthsAhead, realReturn, savings, suggestGoal, vacationUntil, sourceMonthly, entriesByMonth, splitFunds, cushionMin } from '../wealth';
 
 const e = (v: number) => v * U;
 
@@ -158,5 +158,18 @@ describe('o excedente do fundo de emergência passa para o fundo de maneio', () 
   it('abaixo da meta, nada passa; sem meta, nada passa', () => {
     expect(splitFunds([{ value: 5000 * U, liq: 'now' }], [{ value: 1 * U }], 15000 * U).overflow).toBe(0);
     expect(splitFunds([{ value: 5000 * U, liq: 'now' }], [], null)).toEqual({ emergency: 5000 * U, cushion: 0, overflow: 0 });
+  });
+});
+
+describe('cushionMin', () => {
+  it('2 000 € sem filhos e mais 500 € por cada filho', () => {
+    expect(cushionMin()).toBe(2_000 * U);
+    expect(cushionMin(0)).toBe(2_000 * U);
+    expect(cushionMin(1)).toBe(2_500 * U);
+    expect(cushionMin(3)).toBe(3_500 * U);
+  });
+  it('ignora valores sem sentido', () => {
+    expect(cushionMin(-2)).toBe(2_000 * U);
+    expect(cushionMin(NaN)).toBe(2_000 * U);
   });
 });
