@@ -6,8 +6,9 @@ import { useHouse, type CarRow, type ExpenseRow } from '@/data/house';
 import { useOverlays } from '@/ui/overlays';
 import { Icon } from '@/ui/Icon';
 import { Whiskers } from '@/ui/Whiskers';
-import { eur, monthSpend, normalMonth, openingOf, pace, pairBalance, parseAmount, toU, type Split, whiskerLean } from '@/lib/money';
-import { addDays, dayLabel, monthKey, monthName, todayStr } from '@/lib/dates';
+import { eur, monthSpend, monthlySeries, normalMonth, openingOf, pace, pairBalance, parseAmount, toU, type Split, whiskerLean } from '@/lib/money';
+import { addDays, dayLabel, monthKey, monthName, nextMonth, prevMonth, todayStr } from '@/lib/dates';
+import { store } from '@/lib/store';
 import { KIND_ASK, carKindOf, guess, parseQuick, type Past } from '@/lib/quick';
 import { pairEntries, pairFilter, type PairPeriod, type PairSort, type PairWho } from '@/lib/pairlog';
 import { Hint, Top, useSeen } from './Home';
@@ -22,18 +23,18 @@ export const catLabel = (c: string) => (c === INVEST ? 'Investir' : c);
 /** "Do Rodrigo", "Da Inês"… sem saber o género, "De Marta". */
 export const ofName = (n: string) => `De ${n}`;
 
-/** Resumo do mês da pessoa: parte dela, normal, ritmo. */
-export function useMonth() {
+/** Resumo de um mês da pessoa (por omissão, o corrente): parte dela, normal, ritmo. */
+export function useMonth(at?: string) {
   const { me } = useSession();
   const { expenses } = useHouse();
   return useMemo(() => {
-    const today = todayStr(), key = monthKey(today);
+    const today = todayStr(), key = at ?? monthKey(today);
     const spend = expenses.rows.filter((e) => e.category !== INVEST);
     const m = monthSpend(spend, me?.id ?? '', key);
     // Os eventos (casamento, batizado…) contam no mês, mas não no «mês normal».
     const normal = normalMonth(spend.filter((e) => !e.occasion_id), me?.id ?? '', today);
-    return { key, today, ...m, normal, pace: pace(m.total, normal, today) };
-  }, [expenses.rows, me?.id]);
+    return { key, today, current: key === monthKey(today), ...m, normal, pace: pace(m.total, normal, today) };
+  }, [expenses.rows, me?.id, at]);
 }
 
 export function useLedger() {
@@ -64,22 +65,42 @@ export function Money() {
         <button type="button" role="tab" className="press" aria-selected={!us} aria-pressed={!us} onClick={() => setSp({}, { replace: true })}>Gastos</button>
         <button type="button" role="tab" className="press" aria-selected={us} aria-pressed={us} onClick={() => setSp({ ver: 'entre-nos' }, { replace: true })}>Entre nós</button>
       </div>}
-      {partner && <p className="s">{us ? `Quem pagou mais do que o combinado, e como acertar.` : 'O que é teu este mês, pague quem pagar.'}</p>}
+      {partner && <p className="s">{us ? `Quem pagou mais do que o combinado, e como acertar.` : 'O que é teu, mês a mês, pague quem pagar.'}</p>}
       {us ? <Ledger embedded /> : <Spend />}
     </>
   );
 }
 
+/** O mês que se vê no separador Gastos: `?mes=AAAA-MM` (por omissão, o corrente; nunca depois dele). */
+function useMonthParam(): [string, (k: string) => void] {
+  const [sp, setSp] = useSearchParams();
+  const cur = monthKey(todayStr()), q = sp.get('mes');
+  const key = q && /^\d{4}-\d{2}$/.test(q) && q <= cur ? q : cur;
+  const set = (k: string) => { const n = new URLSearchParams(sp); if (k === cur) n.delete('mes'); else n.set('mes', k); setSp(n, { replace: true }); };
+  return [key, set];
+}
+
+const monthTitle = (k: string, year = monthKey(todayStr()).slice(0, 4)) => { const n = monthName(k); return `${n[0].toUpperCase()}${n.slice(1)}${k.slice(0, 4) !== year ? ` ${k.slice(0, 4)}` : ''}`; };
+
 function Spend() {
-  const { partner } = useSession();
-  const m = useMonth();
+  const { me, partner } = useSession();
+  const { expenses } = useHouse();
+  const [key, setKey] = useMonthParam();
+  const m = useMonth(key);
   const p = m.pace;
   const seen = useSeen('money');
+  const year = useMemo(() => monthlySeries(expenses.rows.filter((e) => e.category !== INVEST && !e.occasion_id), me?.id ?? '', todayStr()), [expenses.rows, me?.id]);
+  const vsAvg = !m.current && year.avg && m.total > 0 ? Math.round((m.total / year.avg - 1) * 100) : null;
   return (
     <>
-      <div className="swap"><p className="xl">{eur(m.total, 0)}<small>€</small></p><p className="s" style={{ marginTop: 8 }}>{partner ? `A tua parte em ${monthName(m.key)}` : monthName(m.key)[0].toUpperCase() + monthName(m.key).slice(1)}</p></div>
+      <div className="mnav">
+        <button type="button" className="tb press" aria-label="Mês anterior" onClick={() => setKey(prevMonth(key))}><Icon n="arrow" s={16} /></button>
+        <span className="mnav-t">{monthTitle(key)}{!m.current && <button type="button" className="mnav-now press" onClick={() => setKey(monthKey(todayStr()))}>Este mês</button>}</span>
+        <button type="button" className="tb press" aria-label="Mês seguinte" disabled={m.current} onClick={() => setKey(nextMonth(key))}><Icon n="arrow" s={16} /></button>
+      </div>
+      <div className="swap" key={key}><p className="xl">{eur(m.total, 0)}<small>€</small></p><p className="s" style={{ marginTop: 8 }}>{partner ? `A tua parte em ${monthName(m.key)}` : monthTitle(m.key)}{vsAvg !== null ? ` · ${vsAvg === 0 ? 'na média' : `${Math.abs(vsAvg)}% ${vsAvg > 0 ? 'acima' : 'abaixo'} da média`}` : ''}</p></div>
       {partner && <Hint show={seen < 3}>A tua parte é o que é só teu mais a tua percentagem das partilhadas. Não depende de quem pagou.</Hint>}
-      {p.fresh
+      {m.current && (p.fresh
         ? <p className="s why"><span className="dot" aria-hidden="true" /><span>Ritmo: no fim do primeiro mês completo a NIKKI já conhece o teu normal e começa a comparar.</span></p>
         : <>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -89,14 +110,43 @@ function Spend() {
             <span className="s">Ritmo · {p.pct === 0 ? 'no ritmo habitual' : `${Math.abs(p.pct)}% ${p.pct > 0 ? 'acima' : 'abaixo'} do ritmo habitual`}</span>
           </div>
           <Hint show={seen < 3}>Cada bloco é um dia de um mês normal. Os cheios já foram gastos; os laranja são gasto adiantado.</Hint>
-        </>}
+        </>)}
+      <YearBars months={year.months} avg={year.avg} sel={key} onPick={setKey} />
       <div className="tile card rows">
-        {!p.fresh && <div><span className="k">Fecho previsto{seen < 3 && <span className="s" style={{ display: 'block' }}>se o resto do mês for normal</span>}</span><span className="v">{eur(p.forecast, 0)} €</span></div>}
-        {m.byCat.length > 0 && <Link className="press" to="/dinheiro/categorias"><span className="k">Categorias</span><span className="v">{m.byCat.length}<Icon n="arrow" s={16} /></span></Link>}
+        {m.current && !p.fresh && <div><span className="k">Fecho previsto{seen < 3 && <span className="s" style={{ display: 'block' }}>se o resto do mês for normal</span>}</span><span className="v">{eur(p.forecast, 0)} €</span></div>}
+        {m.byCat.length > 0 && <Link className="press" to={m.current ? '/dinheiro/categorias' : `/dinheiro/categorias?mes=${key}`}><span className="k">Categorias</span><span className="v">{m.byCat.length}<Icon n="arrow" s={16} /></span></Link>}
         <ExpenseButton />
       </div>
-      <Movements />
+      <Movements monthKey={key} />
     </>
+  );
+}
+
+/** Gasto mês a mês no último ano (a tua parte, sem investir nem eventos) face à média; um toque abre o mês. */
+function YearBars({ months, avg, sel, onPick }: { months: { key: string; total: number; current: boolean }[]; avg: number | null; sel: string; onPick: (k: string) => void }) {
+  if (!months.some((m) => m.total > 0)) return null;
+  const W = 340, H = 120, T = 14, B = 18, gap = 4;
+  const hi = Math.max(...months.map((m) => m.total), avg ?? 0) || 1;
+  const bw = (W - gap * (months.length - 1)) / months.length;
+  const y = (v: number) => T + (1 - v / hi) * (H - T - B);
+  return (
+    <figure className="ybars" aria-label="Gasto mês a mês no último ano">
+      <div className="wbar"><span className="s">Últimos 12 meses</span>{avg !== null && <span className="s"><i className="ybars-avg-k" aria-hidden="true" />média {eur(avg, 0)} €</span>}</div>
+      <svg viewBox={`0 0 ${W} ${H}`} role="group">
+        {months.map((m, j) => {
+          const x = j * (bw + gap), h = Math.max(m.total > 0 ? 2 : 0, H - B - y(m.total));
+          return (
+            <g key={m.key} className={`yb${m.key === sel ? ' on' : ''}${m.current ? ' cur' : ''}`} role="button" tabIndex={0} aria-label={`${monthTitle(m.key)}: ${eur(m.total, 0)} €${m.current ? ' (em curso)' : ''}`} aria-pressed={m.key === sel}
+              onClick={() => onPick(m.key)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPick(m.key); } }}>
+              <rect x={x} y={0} width={bw} height={H} className="yb-hit" />
+              <rect x={x} y={H - B - h} width={bw} height={h} rx={3} className="yb-bar" />
+              <text x={x + bw / 2} y={H - 4} textAnchor="middle" className="gc-ax">{monthName(m.key).slice(0, 1).toUpperCase()}</text>
+            </g>
+          );
+        })}
+        {avg !== null && <line x1={0} x2={W} y1={y(avg)} y2={y(avg)} className="ybars-avg" />}
+      </svg>
+    </figure>
   );
 }
 
@@ -105,25 +155,47 @@ function ExpenseButton() {
   return <button className="press" onClick={() => open(<ExpenseSheet />)}><span className="k">Registar uma despesa</span><span className="v"><Icon n="plus" s={18} /></span></button>;
 }
 
-function Movements() {
-  const { me, members } = useSession();
+const MOVES = 40;
+type MoveWho = 'me' | 'all';
+
+/**
+ * As despesas do mês. Por omissão, as que pagaste tu (as tuas e as partilhadas que adiantaste): quem junta talões e
+ * os regista de uma vez vê logo até onde já registou. «Tudo» junta as que a outra pessoa pagou e te dizem respeito.
+ */
+function Movements({ monthKey: key }: { monthKey: string }) {
+  const { me, members, partner } = useSession();
   const { expenses } = useHouse();
   const { open } = useOverlays();
-  const key = monthKey(todayStr());
-  const list = expenses.rows.filter((e) => monthKey(e.spent_on) === key).slice(0, 30);
-  if (!list.length) return null;
+  const [who, setWhoS] = useState<MoveWho>(() => (store.get('nikki_moves_who') === 'all' ? 'all' : 'me'));
+  const setWho = (w: MoveWho) => { setWhoS(w); store.set('nikki_moves_who', w); };
+  const [n, setN] = useState(MOVES);
+  useEffect(() => setN(MOVES), [key, who]);
+  const mineAll = useMemo(() => expenses.rows.filter((e) => e.paid_by === me?.id), [expenses.rows, me?.id]);
+  const last = useMemo(() => mineAll.reduce<ExpenseRow | null>((b, e) => (!b || e.spent_on > b.spent_on ? e : b), null), [mineAll]);
+  const month = expenses.rows.filter((e) => monthKey(e.spent_on) === key);
+  const list = (who === 'me' && partner ? month.filter((e) => e.paid_by === me?.id) : month)
+    .sort((a, b) => (a.spent_on !== b.spent_on ? (a.spent_on < b.spent_on ? 1 : -1) : a.created_at < b.created_at ? 1 : -1));
   const name = (id: string | null) => members.find((m) => m.id === id)?.name ?? '';
   const lbl = (e: ExpenseRow) => e.split === 'mine' ? (e.paid_by === me?.id ? 'Minha' : name(e.paid_by)) : e.split === 'shared' ? `Partilhada · pagou ${e.paid_by === me?.id ? 'tu' : name(e.paid_by)}` : e.other_id === me?.id ? `Tua · pagou ${name(e.paid_by)}` : ofName(name(e.other_id));
+  const paidMe = month.filter((e) => e.paid_by === me?.id).length;
   return (
-    <>
-      <p className="s">Este mês</p>
-      <div className="tile card rows">{list.map((e) => (
-        <button key={e.id} className="press" onClick={() => open(<ExpenseDetail e={e} label={lbl(e)} />)}>
-          <span className="k" style={{ color: 'var(--ink)' }}>{e.note || catLabel(e.category)}<span className="s" style={{ display: 'block' }}>{dayLabel(e.spent_on)} · {lbl(e)}</span></span>
-          <span className="v">{eur(toU(e.amount))} €</span>
-        </button>
-      ))}</div>
-    </>
+    <section className="stack" aria-label="Despesas do mês">
+      <div className="wbar"><span className="s">Despesas de {monthName(key)}</span><span className="s">{list.length}</span></div>
+      {partner && <div className="chips" role="group" aria-label="Quem pagou">
+        <button className="press" aria-pressed={who === 'me'} onClick={() => setWho('me')}>Pagaste tu ({paidMe})</button>
+        <button className="press" aria-pressed={who === 'all'} onClick={() => setWho('all')}>Tudo ({month.length})</button>
+      </div>}
+      {last && <p className="s why"><span className="dot" aria-hidden="true" /><span>Registaste até {dayLabel(last.spent_on)}{last.spent_on.slice(0, 4) !== todayStr().slice(0, 4) ? ` ${last.spent_on.slice(0, 4)}` : ''}: a mais recente que pagaste foi {last.note || catLabel(last.category)} ({eur(toU(last.amount))} €).</span></p>}
+      {!list.length
+        ? <p className="s">{who === 'me' && month.length ? `Não pagaste nenhuma despesa em ${monthName(key)}.` : `Sem despesas em ${monthName(key)}.`}</p>
+        : <div className="tile card rows">{list.slice(0, n).map((e) => (
+          <button key={e.id} className="press" onClick={() => open(<ExpenseDetail e={e} label={lbl(e)} />)}>
+            <span className="k" style={{ color: 'var(--ink)' }}>{e.note || catLabel(e.category)}<span className="s" style={{ display: 'block' }}>{dayLabel(e.spent_on)} · {lbl(e)}</span></span>
+            <span className="v">{eur(toU(e.amount))} €</span>
+          </button>
+        ))}</div>}
+      {list.length > n && <button className="btn quiet wide press" onClick={() => setN(n + MOVES)}>Mostrar mais ({list.length - n}) <Icon n="arrow" s={20} /></button>}
+    </section>
   );
 }
 
@@ -292,12 +364,13 @@ export function ExpenseSheet() {
 }
 
 export function Cats() {
-  const m = useMonth();
+  const [key] = useMonthParam();
+  const m = useMonth(key);
   const mx = m.byCat[0]?.[1] ?? 1;
   return (
     <>
       <Top title="Categorias" />
-      {!m.byCat.length ? <p className="s">Ainda sem despesas este mês.</p> : <>
+      {!m.byCat.length ? <p className="s">{m.current ? 'Ainda sem despesas este mês.' : `Sem despesas em ${monthName(m.key)}.`}</p> : <>
         <p className="s">A tua parte em {monthName(m.key)}</p>
         <div className="tile card rows">{m.byCat.map(([n, v]) => (
           <div key={n} style={{ flexDirection: 'column', alignItems: 'stretch', justifyContent: 'center', gap: 8, padding: '10px 0' }}>

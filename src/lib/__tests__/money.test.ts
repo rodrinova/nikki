@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { eur, lit, openingOf, monthClose, monthSpend, normalMonth, pace, pairBalance, parseAmount, partOf, toU, whiskerLean, yearFill, type Expense, type Transfer } from '../money';
+import { eur, lit, openingOf, monthClose, monthSpend, monthlySeries, normalMonth, pace, pairBalance, parseAmount, partOf, toU, whiskerLean, yearFill, type Expense, type Transfer } from '../money';
 import { addDays, daysInMonth, monthWeeks, nextMonth, prevMonth, toDateStr, weekOf, weekdayName } from '../dates';
 
 const R = 'rodrigo', I = 'ines';
@@ -204,5 +204,22 @@ describe('openingOf', () => {
     expect(openingOf(rows, 'a', 'b')).toEqual({ amountA: 15.75, since: '2026-01-01' });
     expect(openingOf(rows, 'b', 'a')).toEqual({ amountA: -15.75, since: '2026-01-01' });
     expect(openingOf([], 'a', 'b')).toEqual({ amountA: 0, since: '' });
+  });
+});
+
+describe('monthlySeries', () => {
+  const ex = (spent_on: string, amount: string, split: 'mine' | 'shared' = 'mine', paid_by = 'r') => ({ paid_by, other_id: split === 'shared' ? (paid_by === 'r' ? 'i' : 'r') : null, amount, split, payer_share: 0.5, spent_on, category: 'Casa' }) as any;
+  const U = toU('1');
+  it('12 meses até ao corrente, com a parte da pessoa, e a média dos meses completos desde o primeiro registo', () => {
+    const s = monthlySeries([ex('2026-08-03', '100'), ex('2026-09-10', '50', 'shared', 'i'), ex('2026-10-02', '999')], 'r', '2026-10-30');
+    expect(s.months).toHaveLength(12);
+    expect(s.months[0].key).toBe('2025-11');
+    expect(s.months[11]).toEqual({ key: '2026-10', total: 999 * U, current: true });
+    expect(s.months[9].total).toBe(100 * U);
+    expect(s.months[10].total).toBe(25 * U);
+    expect(s.avg).toBe(Math.round((125 * U) / 2));
+  });
+  it('sem meses completos não há média', () => {
+    expect(monthlySeries([ex('2026-10-02', '10')], 'r', '2026-10-30').avg).toBeNull();
   });
 });
