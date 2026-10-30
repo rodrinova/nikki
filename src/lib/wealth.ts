@@ -29,10 +29,11 @@ export const KINDS: Record<AssetKind, { name: string; liq: Liquidity }> = {
 };
 export const liqOf = (k: string): Liquidity => KINDS[k as AssetKind]?.liq ?? 'locked';
 
-export const CUSHION_MIN = 2_000 * U; // fundo de maneio: pelo menos 2 000 €
+export const CUSHION_MIN = 2_000 * U; // fundo de maneio: pelo menos 2 000 € por adulto
 export const CUSHION_PER_CHILD = 500 * U; // e mais 500 € por cada filho
-/** Meta do fundo para imprevistos da casa: 2 000 € + 500 € por filho. */
-export const cushionMin = (children = 0) => CUSHION_MIN + Math.max(0, Math.floor(children || 0)) * CUSHION_PER_CHILD;
+/** Meta do fundo para imprevistos: 2 000 € por adulto + 500 € por filho (a parte `kidShare` dos filhos, na vista de uma pessoa). */
+export const cushionMin = (children = 0, adults = 1, kidShare = 1) =>
+  Math.round(Math.max(1, Math.floor(adults || 1)) * CUSHION_MIN + Math.max(0, Math.floor(children || 0)) * CUSHION_PER_CHILD * kidShare);
 export const EMERGENCY_MONTHS = 12; // fundo de emergência: 12 meses da despesa média
 export const INFLATION = 2; // % ao ano, para o retorno real
 

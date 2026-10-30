@@ -64,7 +64,8 @@ export function useWealth(view: WealthView) {
     // O que passar da meta do fundo de emergência (e estiver disponível no próprio dia) conta no fundo de maneio.
     const split = splitFunds(emRaw.list.filter((a) => a.check.ok).map((a) => ({ value: a.mine, liq: a.liq })), cuRaw.list.filter((a) => a.check.ok).map((a) => ({ value: a.mine })), emergencyTarget);
     const emergency = { ...emRaw, value: split.emergency, overflow: split.overflow }, cushion = { ...cuRaw, value: split.cushion, overflow: split.overflow };
-    const cushionTarget = Math.round(cushionMin(house?.children) * (casa ? 1 : myShare));
+    // 2 000 € por adulto + 500 € por filho: a casa conta os dois; cada pessoa, os seus 2 000 € e a sua parte dos filhos.
+    const cushionTarget = casa ? cushionMin(house?.children, solo ? 1 : 2) : cushionMin(house?.children, 1, myShare);
     const sv = income > 0 && spend ? savings(income, spend.avg) : null;
     const plan = sv ? monthPlan(sv.surplus, (emergencyTarget ?? 0) - emergency.value, cushionTarget - cushion.value) : null;
     // Património total (o que vale tudo, casa e carros incluídos): da casa, ou o teu com a tua parte do partilhado.

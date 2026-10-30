@@ -9,6 +9,8 @@ import { Whiskers } from '@/ui/Whiskers';
 import { eur, monthSpend, monthlySeries, normalMonth, openingOf, pace, pairBalance, parseAmount, toU, type Split, whiskerLean } from '@/lib/money';
 import { addDays, dayLabel, monthKey, monthName, nextMonth, prevMonth, todayStr } from '@/lib/dates';
 import { store } from '@/lib/store';
+import { useZoom } from '@/ui/zoom';
+import { ZoomHint } from '@/ui/ZoomHint';
 import { KIND_ASK, carKindOf, guess, parseQuick, type Past } from '@/lib/quick';
 import { pairEntries, pairFilter, type PairPeriod, type PairSort, type PairWho } from '@/lib/pairlog';
 import { Hint, Top, useSeen } from './Home';
@@ -89,7 +91,14 @@ function Spend() {
   const m = useMonth(key);
   const p = m.pace;
   const seen = useSeen('money');
-  const year = useMemo(() => monthlySeries(expenses.rows.filter((e) => e.category !== INVEST && !e.occasion_id), me?.id ?? '', todayStr()), [expenses.rows, me?.id]);
+  const spendRows = useMemo(() => expenses.rows.filter((e) => e.category !== INVEST && !e.occasion_id), [expenses.rows]);
+  const year = useMemo(() => monthlySeries(spendRows, me?.id ?? '', todayStr()), [spendRows, me?.id]);
+  // Para o gráfico: desde o primeiro registo (até 10 anos), com pelo menos 12 meses.
+  const hist = useMemo(() => {
+    const s = monthlySeries(spendRows, me?.id ?? '', todayStr(), 120);
+    const i = s.first ? s.months.findIndex((m) => m.key >= s.first!) : s.months.length;
+    return { months: s.months.slice(Math.min(i, s.months.length - 12)), first: s.first };
+  }, [spendRows, me?.id]);
   const vsAvg = !m.current && year.avg && m.total > 0 ? Math.round((m.total / year.avg - 1) * 100) : null;
   return (
     <>
@@ -111,7 +120,7 @@ function Spend() {
           </div>
           <Hint show={seen < 3}>Cada bloco é um dia de um mês normal. Os cheios já foram gastos; os laranja são gasto adiantado.</Hint>
         </>)}
-      <YearBars months={year.months} avg={year.avg} sel={key} onPick={setKey} />
+      <YearBars months={hist.months} first={hist.first} sel={key} onPick={setKey} />
       <div className="tile card rows">
         {m.current && !p.fresh && <div><span className="k">Fecho previsto{seen < 3 && <span className="s" style={{ display: 'block' }}>se o resto do mês for normal</span>}</span><span className="v">{eur(p.forecast, 0)} €</span></div>}
         {m.byCat.length > 0 && <Link className="press" to={m.current ? '/dinheiro/categorias' : `/dinheiro/categorias?mes=${key}`}><span className="k">Categorias</span><span className="v">{m.byCat.length}<Icon n="arrow" s={16} /></span></Link>}
@@ -122,30 +131,47 @@ function Spend() {
   );
 }
 
-/** Gasto mês a mês no último ano (a tua parte, sem investir nem eventos) face à média; um toque abre o mês. */
-function YearBars({ months, avg, sel, onPick }: { months: { key: string; total: number; current: boolean }[]; avg: number | null; sel: string; onPick: (k: string) => void }) {
+/**
+ * Gasto mês a mês (a tua parte, sem investir nem eventos) face à média dos meses que se veem; abre nos últimos 12.
+ * Dois dedos mudam a escala (de 3 meses a tudo); um toque numa barra abre esse mês.
+ */
+function YearBars({ months, first, sel, onPick }: { months: { key: string; total: number; current: boolean }[]; first: string | null; sel: string; onPick: (k: string) => void }) {
+  const n = months.length;
+  const z = useZoom(0, n, Math.min(n, 3), [Math.max(0, n - 12), n]);
   if (!months.some((m) => m.total > 0)) return null;
-  const W = 340, H = 120, T = 14, B = 18, gap = 4;
-  const hi = Math.max(...months.map((m) => m.total), avg ?? 0) || 1;
-  const bw = (W - gap * (months.length - 1)) / months.length;
+  const [a, b] = z.win;
+  const W = 340, H = 120, T = 14, B = 18;
+  const vis = months.map((m, i) => ({ ...m, i })).filter((m) => m.i + 1 > a + 1e-9 && m.i < b - 1e-9);
+  const done = vis.filter((m) => !m.current && first !== null && m.key >= first);
+  const avg = done.length ? Math.round(done.reduce((t, m) => t + m.total, 0) / done.length) : null;
+  const hi = Math.max(...vis.map((m) => m.total), avg ?? 0) || 1;
+  const unit = W / (b - a), gap = Math.min(4, unit * 0.2), bw = unit - gap;
   const y = (v: number) => T + (1 - v / hi) * (H - T - B);
+  const many = vis.length > 14, step = Math.ceil(vis.length / 12);
+  const lab = (m: { key: string; i: number }) => {
+    const mm = m.key.slice(5, 7);
+    if (many) return mm === '01' ? `’${m.key.slice(2, 4)}` : m.i % step === 0 && step < 3 ? monthName(m.key).slice(0, 1).toUpperCase() : '';
+    return monthName(m.key).slice(0, 1).toUpperCase();
+  };
+  const full = Math.round(b - a);
   return (
-    <figure className="ybars" aria-label="Gasto mês a mês no último ano">
-      <div className="wbar"><span className="s">Últimos 12 meses</span>{avg !== null && <span className="s"><i className="ybars-avg-k" aria-hidden="true" />média {eur(avg, 0)} €</span>}</div>
-      <svg viewBox={`0 0 ${W} ${H}`} role="group">
-        {months.map((m, j) => {
-          const x = j * (bw + gap), h = Math.max(m.total > 0 ? 2 : 0, H - B - y(m.total));
+    <figure className="ybars" aria-label="Gasto mês a mês">
+      <div className="wbar"><span className="s">{full >= n && n > 12 ? `Desde ${monthName(months[0].key).slice(0, 3)} ${months[0].key.slice(0, 4)}` : `${full} meses`}</span>{avg !== null && <span className="s"><i className="ybars-avg-k" aria-hidden="true" />média {eur(avg, 0)} €</span>}</div>
+      <svg viewBox={`0 0 ${W} ${H}`} role="group" {...z.bind}>
+        {vis.map((m) => {
+          const x = (m.i - a) * unit + gap / 2, h = Math.max(m.total > 0 ? 2 : 0, H - B - y(m.total));
           return (
             <g key={m.key} className={`yb${m.key === sel ? ' on' : ''}${m.current ? ' cur' : ''}`} role="button" tabIndex={0} aria-label={`${monthTitle(m.key)}: ${eur(m.total, 0)} €${m.current ? ' (em curso)' : ''}`} aria-pressed={m.key === sel}
               onClick={() => onPick(m.key)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPick(m.key); } }}>
-              <rect x={x} y={0} width={bw} height={H} className="yb-hit" />
-              <rect x={x} y={H - B - h} width={bw} height={h} rx={3} className="yb-bar" />
-              <text x={x + bw / 2} y={H - 4} textAnchor="middle" className="gc-ax">{monthName(m.key).slice(0, 1).toUpperCase()}</text>
+              <rect x={x - gap / 2} y={0} width={unit} height={H} className="yb-hit" />
+              <rect x={x} y={H - B - h} width={bw} height={h} rx={Math.min(3, bw / 3)} className="yb-bar" />
+              <text x={x + bw / 2} y={H - 4} textAnchor="middle" className="gc-ax">{lab(m)}</text>
             </g>
           );
         })}
         {avg !== null && <line x1={0} x2={W} y1={y(avg)} y2={y(avg)} className="ybars-avg" />}
       </svg>
+      {n > 3 && <ZoomHint z={z} />}
     </figure>
   );
 }
@@ -189,7 +215,7 @@ function Movements({ monthKey: key }: { monthKey: string }) {
       {!list.length
         ? <p className="s">{who === 'me' && month.length ? `Não pagaste nenhuma despesa em ${monthName(key)}.` : `Sem despesas em ${monthName(key)}.`}</p>
         : <div className="tile card rows">{list.slice(0, n).map((e) => (
-          <button key={e.id} className="press" onClick={() => open(<ExpenseDetail e={e} label={lbl(e)} />)}>
+          <button key={e.id} className={`press${partner && e.paid_by === me?.id ? ' paid-me' : ''}`} onClick={() => open(<ExpenseDetail e={e} label={lbl(e)} />)}>
             <span className="k" style={{ color: 'var(--ink)' }}>{e.note || catLabel(e.category)}<span className="s" style={{ display: 'block' }}>{dayLabel(e.spent_on)} · {lbl(e)}</span></span>
             <span className="v">{eur(toU(e.amount))} €</span>
           </button>
@@ -460,7 +486,7 @@ function PairLog() {
           return (
             <Fragment key={e.id}>
               {head && <div className="mhead"><span className="s">{monthName(monthKey(e.date))} {e.date.slice(0, 4)}</span></div>}
-              <div className="mv">
+              <div className={`mv${e.kind !== 'transfer' && e.payer === me!.id ? ' paid-me' : ''}`}>
                 <span className="mv-t"><span>{e.title}</span><span className="s">{e.kind === 'transfer' ? (e.payer === me!.id ? `Tu → ${p}` : `${p} → tu`) : e.payer === me!.id ? 'Pagaste tu' : `Pagou ${p}`} · {dayLabel(e.date)}{e.category && e.title !== e.category ? ` · ${e.category}` : ''}</span></span>
                 <span className="mv-v"><span>{eur(e.amount)} €</span>{fx && <span className={`s${e.effect > 0 ? ' up' : ''}`}>{fx}</span>}</span>
               </div>

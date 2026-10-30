@@ -9,7 +9,9 @@ import { Icon } from '@/ui/Icon';
 import { Poster } from '@/ui/Poster';
 import { How, Year } from '@/ui/Year';
 import { U, eur, parseAmount, toU } from '@/lib/money';
-import { monthKey, monthName, parseDate, todayStr } from '@/lib/dates';
+import { monthKey, monthName, parseDate, toDateStr, todayStr } from '@/lib/dates';
+import { useZoom } from '@/ui/zoom';
+import { ZoomHint } from '@/ui/ZoomHint';
 import { shortDate } from '@/lib/admin';
 import { KINDS, LEVELS, MILESTONES, WHERE, celebrate, entriesByMonth, fundCheck, liqOf, nextBadge, sourceMonthly, vacationUntil, type AssetKind, type FundRole } from '@/lib/wealth';
 import { Top } from './Home';
@@ -234,7 +236,7 @@ function Free({ w }: { w: W }) {
   );
 }
 
-/** Filhos da casa: a meta do fundo para imprevistos é 2 000 € + 500 € por cada um. */
+/** Filhos da casa: a meta do fundo para imprevistos é 2 000 € por adulto + 500 € por cada filho. */
 function Kids() {
   const { house, reload } = useSession();
   const { toast } = useOverlays();
@@ -248,7 +250,7 @@ function Kids() {
   };
   return (
     <div className="kids">
-      <span className="s">2 000 € + 500 € por filho</span>
+      <span className="s">2 000 € por adulto + 500 € por filho</span>
       <span className="kids-n">
         <button type="button" className="tb press" aria-label="Menos um filho" disabled={n <= 0} onClick={() => set(n - 1)}>−</button>
         <span aria-live="polite">{n === 0 ? 'Sem filhos' : n === 1 ? '1 filho' : `${n} filhos`}</span>
@@ -362,33 +364,45 @@ function NetWorth({ w }: { w: W }) {
 // Um dia «AAAA-MM-DD» (hora local) em texto curto.
 const day = (d: string) => shortDate(`${d}T12:00:00`);
 
-/** Evolução do património: os valores registados ao longo do tempo (o eixo é o tempo real entre registos). */
+/** Evolução do património: os valores registados ao longo do tempo (o eixo é o tempo real); a escala muda com dois dedos. */
 function NetChart({ points }: { points: { on: string; v: number }[] }) {
-  const [sel, setSel] = useState<number | null>(null);
-  const W = 340, H = 150, L = 4, R = 4, T = 12, B = 22;
-  const t = (d: string) => parseDate(d).getTime();
-  const t0 = t(points[0].on), t1 = t(points[points.length - 1].on);
-  let lo = Math.min(...points.map((p) => p.v)), hi = Math.max(...points.map((p) => p.v));
+  const [sel, setSel] = useState<string | null>(null);
+  const W = 340, H = 150, T = 12, B = 22;
+  const DAY = 86_400_000, t0 = parseDate(points[0].on).getTime();
+  const at = (d: string) => Math.round((parseDate(d).getTime() - t0) / DAY);
+  const end = at(points[points.length - 1].on);
+  const z = useZoom(0, end, Math.min(end, 14));
+  const [a, b] = z.win;
+  // O que se vê, mais um ponto de cada lado, para a linha continuar até à margem.
+  const iA = Math.max(0, points.findIndex((p) => at(p.on) >= a) - 1);
+  let iB = points.length - 1;
+  for (let i = points.length - 1; i >= 0; i--) if (at(points[i].on) <= b) { iB = Math.min(points.length - 1, i + 1); break; }
+  const seen = points.slice(iA, iB + 1), inside = seen.filter((p) => at(p.on) >= a - 1e-9 && at(p.on) <= b + 1e-9);
+  const vs = (inside.length ? inside : seen).map((p) => p.v);
+  let lo = Math.min(...vs), hi = Math.max(...vs);
   if (hi - lo < U) { lo -= U; hi += U; }
   const pad = (hi - lo) * 0.12; lo -= pad; hi += pad;
-  const x = (d: string) => L + (t1 > t0 ? ((t(d) - t0) / (t1 - t0)) * (W - L - R) : (W - L - R) / 2);
+  const x = (d: string) => (b > a ? ((at(d) - a) / (b - a)) * W : W / 2);
   const y = (v: number) => T + (1 - (v - lo) / (hi - lo)) * (H - T - B);
-  const k = sel ?? points.length - 1, p = points[k], first = points[0];
+  const pick = inside.length ? inside : seen;
+  const p = pick.find((q) => q.on === sel) ?? pick[pick.length - 1], first = pick[0];
   const diff = p.v - first.v;
-  const line = points.map((q, n) => `${n ? 'L' : 'M'}${x(q.on).toFixed(1)},${y(q.v).toFixed(1)}`).join(' ');
+  const line = seen.map((q, n) => `${n ? 'L' : 'M'}${x(q.on).toFixed(1)},${y(q.v).toFixed(1)}`).join(' ');
+  const dayAt = (n: number) => toDateStr(new Date(t0 + Math.round(n) * DAY + DAY / 2));
   return (
     <figure className="net-chart" aria-label="Evolução do património">
-      <svg viewBox={`0 0 ${W} ${H}`} role="img"
-        onPointerMove={(e) => { const r = (e.currentTarget as SVGSVGElement).getBoundingClientRect(); const px = ((e.clientX - r.left) / r.width) * W; let best = 0; points.forEach((q, i) => { if (Math.abs(x(q.on) - px) < Math.abs(x(points[best].on) - px)) best = i; }); setSel(best); }}
+      <svg viewBox={`0 0 ${W} ${H}`} role="img" {...z.bind}
+        onPointerMove={(e) => { z.bind.onPointerMove(e); const r = (e.currentTarget as SVGSVGElement).getBoundingClientRect(); const px = ((e.clientX - r.left) / r.width) * W; let best = pick[0]; for (const q of pick) if (Math.abs(x(q.on) - px) < Math.abs(x(best.on) - px)) best = q; setSel(best.on); }}
         onPointerLeave={() => setSel(null)}>
-        <path d={`${line} L${x(points[points.length - 1].on).toFixed(1)},${H - B} L${x(first.on).toFixed(1)},${H - B} Z`} className="net-area" />
+        <path d={`${line} L${x(seen[seen.length - 1].on).toFixed(1)},${H - B} L${x(seen[0].on).toFixed(1)},${H - B} Z`} className="net-area" />
         <path d={line} className="gc-line net-line" />
         <line x1={x(p.on)} x2={x(p.on)} y1={T} y2={H - B} className="gc-cross" />
         <circle cx={x(p.on)} cy={y(p.v)} r={4.5} className="gc-dot net-dot" />
-        <text x={L} y={H - 6} className="gc-ax" textAnchor="start">{day(first.on)}</text>
-        <text x={W - R} y={H - 6} className="gc-ax" textAnchor="end">{day(points[points.length - 1].on)}</text>
+        <text x={2} y={H - 6} className="gc-ax" textAnchor="start">{day(dayAt(a))}</text>
+        <text x={W - 2} y={H - 6} className="gc-ax" textAnchor="end">{day(dayAt(b))}</text>
       </svg>
-      <figcaption className="s">{day(p.on)}: {money(p.v)}{k > 0 ? ` · ${diff >= 0 ? '+' : '−'}${money(Math.abs(diff))} desde ${day(first.on)}` : ''}</figcaption>
+      <figcaption className="s">{day(p.on)}: {money(p.v)}{p.on !== first.on ? ` · ${diff >= 0 ? '+' : '−'}${money(Math.abs(diff))} desde ${day(first.on)}` : ''}</figcaption>
+      <ZoomHint z={z} />
     </figure>
   );
 }
