@@ -931,3 +931,5 @@ button.ctile{border:0;text-align:left;align-items:flex-start;width:100%;font:inh
 .speed summary{cursor:pointer;min-height:32px;display:flex;align-items:center}
 .speed .rows > *{min-height:40px}
 .speed .btn{margin:8px 0 4px}
+.qk-got{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.qk-got > span:not(.s){padding:2px 8px;border-radius:999px;background:var(--accent-soft);color:var(--ink);font-size:12px}

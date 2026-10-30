@@ -49,3 +49,43 @@ describe('que despesa do carro', () => {
     expect(carKindOf('', false)).toBe('fuel');
   });
 });
+
+describe('escrever tudo de uma vez', () => {
+  const ctx = { partner: 'Inês', cats: CATS, cars: [{ id: 'g', name: 'Golf' }, { id: 'z', name: 'Zoe' }], occasions: [{ id: 'c', name: 'Casamento' }] };
+  it('a divisão', () => {
+    expect(parseQuick('60 jantar partilhada', T, ctx)).toMatchObject({ amount: '60', note: 'Jantar', split: 'shared' });
+    expect(parseQuick('20 cinema minha', T, ctx)).toMatchObject({ amount: '20', note: 'Cinema', split: 'mine' });
+    expect(parseQuick('35 farmácia para a Inês', T, ctx)).toMatchObject({ amount: '35', note: 'Farmácia', split: 'other' });
+    expect(parseQuick('35 farmacia para a ines', T, ctx).split).toBe('other');
+    expect(parseQuick('40 sushi a meias', T, ctx)).toMatchObject({ note: 'Sushi', split: 'shared' });
+  });
+  it('quem pagou e a parte de quem paga', () => {
+    expect(parseQuick('80 continente pagou a Inês', T, ctx)).toMatchObject({ amount: '80', note: 'Continente', paidBy: 'partner' });
+    expect(parseQuick('80 continente Inês pagou partilhada', T, ctx)).toMatchObject({ paidBy: 'partner', split: 'shared' });
+    expect(parseQuick('80 continente 60/40', T, ctx)).toMatchObject({ amount: '80', note: 'Continente', split: 'shared', share: 0.6 });
+  });
+  it('mais formas de dizer o dia', () => {
+    expect(parseQuick('30 jantar dia 3', T, ctx).day).toBe('2026-10-03');
+    expect(parseQuick('30 jantar dia 30', T, ctx).day).toBe('2026-09-30');
+    expect(parseQuick('30 jantar 12 out', T, ctx)).toMatchObject({ amount: '30', note: 'Jantar', day: '2026-10-12' });
+    expect(parseQuick('30 jantar a 5 de setembro', T, ctx).day).toBe('2026-09-05');
+    expect(parseQuick('30 jantar 20 dezembro', T, ctx).day).toBe('2025-12-20');
+    expect(parseQuick('15 padaria há 3 dias', T, ctx)).toMatchObject({ amount: '15', note: 'Padaria', day: '2026-10-26' });
+    expect(parseQuick('20 mercado sábado passado', T, ctx).day).toBe('2026-10-24');
+  });
+  it('categoria, carro e evento pelos nomes', () => {
+    expect(parseQuick('25 bilhetes lazer', T, ctx)).toMatchObject({ amount: '25', note: 'Bilhetes', category: 'Lazer' });
+    expect(parseQuick('45 supermercado', T, ctx)).toMatchObject({ note: 'Supermercado', category: 'Supermercado' });
+    expect(parseQuick('15 #saude vitaminas', T, ctx)).toMatchObject({ note: 'Vitaminas', category: 'Saúde' });
+    expect(parseQuick('60 galp golf', T, ctx)).toMatchObject({ amount: '60', note: 'Galp', category: 'Carros', car: 'g' });
+    expect(parseQuick('300 flores casamento', T, ctx)).toMatchObject({ amount: '300', note: 'Flores', occasion: 'c' });
+  });
+  it('tudo junto, por qualquer ordem', () => {
+    expect(parseQuick('ontem 62,40 jantar fora restaurante partilhada pagou a Inês', T, ctx)).toEqual({
+      amount: '62.40', note: 'Jantar fora', day: '2026-10-28', split: 'shared', paidBy: 'partner', category: 'Restaurantes',
+    });
+  });
+  it('sem nada disto, como antes', () => {
+    expect(parseQuick('45 pingo doce', T, ctx)).toEqual({ amount: '45', note: 'Pingo doce', day: null });
+  });
+});
