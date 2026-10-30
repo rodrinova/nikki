@@ -19,7 +19,7 @@ import { aisleOf } from './Shop';
 // Só a lista da visita, as mensagens e pedir produtos; nunca dinheiro, agenda ou o resto da casa.
 
 type View = 'home' | 'msgs' | 'ask';
-const QUICK = ['Já terminei por hoje.', 'Falta um produto, pus na lista.', 'Hoje chego mais tarde.', 'Hoje não posso vir.', 'Encontrei uma avaria.', 'Obrigado!'];
+const QUICK = ['Já terminei por hoje.', 'Falta um produto, pus na lista.', 'Hoje chego mais tarde.', 'Hoje não posso vir.', 'Encontrei uma avaria.', 'Até à próxima!'];
 const PRODUCTS = ['Detergente da loiça', 'Detergente da roupa', 'Lixívia', 'Sacos do lixo', 'Papel higiénico', 'Esponjas', 'Limpa-vidros', 'Pastilhas da máquina', 'Rolo de cozinha', 'Amaciador'];
 
 export function Housekeeper() {
@@ -130,7 +130,7 @@ function Talk({ rows, reload, names }: { rows: HkMessageRow[]; reload: () => Pro
     const err = await sendPhoto(f, house!.id, me!.id, text.trim());
     setBusy(false);
     if (err) return toast('A fotografia não seguiu. Tente outra vez.');
-    setText(''); reload(); toast('Fotografia enviada. Obrigado por mostrar!', { ok: true });
+    setText(''); reload(); toast('Fotografia enviada. Assim fica tudo claro!', { ok: true });
   }
   async function send(t: string) {
     if (!t.trim()) return;
@@ -175,7 +175,7 @@ function Ask({ shop }: { shop: ReturnType<typeof useLive<ShopItem>> }) {
     if (has(nice)) return toast(`${nice} já está na lista. Bem visto!`, { ok: true });
     const { error } = await supabase.from('shopping_items').insert({ household_id: house!.id, name: nice.slice(0, 80), aisle: aisleOf(nice), created_by: me!.id });
     if (error) return toast('Não ficou na lista. Tente outra vez.');
-    setName(''); shop.reload(); toast(`Anotado: ${nice}. Obrigado por avisar!`, { ok: true });
+    setName(''); shop.reload(); toast(`Anotado: ${nice}. Já está na lista!`, { ok: true });
   }
   return (
     <>

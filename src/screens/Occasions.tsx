@@ -50,7 +50,7 @@ export function Occasions() {
   return (
     <>
       <Top title="Eventos" right={<button className="tb press" onClick={() => open(<OccasionSheet />)}>Novo evento</button>} />
-      <p className="s">Casamentos, batizados, bodas, festas. Os gastos contam no mês, mas não no mês normal.</p>
+      <p className="s">Do batizado às bodas. Os gastos contam no mês, mas à parte: um casamento não estraga o vosso normal.</p>
       {active.length ? <div className="stack">{active.map((o) => { const s = stats(o); return (
         <Link key={o.id} to={`/eventos/${o.id}`} className="tile occ press">
           <span className="st2"><span>{o.name}</span><span className="s">{[kindName(o.kind), o.on_date && dt(o.on_date), countdown(s.days)].filter(Boolean).join(' · ')}</span></span>
@@ -58,7 +58,7 @@ export function Occasions() {
           {s.budget ? <span className="occ-bar" aria-hidden="true"><span style={{ width: `${Math.min(100, (s.spent / s.budget) * 100).toFixed(1)}%` }} className={s.spent > s.budget ? 'over' : ''} /></span> : null}
           <span className="s">{[s.invited ? `${s.people} de ${s.invited} pessoas confirmadas` : '', s.todo ? `${s.todo} por fazer${s.late ? ` (${s.late} ${s.late === 1 ? 'atrasada' : 'atrasadas'})` : ''}` : '', s.committed ? `${euro(s.committed)} por pagar` : ''].filter(Boolean).join(' · ') || 'Toca para juntar convidados, compras e fornecedores.'}</span>
         </Link>
-      ); })}</div> : <p className="s" style={{ fontSize: 'var(--t-m)' }}>Ainda sem eventos. Um casamento, um batizado ou a passagem de ano: carrega em «Novo evento».</p>}
+      ); })}</div> : <p className="s" style={{ fontSize: 'var(--t-m)' }}>Ainda sem eventos. Um casamento, um batizado, a passagem de ano: carrega em «Novo evento» e a festa organiza-se.</p>}
       {archived.length > 0 && <section className="stack">
         <button className="back press" aria-expanded={showOld} onClick={() => setShowOld(!showOld)}>{showOld ? 'Esconder' : 'Ver'} os arquivados ({archived.length})</button>
         {showOld && <div className="tile card rows">{archived.map((o) => { const s = stats(o); return (
@@ -124,7 +124,7 @@ export function OccasionScreen() {
   async function archive(v: boolean) {
     const { error } = await supabase.from('occasions').update({ archived: v }).eq('id', o!.id);
     if (error) return toast(error.message);
-    occasions.reload(); toast(v ? 'Arquivado: fica tudo guardado.' : 'De volta aos eventos.');
+    occasions.reload(); toast(v ? 'Arquivado. Fica tudo guardado, e as despesas ainda se lhe podem juntar.' : 'De volta aos eventos.');
   }
   return (
     <>
@@ -242,7 +242,7 @@ function Items({ o }: { o: Occasion }) {
         <button className="tb press" aria-label="Juntar"><Icon n="plus" s={18} /></button>
       </form>
       {block('todo', 'Tarefas')}{block('buy', 'Compras')}
-      {!list.length && <p className="s">O que fazer até ao dia (com prazo, se houver) e o que comprar.</p>}
+      {!list.length && <p className="s">O que fazer até ao dia (com prazo, se houver) e o que comprar. Para ninguém se lembrar dos guardanapos na véspera.</p>}
     </section>
   );
 }
@@ -312,7 +312,7 @@ function Gifts({ o }: { o: Occasion }) {
   const money = list.reduce((t, g) => t + (g.amount ? toU(g.amount) : 0), 0);
   return (
     <section className="stack" aria-label="Presentes">
-      <p className="s">{list.length ? `${euro(money)} em dinheiro · ${list.filter((g) => !g.thanked).length} por agradecer` : 'De quem e o quê: um valor (ex.: 100) ou o presente. Marca quando agradecerem.'}</p>
+      <p className="s">{list.length ? `${euro(money)} em dinheiro · ${list.filter((g) => !g.thanked).length} por agradecer` : 'De quem e o quê: um valor (ex.: 100) ou o presente. Marca quando agradecerem: a avó repara.'}</p>
       <form className="add-row" onSubmit={add} autoComplete="off">
         <input className="field" aria-label="De quem" placeholder="De quem" value={from} onChange={(e) => setFrom(e.target.value)} />
         <input className="field" aria-label="Valor ou presente" placeholder="100 ou o presente" value={what} onChange={(e) => setWhat(e.target.value)} />
@@ -338,7 +338,7 @@ function Spent({ o, total }: { o: Occasion; total: number }) {
   const hidden = total - list.reduce((t, e) => t + toU(e.amount), 0);
   return (
     <section className="stack" aria-label="Gastos do evento">
-      <p className="s">Ao registar uma despesa no «+», escolhe este evento. Contam no mês de cada um, mas ficam fora do mês normal.</p>
+      <p className="s">Ao registar uma despesa, escreve o nome do evento ou escolhe-o. Conta no mês, mas fica fora do vosso normal.</p>
       {list.length > 0 && <div className="tile card rows occ-rows">{list.map((e) => (
         <div key={e.id}><span className="st2"><span>{e.note || e.category}</span><span className="s">{dt(e.spent_on)} · {e.category} · pagou {who(e.paid_by)}</span></span><span>{eur(toU(e.amount))} €</span></div>
       ))}</div>}

@@ -61,7 +61,7 @@ export function Shop() {
     shop.setRows((r) => r.map((x) => (x.id === it.id ? { ...x, done: doneNow, done_by: doneNow ? me!.id : null } : x)));
     if (doneNow) { setMine(it.aisle); at(it.aisle); }
     const { error } = await supabase.from('shopping_items').update({ done: doneNow, done_by: doneNow ? me!.id : null, done_at: doneNow ? new Date().toISOString() : null }).eq('id', it.id);
-    if (error) { shop.reload(); toast('Não foi possível riscar.'); }
+    if (error) { shop.reload(); toast('Não deu para riscar. Tenta outra vez.'); }
   }
   async function clear() {
     const ids = done.map((i) => i.id);
@@ -94,7 +94,7 @@ export function Shop() {
             );
           })}</ul></div>
         ))}</div>
-      ) : <p className="s" style={{ fontSize: 'var(--t-m)' }}>A lista está vazia. Escreve o primeiro artigo; a NIKKI arruma por corredor.</p>}
+      ) : <p className="s" style={{ fontSize: 'var(--t-m)' }}>A lista está vazia. Escreve o primeiro artigo e a NIKKI arruma por corredor. O carrinho agradece.</p>}
     </>
   );
 }

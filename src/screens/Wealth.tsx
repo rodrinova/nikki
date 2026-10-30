@@ -60,17 +60,17 @@ export function Wealth() {
         <div className="wbar"><span className="s">Rendimentos {w.casa ? 'da casa' : 'teus'}</span><button className="tb press" onClick={() => open(<IncomeSheet />)}>Juntar</button></div>
         <Incomes w={w} />
       </section>
-      <p className="s">Retornos e valores são os que a casa indica. As sugestões da NIKKI são contas simples, não aconselhamento financeiro.</p>
+      <p className="s">Os valores e os retornos são os que indicam. A NIKKI faz contas simples; não é o vosso gestor de conta (nem cobra comissões).</p>
     </>
   );
 }
 
 // O que se diz em voz alta (o cartaz dos fechos) quando se ganha uma conquista inteira.
 const WON: Record<string, { lines: [string, string]; band: string }> = {
-  cushion: { lines: ['FUNDO PARA', 'IMPREVISTOS.'], band: 'Completo: os imprevistos estão pagos' },
-  emergency: { lines: ['FUNDO DE', 'EMERGÊNCIA.'], band: 'Completo: 12 meses de despesa guardados' },
-  save20: { lines: ['POUPAR', '20%.'], band: 'Um quinto do que entra fica' },
-  free12: { lines: ['UM ANO', 'LIVRE.'], band: 'Os investimentos pagam o ano inteiro' },
+  cushion: { lines: ['FUNDO PARA', 'IMPREVISTOS.'], band: 'Completo. A próxima avaria já está paga' },
+  emergency: { lines: ['FUNDO DE', 'EMERGÊNCIA.'], band: 'Completo. Um ano inteiro de folga, guardado' },
+  save20: { lines: ['POUPAR', '20%.'], band: 'Um quinto do que entra fica convosco' },
+  free12: { lines: ['UM ANO', 'LIVRE.'], band: 'O dinheiro trabalha o ano inteiro. Vocês, se quiserem' },
 };
 
 /**
@@ -93,7 +93,7 @@ function Celebrations({ w, k, onCheer }: { w: W; k: string; onCheer: (s: { k: st
   const now = queue[0];
   if (!now) return null;
   const next = () => setQueue((q) => q.slice(1));
-  if (now === 'level') return <Poster lines={[w.score.level.toUpperCase() + '.', `${w.score.total} PONTOS`]} band="Saúde financeira: subiram de nível" foot={w.score.next ? `Faltam ${w.score.next.need} ${w.score.next.need === 1 ? 'ponto' : 'pontos'} para ${w.score.next.name}.` : 'O nível mais alto.'} share={`Saúde financeira ${w.score.level.toLowerCase()} na NIKKI: ${w.score.total} pontos.`} onClose={next} />;
+  if (now === 'level') return <Poster lines={[w.score.level.toUpperCase() + '.', `${w.score.total} PONTOS`]} band="Saúde financeira: subiram de nível. Isto merece um brinde" foot={w.score.next ? `Faltam ${w.score.next.need} ${w.score.next.need === 1 ? 'ponto' : 'pontos'} para ${w.score.next.name}.` : 'O nível mais alto.'} share={`Saúde financeira ${w.score.level.toLowerCase()} na NIKKI: ${w.score.total} pontos.`} onClose={next} />;
   const won = WON[now];
   return <Poster key={now} lines={won.lines} band={won.band} foot={`Conquista ${w.badges.filter((b) => b.got).length} de ${w.badges.length}.`} share={`${won.lines.join(' ')} ${won.band}. Na NIKKI.`} onClose={next} />;
 }
@@ -110,11 +110,11 @@ function Score({ w, cheer }: { w: W; cheer: { k: string; label: string } | null 
           return <span key={name} style={{ flexGrow: max - min }}><i style={{ width: `${f * 100}%` }} /><b className={j === s.levelIndex ? 'on' : ''}>{name}</b></span>;
         })}
       </div>
-      <p className="s">{s.next ? `Faltam ${s.next.need} ${s.next.need === 1 ? 'ponto' : 'pontos'} para ${s.next.name}.` : 'O nível mais alto. Agora é manter.'}</p>
+      <p className="s">{s.next ? `Faltam ${s.next.need} ${s.next.need === 1 ? 'ponto' : 'pontos'} para ${s.next.name}.` : 'O nível mais alto. Agora é só manter (e não contar a ninguém).'}</p>
       <Awards w={w} cheer={cheer} />
       <How>
         {s.parts.map((p) => <p key={p.k} className="s">{p.label}: {p.pts} de {p.max}{p.known ? '' : ' (por indicar)'}</p>)}
-        <p className="s">Emergência: o fundo face a 12 meses da despesa média. Imprevistos: face a {money(w.cushionTarget)}. Poupança: cheia a partir de 20% do que entra. Meses livres: raiz de meses livres ÷ 12, para o primeiro contar mais.</p>
+        <p className="s">Quatro coisas, de 0 a 100. Emergência: o fundo face a 12 meses de despesa. Imprevistos: face a {money(w.cushionTarget)}. Poupança: cheia aos 20% do que entra. Meses livres: o primeiro conta mais, porque é o que custa.</p>
         <p className="s">Níveis: Frágil até 39 · A construir 40 · Sólida 70 · Folgada 90.</p>
       </How>
     </section>
@@ -133,12 +133,12 @@ function Awards({ w, cheer }: { w: W; cheer: { k: string; label: string } | null
     const et = w.emergencyTarget;
     if (k === 'cushion') return got ? `Fundo para imprevistos completo: ${money(w.cushion.value)}.` : `Faltam ${left(w.cushionTarget - w.cushion.value)} no fundo para imprevistos.`;
     if (k === 'emergency') {
-      if (!et) return 'Conta-se no fim do primeiro mês completo de despesas.';
-      return got ? `Fundo de emergência completo: ${money(w.emergency.value)}.` : `${w.emergency.value >= et / 2 ? 'Já vai a meio. ' : ''}Faltam ${left(et - w.emergency.value)} para os 12 meses.`;
+      if (!et) return 'Conta-se no fim do primeiro mês completo. Paciência de chinchila.';
+      return got ? `Fundo de emergência completo: ${money(w.emergency.value)}.` : `${w.emergency.value >= et / 2 ? 'Já vai a meio. Bonito. ' : ''}Faltam ${left(et - w.emergency.value)} para os 12 meses.`;
     }
-    if (k === 'save20') return w.sv?.rate == null ? 'Indica os rendimentos para medir a poupança.' : got ? `Poupam ${Math.round(w.sv.rate * 100)}% do que entra.` : `Hoje ${Math.round(w.sv.rate * 100)}%: faltam ${left(0.2 * w.income - w.sv.surplus)} por mês.`;
+    if (k === 'save20') return w.sv?.rate == null ? 'Diz quanto entra e a NIKKI diz quanto fica.' : got ? `Poupam ${Math.round(w.sv.rate * 100)}% do que entra.` : `Hoje ${Math.round(w.sv.rate * 100)}%: faltam ${left(0.2 * w.income - w.sv.surplus)} por mês.`;
     const nm = MILESTONES.free12.find((m) => w.fm / 12 < m.at);
-    return got ? 'Os investimentos pagam o ano inteiro.' : `${fm1(w.fm)} de 12 meses livres.${nm ? ` A próxima etapa: ${nm.label}.` : ''}`;
+    return got ? 'Os investimentos pagam o ano inteiro. Sim, leste bem.' : `${fm1(w.fm)} de 12 meses livres.${nm ? ` A próxima etapa: ${nm.label}.` : ''}`;
   };
   const won = w.badges.filter((x) => x.got).length;
   return (
@@ -174,21 +174,21 @@ function Steps({ w }: { w: W }) {
   const { goals } = useHouse();
   const pts = (k: string) => { const p = w.score.parts.find((x) => x.k === k)!; return p.max - p.pts; };
   const items: { t: string; d: string; p: number; go?: () => void }[] = [];
-  if (!w.incomeRows.length) items.push({ t: 'Indicar os rendimentos', d: 'Salário, subsídio de alimentação e complementos: para medir a poupança e fazer o plano do mês.', p: pts('savings'), go: () => open(<IncomeSheet />) });
-  if (!w.spend) items.push({ t: 'Fechar o primeiro mês de despesas', d: 'A despesa média sai dos meses completos registados. É a base dos fundos e dos meses livres.', p: 0 });
+  if (!w.incomeRows.length) items.push({ t: 'Dizer quanto entra', d: 'Salário, subsídio de alimentação, extras. Com isto, a NIKKI faz o plano do mês por ti.', p: pts('savings'), go: () => open(<IncomeSheet />) });
+  if (!w.spend) items.push({ t: 'Fechar o primeiro mês de despesas', d: 'Um mês completo e a NIKKI já sabe quanto custa a vossa vida. O resto vem daí.', p: 0 });
   for (const role of ['emergency', 'cushion'] as FundRole[]) {
     const f = role === 'emergency' ? w.emergency : w.cushion;
-    if (!f.list.length) items.push({ t: role === 'emergency' ? 'Dizer onde está o fundo de emergência' : 'Dizer onde está o fundo para imprevistos', d: `Se ainda não existe, a NIKKI sugere guardá-lo ${WHERE[role]}.`, p: pts(role), go: () => open(<ChooseFund role={role} />) });
+    if (!f.list.length) items.push({ t: role === 'emergency' ? 'Dizer onde está o fundo de emergência' : 'Dizer onde está o fundo para imprevistos', d: `Ainda não existe? Começa-se ${WHERE[role]}. Até 10 € contam.`, p: pts(role), go: () => open(<ChooseFund role={role} />) });
     for (const a of f.list) if (!a.check.ok) items.push({ t: `«${a.name}» não conta como ${ROLE[role].toLowerCase()}`, d: `${KINDS[a.kind as AssetKind]?.name ?? 'Este tipo'} ${a.check.why}. Melhor ${WHERE[role]}.`, p: 0, go: () => open(<AssetSheet asset={a} />) });
   }
   if (w.emergencyTarget && w.emergency.list.length && w.emergency.value < w.emergencyTarget) items.push({ t: `Faltam ${money(w.emergencyTarget - w.emergency.value)} no fundo de emergência`, d: w.plan?.emergency ? `Com ${money(w.plan.emergency)} por mês, fica completo ${((m) => (m === 1 ? 'no próximo mês' : `daqui a ${m} meses`))(Math.ceil((w.emergencyTarget - w.emergency.value) / w.plan.emergency))}.` : 'O plano do mês diz quanto pôr.', p: pts('emergency') });
-  if (w.cushion.list.length && w.cushion.value < w.cushionTarget) items.push({ t: `Faltam ${money(w.cushionTarget - w.cushion.value)} no fundo para imprevistos`, d: 'Para os imprevistos: uma avaria, um eletrodoméstico, uma multa.', p: pts('cushion') });
+  if (w.cushion.list.length && w.cushion.value < w.cushionTarget) items.push({ t: `Faltam ${money(w.cushionTarget - w.cushion.value)} no fundo para imprevistos`, d: 'Para a máquina de lavar que avaria sempre ao domingo.', p: pts('cushion') });
   if (w.sv && w.sv.rate !== null && w.sv.rate < 0.2) items.push({ t: 'Poupar 20% do que entra', d: `Hoje fica ${Math.round(w.sv.rate * 100)}%. Faltam ${money(Math.max(0, 0.2 * w.income - w.sv.surplus))} por mês.`, p: pts('savings') });
   const has = w.goal && goals.rows.some((g) => g.metric === w.goal!.metric && g.status === 'active' && (g.owner_id === null) === w.casa);
   async function makeGoal() {
     const g = w.goal!;
     const { error } = await supabase.from('goals').insert({ household_id: house!.id, owner_id: w.casa ? null : me!.id, title: g.title, metric: g.metric, target: g.metric.startsWith('fund:') ? (g.target / U).toFixed(2) : g.target, due_on: g.due, created_by: me!.id });
-    if (error) toast('Não deu para criar o objetivo.'); else toast('Objetivo criado.', { ok: true });
+    if (error) toast('Não deu para criar o objetivo. Tenta outra vez.'); else toast('Objetivo criado. A NIKKI vai torcer por vocês.', { ok: true });
   }
   if (!items.length && !w.goal) return null;
   return (
@@ -210,26 +210,26 @@ function Steps({ w }: { w: W }) {
 function Free({ w }: { w: W }) {
   if (!w.spend) return (
     <section className="tile pane" aria-label="Meses livres" style={{ minHeight: 0 }}>
-      <span className="s">Meses do ano pagos pelos investimentos</span>
-      <p className="s" style={{ fontSize: 'var(--t-m)' }}>A NIKKI conta-os quando houver um mês completo de despesas registado.</p>
+      <span className="s">Meses do ano que os investimentos pagam</span>
+      <p className="s" style={{ fontSize: 'var(--t-m)' }}>Conta-se ao primeiro mês completo de despesas. Spoiler: é a parte mais gira.</p>
     </section>
   );
   const today = todayStr(), v = vacationUntil(w.fm, Number(today.slice(0, 4)));
   const they = w.casa ? 'Podiam' : 'Podias';
   const mon = (d: string) => monthName(d.slice(0, 7));
   const head = v.whole ? `${they} estar de férias o ano inteiro.`
-    : !v.until ? 'Ainda não chega para um dia de férias.'
+    : !v.until ? 'Ainda não chega para um dia de férias. Mas já é dinheiro a trabalhar.'
       : v.monthEnd ? (v.until.slice(5, 7) === '01' ? `${they} estar de férias o mês de janeiro inteiro.` : `${they} estar de férias de janeiro a ${mon(v.until)}.`)
         : `${they} estar de férias de 1 de janeiro a ${Number(v.until.slice(8, 10))} de ${mon(v.until)}.`;
   return (
     <section className="tile pane free" aria-label="Meses livres" style={{ minHeight: 0 }}>
-      <span className="s">Com o rendimento passivo de um ano inteiro</span>
+      <span className="s">Com o que os investimentos rendem num ano</span>
       <p className="l">{head}</p>
       <Year free={w.fm} label={`${fm1(w.fm)} de 12 meses pagos pelos investimentos`} />
       <p className="free-key" aria-hidden="true"><span><i />de férias</span><span><i />a trabalhar</span></p>
       <p className="s"><span className="big2">{fm1(w.fm)}</span> meses livres por ano · {money(w.passiveYear)} por ano acima da inflação</p>
       <How>
-        <p className="s">Os investimentos rendem {money(w.passiveYear)} por ano acima da inflação (o retorno que indicaram, menos 2%). A casa própria e os carros não entram.</p>
+        <p className="s">Os investimentos rendem {money(w.passiveYear)} por ano, já sem a inflação (o retorno que indicaram, menos 2%). A casa e os carros não entram: não pagam o supermercado.</p>
         <p className="s">{money(w.passiveYear)} ÷ {money(w.spend.avg)} de despesa média por mês = {fm1(w.fm)} meses. Contados a partir de 1 de janeiro, são as férias que o rendimento de um ano paga.</p>
       </How>
     </section>
@@ -246,7 +246,7 @@ function Kids() {
   const set = async (v: number) => {
     const was = n; setN(v);
     const { error } = await supabase.from('households').update({ children: v }).eq('id', house.id);
-    if (error) { setN(was); toast('Não deu para guardar.'); } else reload();
+    if (error) { setN(was); toast('Não deu para guardar. Tenta outra vez.'); } else reload();
   };
   return (
     <div className="kids">
@@ -272,10 +272,10 @@ function FundCard({ w, role }: { w: W; role: FundRole }) {
       <p className="l">{money(f.value)}{target ? <span className="s"> de {money(target)}</span> : null}</p>
       {target ? <div className="gbar" aria-hidden="true"><i className={pct >= 1 ? 'ok' : ''} style={{ width: `${pct * 100}%` }} /></div> : null}
       <p className="s">{role === 'emergency'
-        ? (w.spend ? `12 meses × ${money(w.spend.avg)} de despesa média.` : 'A meta são 12 meses da despesa média, que a NIKKI calcula no fim do primeiro mês completo.')
-        : `Para imprevistos: pelo menos ${money(w.cushionTarget)}, disponível no próprio dia.`}</p>
+        ? (w.spend ? `12 meses × ${money(w.spend.avg)} de despesa média.` : 'A meta são 12 meses de despesa. A NIKKI faz a conta ao primeiro mês completo.')
+        : `Pelo menos ${money(w.cushionTarget)}, à mão no próprio dia. Para o que avaria sem avisar.`}</p>
       {role === 'cushion' && <Kids />}
-      {f.overflow > 0 && <p className="s why"><span className="dot" aria-hidden="true" /><span>{role === 'emergency' ? `O fundo de emergência está completo: ${money(f.overflow)} a mais passam para o ${ROLE.cushion.toLowerCase()}.` : `Inclui ${money(f.overflow)} a mais do fundo de emergência.`}</span></p>}
+      {f.overflow > 0 && <p className="s why"><span className="dot" aria-hidden="true" /><span>{role === 'emergency' ? `O fundo de emergência está completo. Os ${money(f.overflow)} a mais passam para o ${ROLE.cushion.toLowerCase()}.` : `Inclui ${money(f.overflow)} a mais do fundo de emergência.`}</span></p>}
       {f.list.map((a) => (
         <button key={a.id} type="button" className="fund-acc press" onClick={() => open(<AssetSheet asset={a} />)}>
           <span><span>{a.name}</span><span className="s">{KINDS[a.kind as AssetKind]?.name} · {owner(a.owner_id)}</span></span>
@@ -306,14 +306,14 @@ function Plan({ w }: { w: W }) {
       <div><span className="k">Sai, em média</span><span className="v">− {money(w.spend.avg)}</span></div>
       <div><span>Sobra</span><span className="v">{money(Math.max(0, sv.surplus))}</span></div>
       {sv.surplus <= 0
-        ? <div><span className="s">Este mês não sobra: a despesa média passa o que entra. O primeiro passo é a despesa.</span></div>
+        ? <div><span className="s">Por agora não sobra: sai, em média, mais do que entra. O primeiro passo está na despesa, não no banco.</span></div>
         : rows.map(([l, v, role]) => (
           <div key={l} className={v > 0 ? 'go' : 'idle'}>
             <span className="k">{l}</span>
             <span className="v">{v > 0 ? money(v) : !role ? '—' : (role === 'emergency' ? (w.emergencyTarget ?? 0) > w.emergency.value : w.cushionTarget > w.cushion.value) ? 'a seguir' : 'completo'}{v > 0 && role && <button className="tb press" onClick={() => open(<PutSheet role={role} amount={v} w={w} />)}>Já pus</button>}</span>
           </div>
         ))}
-      <div><How><p className="s">Entra: cada rendimento × as vezes que se recebe por ano ÷ 12 (o salário paga-se 14 vezes). Sai: a despesa média dos meses completos.</p><p className="s">O que sobra vai primeiro para o fundo de emergência até ficar completo, o excedente para o fundo para imprevistos e, com os dois completos, para investir.</p></How></div>
+      <div><How><p className="s">Entra: cada rendimento × as vezes por ano ÷ 12 (o salário vem 14 vezes). Sai: a despesa média dos meses completos.</p><p className="s">O que sobra enche primeiro o fundo de emergência, depois o dos imprevistos. Com os dois cheios, investe-se. É esta a ordem que deixa dormir.</p></How></div>
     </section>
   );
 }
@@ -410,7 +410,7 @@ function NetChart({ points }: { points: { on: string; v: number }[] }) {
 function Assets({ w }: { w: W }) {
   const { open } = useOverlays();
   const owner = useOwner();
-  if (!w.shown.length) return <p className="s">{w.casa || !w.items.length ? 'Ainda nada. Junta as contas, depósitos e investimentos da casa (e a casa própria, que fica fora das contas).' : 'Ainda nada teu. Junta as tuas contas, depósitos e investimentos.'}</p>;
+  if (!w.shown.length) return <p className="s">{w.casa || !w.items.length ? 'Ainda nada por aqui. Junta as contas, os depósitos e os investimentos. A casa própria também, só para a fotografia.' : 'Ainda nada teu. Junta as tuas contas, depósitos e investimentos.'}</p>;
   return (
     <div className="tile card rows">{w.shown.map((a) => (
       <button key={a.id} className="press" onClick={() => open(<AssetSheet asset={a} />)} style={a.part === 0 ? { opacity: 0.5 } : undefined}>
@@ -425,7 +425,7 @@ function Incomes({ w }: { w: W }) {
   const { open } = useOverlays();
   const { members } = useSession();
   const { incomeEntries } = useHouse();
-  if (!w.incomeRows.length) return <p className="s">Os valores líquidos que entram: salário, subsídio de alimentação e complementos. Servem a poupança e o plano do mês; os fundos medem-se pela despesa.</p>;
+  if (!w.incomeRows.length) return <p className="s">O que entra, líquido: salário, subsídio de alimentação, extras. Com isto a NIKKI diz quanto fica e para onde vai.</p>;
   const today = todayStr();
   const entries = incomeEntries.rows.map((e) => ({ ...e, amount: toU(e.amount) }));
   return (
@@ -457,7 +457,7 @@ function IncomeLog({ income }: { income: IncomeRow }) {
   async function add(e: FormEvent) {
     e.preventDefault(); setErr('');
     const a = parseAmount(amount);
-    if (!a) return setErr('Quanto entrou? (líquido)');
+    if (!a) return setErr('Quanto entrou? (o líquido, o que chega à conta)');
     const { error } = await supabase.from('income_entries').insert({ household_id: house!.id, income_id: income.id, received_on: day, amount: a, created_by: me!.id });
     if (error) return setErr(error.message);
     setAmount(''); incomeEntries.reload(); toast(`Entrou ${eur(toU(a), 0)} €.`, { ok: true });
@@ -468,7 +468,7 @@ function IncomeLog({ income }: { income: IncomeRow }) {
   }
   return (
     <Sheet title={income.label || INCOME[income.kind][0]}>
-      <p className="s" style={{ fontSize: 'var(--t-m)' }}>{list.length ? `Habitual: ${money(month)} por mês (média dos últimos 12 meses completos).` : 'Regista cada entrada com o dia e o valor líquido; a NIKKI faz a média.'}</p>
+      <p className="s" style={{ fontSize: 'var(--t-m)' }}>{list.length ? `Habitual: ${money(month)} por mês (média dos últimos 12 meses completos).` : 'Regista cada entrada com o dia e o valor. A média é com a NIKKI.'}</p>
       <form className="form" onSubmit={add}>
         <div className="two">
           <label>Entrou (€)<input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0,00" autoFocus /></label>
@@ -516,8 +516,8 @@ function AssetSheet({ asset, role: presetRole }: { asset?: AssetRow & { value?: 
   async function save(e: FormEvent) {
     e.preventDefault(); setErr('');
     const v = parseAmount(value), r = Number(ret.replace(',', '.'));
-    if (!name.trim()) return setErr('Dá um nome (ex.: Conta poupança, ETF World).');
-    if (!v) return setErr('Indica o valor.');
+    if (!name.trim()) return setErr('Falta o nome (ex.: Conta poupança, ETF World).');
+    if (!v) return setErr('Falta o valor.');
     if (!on || on > todayStr()) return setErr('O dia do valor não pode ser depois de hoje.');
     if (!Number.isFinite(r) || r < -20 || r > 30) return setErr('O retorno estimado vai de −20% a 30% por ano.');
     // O papel de fundo só o escolhe quem é dono (ou qualquer um dos dois, se for partilhado).
@@ -536,7 +536,7 @@ function AssetSheet({ asset, role: presetRole }: { asset?: AssetRow & { value?: 
   async function archive() {
     const { error } = await supabase.from('assets').update({ archived: true }).eq('id', asset!.id);
     if (error) { toast(error.message); return; }
-    assets.reload(); close(); toast('Retirado do património.');
+    assets.reload(); close(); toast('Saiu do património. Os valores antigos ficam na história.');
   }
   const owners: [string | null, string][] = [[me!.id, 'Meu'], ...(partner ? [[partner.id, `De ${partner.name}`], [null, 'Dos dois']] as [string | null, string][] : [])];
   return (
@@ -550,7 +550,7 @@ function AssetSheet({ asset, role: presetRole }: { asset?: AssetRow & { value?: 
           <label>No dia<input type="date" value={on} max={todayStr()} onChange={(e) => setOn(e.target.value)} /></label>
         </div>
         {liq !== 'out' && <label>Retorno estimado (%/ano)<input inputMode="decimal" value={ret} onChange={(e) => setRet(e.target.value)} /></label>}
-        {liq === 'out' ? <p className="s">Fica registado, mas fora das contas: não rende para pagar a despesa.</p> : partner && owner === partner.id ? <p className="s">É de {partner.name}: só {partner.name} pode escolher se é um fundo. Nos teus fundos entra só o que é teu ou dos dois.</p> : <>
+        {liq === 'out' ? <p className="s">Fica registado, mas fora das contas: é para viver, não para pagar o supermercado.</p> : partner && owner === partner.id ? <p className="s">É de {partner.name}: só {partner.name} pode escolher se é um fundo. Nos teus fundos entra só o que é teu ou dos dois.</p> : <>
           <div className="seg" role="group" aria-label="Papel">
             <button type="button" className="press" aria-pressed={role === null} onClick={() => setRole(null)}>Investimento</button>
             <button type="button" className="press" aria-pressed={role === 'emergency'} onClick={() => setRole('emergency')}>Emergência</button>
@@ -585,7 +585,7 @@ function ChooseFund({ role }: { role: FundRole }) {
   }
   return (
     <Sheet title={role === 'emergency' ? 'Onde está o fundo de emergência?' : 'Onde está o fundo para imprevistos?'}>
-      <p className="s" style={{ fontSize: 'var(--t-m)' }}>{role === 'emergency' ? 'Doze meses da despesa média, para um desemprego ou uma doença.' : 'Pelo menos 2 000 € para imprevistos: uma avaria, uma multa, um eletrodoméstico.'} A NIKKI vê pelo tipo se pode contar.</p>
+      <p className="s" style={{ fontSize: 'var(--t-m)' }}>{role === 'emergency' ? 'Doze meses de despesa, para os dias maus a sério.' : 'Pelo menos 2 000 € por adulto e 500 € por filho, para o que avaria sem avisar.'} A NIKKI vê pelo tipo de conta se pode contar.</p>
       {list.length > 0 && <div className="tile card rows" style={{ background: 'var(--tile-2)' }}>{list.map((a) => {
         const c = fundCheck(a.kind, role);
         return <button key={a.id} className="press" onClick={() => pick(a)}><span className="st2"><span>{a.name}</span><span className="s">{KINDS[a.kind as AssetKind]?.name} · {c.ok ? 'pode ser' : 'não conta'}</span></span><Icon n="arrow" s={16} /></button>;
@@ -644,7 +644,7 @@ function IncomeSheet({ income }: { income?: IncomeRow }) {
     const row = { household_id: house!.id, profile_id: who, kind, mode, amount: a, times_per_year: mode === 'fixed' ? times : 12, updated_at: new Date().toISOString() };
     const { error } = income ? await supabase.from('incomes').update(row).eq('id', income.id) : await supabase.from('incomes').insert(row);
     if (error) return setErr(error.message);
-    incomes.reload(); close(); toast(mode === 'log' ? 'Guardado: regista as entradas a partir da lista.' : 'Rendimento guardado.', { ok: true });
+    incomes.reload(); close(); toast(mode === 'log' ? 'Guardado. Agora é ir registando as entradas.' : 'Rendimento guardado.', { ok: true });
   }
   async function remove() {
     const { error } = await supabase.from('incomes').delete().eq('id', income!.id);
@@ -660,8 +660,8 @@ function IncomeSheet({ income }: { income?: IncomeRow }) {
         {mode === 'fixed' ? <>
           <label>Valor líquido de cada pagamento (€)<input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0,00" /></label>
           <div className="chips" role="group" aria-label="Vezes por ano">{[14, 13, 12, 11].map((n) => <button key={n} type="button" className="press" aria-pressed={times === n} onClick={() => setTimes(n)}>{n}× por ano</button>)}</div>
-          <p className="s">{kind === 'salario' ? 'Em Portugal o salário paga-se 14 vezes (com os subsídios de férias e de Natal).' : kind === 'alimentacao' ? 'O subsídio de alimentação costuma vir 11 vezes (não há no mês de férias).' : 'Quantas vezes por ano entra.'}</p>
-        </> : <p className="s">Para o que varia (horas extra, prémios, trabalho por conta própria): registas cada entrada e a NIKKI usa a média dos últimos 12 meses.</p>}
+          <p className="s">{kind === 'salario' ? 'Em Portugal o salário vem 14 vezes (com os subsídios de férias e de Natal). Viva Portugal.' : kind === 'alimentacao' ? 'O subsídio de alimentação vem 11 vezes: nas férias, ao que parece, não se come.' : 'Quantas vezes por ano entra.'}</p>
+        </> : <p className="s">Para o que varia (horas extra, prémios, recibos verdes): registas cada entrada e a NIKKI usa a média dos últimos 12 meses.</p>}
         {err && <p className="err">{err}</p>}
         <button className="btn wide press">Guardar <Icon n="check" s={20} /></button>
       </form>

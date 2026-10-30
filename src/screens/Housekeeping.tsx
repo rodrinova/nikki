@@ -68,7 +68,7 @@ export function VisitChecklist({ list, day, logs: h }: { list: ReturnType<typeof
     if (it.done && it.log) {
       h.setRows((r) => r.filter((l) => l.id !== it.log!.id));
       const { error } = await supabase.from('hk_log').delete().eq('id', it.log.id!);
-      if (error) { toast('Não foi possível desmarcar.'); h.reload(); }
+      if (error) { toast('Não deu para desmarcar. Tenta outra vez.'); h.reload(); }
       return;
     }
     const tmp: HkLogRow = { id: 'tmp-' + Date.now(), task_id: it.task.id, done_on: day, done_by: me!.id, created_at: new Date().toISOString() };
@@ -77,7 +77,7 @@ export function VisitChecklist({ list, day, logs: h }: { list: ReturnType<typeof
     if (error) toast('Não ficou marcado. Tenta outra vez.');
     h.reload();
   }
-  if (!list.length) return <p className="s">Nada na lista desta visita.</p>;
+  if (!list.length) return <p className="s">Nada na lista desta visita. Dia tranquilo.</p>;
   return (
     <ul className="tile card todo-list hk-list">
       {list.map((it) => (
@@ -129,7 +129,7 @@ export function Thread({ rows, reload, names, house: hid }: { rows: HkMessageRow
   }
   return (
     <div className="hk-thread">
-      {shown.length === 0 && <p className="s">Ainda sem mensagens. Um recado para a próxima visita, um aviso de que falta alguma coisa…</p>}
+      {shown.length === 0 && <p className="s">Ainda sem mensagens. Um recado para a próxima visita, «falta detergente», uma fotografia do que ficou lindo…</p>}
       {shown.map((m, k) => {
         const mine = m.author_id === me?.id, day = m.created_at.slice(0, 10), prev = shown[k - 1];
         return (

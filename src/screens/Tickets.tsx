@@ -99,21 +99,21 @@ export function Tickets() {
       const ext = blob.type === 'image/jpeg' ? 'jpg' : blob.type.split('/')[1] || 'png';
       const path = `${me.id}/${rid()}.${ext}`;
       const { error } = await supabase.storage.from('tickets').upload(path, blob, { contentType: blob.type || 'image/jpeg' });
-      if (error) { setBusy(false); return setErr('A captura não foi. Tenta outra vez ou envia sem ela.'); }
+      if (error) { setBusy(false); return setErr('A captura não foi. Tenta outra vez, ou envia só o texto.'); }
       shot = path;
     }
     const { error } = await supabase.from('tickets').insert({ kind, body: body.trim().slice(0, 2000), screen: where, shot });
     setBusy(false);
     if (error) return setErr('Não foi. Tenta outra vez.');
     setBody(''); setFile(null);
-    toast(kind === 'ideia' ? 'Ideia enviada. Obrigado!' : 'Problema enviado. Obrigado!', { ok: true });
+    toast(kind === 'ideia' ? 'Ideia enviada. A chinchila agradece.' : 'Problema enviado. Vamos a isso.', { ok: true });
     mine.reload();
   }
 
   return (
     <>
       <Top title="Ideias e problemas" />
-      <p className="s" style={{ fontSize: 'var(--t-m)' }}>A NIKKI melhora com o que lhe contas. Vês aqui o estado e a resposta.</p>
+      <p className="s" style={{ fontSize: 'var(--t-m)' }}>A NIKKI melhora com o que lhe contas. Aqui vês o estado e a resposta. Sem formulários de três páginas.</p>
       <form className="form" onSubmit={send}>
         <div className="seg" role="group" aria-label="Tipo">
           <button type="button" className="press" aria-pressed={kind === 'ideia'} onClick={() => setKind('ideia')}>Ideia</button>

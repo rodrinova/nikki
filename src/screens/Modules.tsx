@@ -39,7 +39,7 @@ export function Modules() {
   return (
     <>
       <Top title="Módulos" />
-      <p className="s" style={{ fontSize: 'var(--t-m)' }}>Os módulos ligam-se sozinhos quando os usam. Aqui escondem-se os que não fazem falta; nada do que lá está se apaga.</p>
+      <p className="s" style={{ fontSize: 'var(--t-m)' }}>Os módulos ligam-se sozinhos quando os usam. Aqui escondem-se os que não fazem falta. Nada se apaga: só sai da vista.</p>
       <div className="tile card rows mods">
         <div className="mod"><span className="ic"><Icon n="coins" /></span><span className="t">Dinheiro, Agenda e Pessoas<span className="s">Sempre ligados. A agenda está no início.</span></span></div>
         {MODULES.map((m) => {

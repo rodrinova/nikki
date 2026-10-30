@@ -14,7 +14,7 @@ const PENDING_INVITE = 'nikki_invite';
 
 /** Mensagens da base ao aceitar um convite, em frases para pessoas. */
 export function inviteError(m: string): string {
-  if (m === 'convite expirado') return 'Este convite expirou. Pede outro.';
+  if (m === 'convite expirado') return 'Este convite expirou. Os convites também têm prazo. Pede outro.';
   if (m === 'convite já usado') return 'Esse convite já foi usado.';
   if (m === 'a casa já tem duas pessoas') return 'Essa casa já tem duas pessoas.';
   if (m === 'conta sem acesso') return 'Esta conta não tem acesso.';
@@ -42,7 +42,7 @@ export function Login() {
       options: { emailRedirectTo: `${location.origin}${import.meta.env.BASE_URL}`, data: mode === 'new' ? { name: name.trim() } : undefined },
     });
     setBusy(false);
-    if (error) return setErr(error.status === 429 ? 'Muitos pedidos seguidos. Espera um minuto e tenta outra vez.' : error.message);
+    if (error) return setErr(error.status === 429 ? 'Muitos pedidos seguidos. Respira um minuto e tenta outra vez.' : error.message);
     setSent(true);
   }
 
@@ -52,7 +52,7 @@ export function Login() {
     setBusy(true);
     const { error } = await supabase.auth.verifyOtp({ email: email.trim(), token: code, type: 'email' });
     setBusy(false);
-    if (error) setErr('Código errado ou expirado. Pede outro link.');
+    if (error) setErr('Esse código não serve (errado ou já expirou). Pede outro link.');
     else toast('Entraste.');
   }
 
@@ -60,7 +60,7 @@ export function Login() {
     <section className="ob">
       <div style={{ color: 'var(--ink)' }}><Wordmark h={36} alive /></div>
       <h1 className="l">Vê o teu e-mail</h1>
-      <p className="s" style={{ fontSize: 'var(--t-m)' }}>Enviámos um link para {email}. Abre-o neste aparelho e entras. Não há palavra-passe.{DEMO && ' Na demonstração, qualquer código de 6 algarismos serve.'}</p>
+      <p className="s" style={{ fontSize: 'var(--t-m)' }}>Enviámos um link para {email}. Abre-o neste aparelho e entras. Sem palavras-passe para esquecer.{DEMO && ' Na demonstração, qualquer código de 6 algarismos serve.'}</p>
       <form className="form" onSubmit={verify}>
         <label>Ou escreve o código do e-mail<input className="code" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))} placeholder="000000" /></label>
         {err && <p className="err">{err}</p>}
@@ -81,7 +81,7 @@ export function Login() {
         <label>E-mail<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="o teu e-mail" autoComplete="email" /></label>
         {err && <p className="err">{err}</p>}
         <button className="btn wide press" disabled={busy}>{mode === 'new' ? 'Criar conta' : 'Receber link para entrar'} <Icon n="arrow" s={20} /></button>
-        {mode === 'new' && <p className="s">A NIKKI abre por convite. A primeira conta de cada casa fica à espera de aprovação; quem recebe um convite de casa entra logo.</p>}
+        {mode === 'new' && <p className="s">A NIKKI abre por convite. A primeira conta de cada casa é aprovada à mão, por um humano simpático. Com um convite de casa, entra-se logo.</p>}
       </form>
       {mode === 'in'
         ? <button className="btn quiet wide press" onClick={() => { setMode('new'); setErr(''); }}>Criar conta <Icon n="arrow" s={20} /></button>
@@ -132,7 +132,7 @@ export function Onboarding() {
     } else {
       const { error } = await supabase.rpc('accept_invite', { invite: code.trim() });
       if (error) return setErr(inviteError(error.message));
-      await reload(); toast('Convite aceite.', { ok: true }); nav('/');
+      await reload(); toast('Convite aceite. A casa é tua também.', { ok: true }); nav('/');
     }
   }
 
@@ -162,9 +162,9 @@ export function Onboarding() {
   );
   return (
     <section className="ob">{steps}<h1 className="l">Convidar</h1>
-      <p className="s" style={{ fontSize: 'var(--t-m)' }}>Vives com alguém? Cada pessoa recebe um convite e cria o seu login. Se vives sozinho, salta este passo.</p>
+      <p className="s" style={{ fontSize: 'var(--t-m)' }}>Vives com alguém? Cada pessoa recebe um convite e tem o seu login. Casa de uma pessoa só? Salta este passo, a NIKKI faz companhia.</p>
       {hid && <InviteForm householdId={hid} />}
-      <button className="btn wide press" onClick={async () => { await reload(); toast(`Casa criada. Bem-vindo, ${name.trim()}.`, { ok: true }); nav('/'); }}>Entrar <Icon n="arrow" s={20} /></button>
+      <button className="btn wide press" onClick={async () => { await reload(); toast(`Casa criada. Olá, ${name.trim()}.`, { ok: true }); nav('/'); }}>Entrar <Icon n="arrow" s={20} /></button>
     </section>
   );
 }
@@ -175,8 +175,8 @@ export function InviteLanding() {
   useEffect(() => { if (token) store.set(PENDING_INVITE, token); }, [token]);
   return (
     <section className="ob"><div style={{ color: 'var(--ink)' }}><Wordmark h={36} alive /></div>
-      <h1 className="l">Foste convidado para uma casa na NIKKI.</h1>
-      <p className="s" style={{ fontSize: 'var(--t-m)' }}>Entra ou cria conta com o teu e-mail. O convite fica guardado e é aceite logo a seguir.</p>
+      <h1 className="l">Tens um convite para uma casa na NIKKI.</h1>
+      <p className="s" style={{ fontSize: 'var(--t-m)' }}>Entra ou cria conta com o teu e-mail. O convite fica guardado e aceita-se sozinho a seguir.</p>
       <Link className="btn wide press" to="/">Continuar <Icon n="arrow" s={20} /></Link>
     </section>
   );
@@ -192,7 +192,7 @@ export function usePendingInvite() {
     store.remove(PENDING_INVITE);
     supabase.rpc('accept_invite', { invite: t }).then(({ error }) => {
       if (error) toast(error.message === 'convite inválido' ? 'O convite não é válido ou expirou.' : inviteError(error.message));
-      else { toast('Convite aceite. Bem-vindo à casa.', { ok: true }); reload(); }
+      else { toast('Convite aceite. Já fazes parte da casa.', { ok: true }); reload(); }
     });
   }, [session, reload, toast]);
 }
@@ -217,14 +217,14 @@ export function Waiting() {
     e.preventDefault(); setErr('');
     const { error } = await supabase.rpc('accept_invite', { invite: code.trim() });
     if (error) return setErr(inviteError(error.message));
-    await reload(); toast('Convite aceite. Bem-vindo à casa.', { ok: true }); nav('/');
+    await reload(); toast('Convite aceite. Já fazes parte da casa.', { ok: true }); nav('/');
   }
   return (
     <section className="ob">
       <div style={{ color: 'var(--ink)' }}><Face h={44} label="NIKKI à espera" /></div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <h1 className="l">Pedido enviado.</h1>
-        <p className="s" style={{ fontSize: 'var(--t-m)' }}>A casa abre aqui assim que o pedido for aprovado. Podes fechar a app: quando voltares, já lá está.</p>
+        <h1 className="l">Pedido enviado. A chinchila está a ler.</h1>
+        <p className="s" style={{ fontSize: 'var(--t-m)' }}>A casa abre aqui assim que o pedido for aprovado. Podes fechar a app: quando voltares, já cá está.</p>
       </div>
       <div className="tile card rows">
         <div><span className="k">Casa</span><span className="v">{me?.request?.house}</span></div>
@@ -235,7 +235,7 @@ export function Waiting() {
         {err && <p className="err">{err}</p>}
         {code.trim() && <button className="btn wide press">Entrar na casa <Icon n="arrow" s={20} /></button>}
       </form>
-      {DEMO && <p className="demo"><span>Demonstração:</span><button onClick={async () => { await (supabase as any).demoApprove(); await reload(); toast('Pedido aprovado. Bem-vindo à NIKKI.', { ok: true }); }}>aprovar o pedido, como faria o administrador</button></p>}
+      {DEMO && <p className="demo"><span>Demonstração:</span><button onClick={async () => { await (supabase as any).demoApprove(); await reload(); toast('Pedido aprovado. A NIKKI é tua.', { ok: true }); }}>aprovar o pedido, como faria o administrador</button></p>}
       <button className="back press" onClick={() => supabase.auth.signOut()}>Sair</button>
     </section>
   );
@@ -251,8 +251,8 @@ export function NoAccess() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         <h1 className="l">{paused ? 'Conta em pausa.' : 'Pedido não aceite.'}</h1>
         <p className="s" style={{ fontSize: 'var(--t-m)' }}>{paused
-          ? 'Fala com quem administra a NIKKI para voltares a entrar. Nada do que registaste se perdeu.'
-          : 'Por agora a NIKKI está aberta a poucas casas. Obrigado pelo interesse.'}</p>
+          ? 'Fala com quem administra a NIKKI para voltares. Está tudo guardado, tal como deixaste.'
+          : 'Por agora a NIKKI abre a poucas casas. Fica para breve, prometido.'}</p>
       </div>
       <button className="btn quiet wide press" onClick={() => supabase.auth.signOut()}>Sair <Icon n="arrow" s={20} /></button>
     </section>

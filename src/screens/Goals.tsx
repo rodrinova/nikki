@@ -60,7 +60,7 @@ export function GoalLine() {
   if (!on('objetivos')) return null;
   const list = goals.rows.filter((g) => g.status === 'active').map((g) => ({ g, p: prog(g) }));
   const m = mainGoal(list);
-  if (!m) return <Link className="tile goal-line press" to="/objetivos"><span className="st2"><span className="s">Objetivos</span><span>Ainda nenhum. A NIKKI sugere alguns.</span></span><Icon n="chev" s={16} /></Link>;
+  if (!m) return <Link className="tile goal-line press" to="/objetivos"><span className="st2"><span className="s">Objetivos</span><span>Ainda nenhum. A NIKKI tem umas ideias.</span></span><Icon n="chev" s={16} /></Link>;
   return (
     <Link className="tile goal-line press" to="/objetivos" aria-label={`Objetivo: ${m.g.title}, ${m.p.label}, ${STATE[m.p.state]}`}>
       <span className="st2"><span className="s">Objetivo{list.length > 1 ? ` · mais ${list.length - 1}` : ''}</span><span>{m.g.title}</span>
@@ -104,7 +104,7 @@ export function Goals() {
           <span className="goal-row"><Bar p={p} /><span className="s">{p.label}</span></span>
           <span className="s">{[p.detail, `até ${shortDate(g.due_on)}`, g.owner_id ? 'só teu' : 'da casa'].filter(Boolean).join(' · ')}</span>
         </button>
-      ); })}</div> : <p className="s" style={{ fontSize: 'var(--t-m)' }}>Poucos de cada vez, medidos com os vossos números e com prazo. Comecem por uma sugestão ou criem o vosso.</p>}
+      ); })}</div> : <p className="s" style={{ fontSize: 'var(--t-m)' }}>Poucos de cada vez, com prazo, medidos com os vossos números. Comecem por uma sugestão: é meio caminho andado.</p>}
       {sug.length > 0 && <section className="stack" aria-label="A NIKKI sugere">
         <span className="s">A NIKKI sugere</span>
         <div className="tile card rows">{sug.map((s) => (
@@ -150,9 +150,9 @@ function GoalSheet({ g }: { g?: GoalRow }) {
   // Saúde financeira: os quatro passos, com o alvo que o Património calcula.
   const health: Suggestion[] = [
     ...(casa.emergencyTarget ? [{ title: 'Fundo de emergência completo', metric: 'fund:emergency', target: Math.round(casa.emergencyTarget / U), why: '12 meses da despesa média.' }] : []),
-    { title: 'Fundo para imprevistos completo', metric: 'fund:cushion', target: Math.round(casa.cushionTarget / U), why: 'Uma avaria, um eletrodoméstico, uma multa.' },
+    { title: 'Fundo para imprevistos completo', metric: 'fund:cushion', target: Math.round(casa.cushionTarget / U), why: 'Para o que avaria sem avisar.' },
     { title: 'Poupar 20% do que entra', metric: 'savings_rate', target: 20, why: 'Pela média dos meses completos.' },
-    { title: `Chegar a ${Math.floor(casa.fm) + 1} meses livres`, metric: 'free_months', target: Math.floor(casa.fm) + 1, why: 'Meses do ano pagos pelos investimentos.' },
+    { title: `Chegar a ${Math.floor(casa.fm) + 1} meses livres`, metric: 'free_months', target: Math.floor(casa.fm) + 1, why: 'Meses do ano que os investimentos pagam sozinhos.' },
   ];
   // Hábitos: as contas com consumo (nas casas que os acompanham) e os carros com abastecimentos.
   const meters = on('casa') ? bills.rows.filter((b) => !b.archived && b.unit && homes.rows.find((h) => h.id === b.home_id)?.track_usage) : [];
@@ -196,7 +196,7 @@ function GoalSheet({ g }: { g?: GoalRow }) {
   }
   async function status(st: 'done' | 'archived') {
     await supabase.from('goals').update({ status: st }).eq('id', g!.id);
-    goals.reload(); close(); toast(st === 'done' ? 'Cumprido. Parabéns!' : 'Arquivado.', { ok: st === 'done' });
+    goals.reload(); close(); toast(st === 'done' ? 'Cumprido. Isto merece um brinde.' : 'Arquivado. Fica para outra altura.', { ok: st === 'done' });
   }
   return (
     <>
@@ -215,7 +215,7 @@ function GoalSheet({ g }: { g?: GoalRow }) {
             <button type="button" className="press" aria-pressed={who === 'casa'} onClick={() => setWho('casa')}>Da casa</button>
             <button type="button" className="press" aria-pressed={who === 'me'} onClick={() => setWho('me')}>Só meu</button>
           </div>}
-          <p className="s">{who === 'casa' && partner ? 'Conta o valor inteiro das despesas partilhadas nesta categoria.' : 'Conta a tua parte nesta categoria.'} A NIKKI avisa quando o mês vai acima do ritmo.</p>
+          <p className="s">{who === 'casa' && partner ? 'Conta o valor inteiro das despesas partilhadas nesta categoria.' : 'Conta a tua parte nesta categoria.'} A NIKKI avisa a meio do mês, quando ainda dá para travar.</p>
         </>}
         {kind === 'health' && <div className="tile card rows">{health.map((h) => (
           <button key={h.metric} type="button" className="press" aria-pressed={pick === h.metric} onClick={() => setPick(h.metric)}>
@@ -234,7 +234,7 @@ function GoalSheet({ g }: { g?: GoalRow }) {
         {kind === 'body' && <>
           <div className="chips wrap" role="group" aria-label="Medida">{body.map((f) => <button key={f.key} type="button" className="press" aria-pressed={pick === `gym:${f.key}`} onClick={() => { setPick(`gym:${f.key}`); setVal(''); }}>{f.label}</button>)}</div>
           {pick.startsWith('gym:') && (() => { const f = body.find((x) => `gym:${x.key}` === pick)!; const now = summary(gym.rows, f.key); return <label>Chegar a{f.unit ? ` (${f.unit})` : ''}{now ? `; agora ${fmt(now.last, f.unit)}` : ''}<input inputMode="decimal" value={val} onChange={(e) => setVal(e.target.value)} placeholder={f.lower_is_better ? 'ex.: 18' : 'ex.: 35'} /></label>; })()}
-          <p className="s">Só tu vês este objetivo, como as avaliações.</p>
+          <p className="s">Só tu vês este objetivo. Fica entre ti e a balança.</p>
         </>}
         <label>Até<input type="date" value={due} min={today} onChange={(e) => setDue(e.target.value)} /></label>
         {err && <p className="err">{err}</p>}
