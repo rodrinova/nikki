@@ -8,6 +8,7 @@ import { Wordmark } from '@/brand/Wordmark';
 import { Face } from '@/brand/Face';
 import { Icon } from '@/ui/Icon';
 import { ago } from '@/lib/admin';
+import { enterWithCode } from '@/data/devices';
 import { InviteForm } from './People';
 
 const PENDING_INVITE = 'nikki_invite';
@@ -86,9 +87,39 @@ export function Login() {
       {mode === 'in'
         ? <button className="btn quiet wide press" onClick={() => { setMode('new'); setErr(''); }}>Criar conta <Icon n="arrow" s={20} /></button>
         : <button className="back press" onClick={() => { setMode('in'); setErr(''); }}>Já tenho conta</button>}
+      <FromDevice />
       <Link className="back press" to="/historia"><span>A história da NIKKI</span><Icon n="arrow" s={18} /></Link>
       {DEMO && <p className="demo"><span>Demonstração:</span><button onClick={() => (supabase.auth as any).demoSignIn('R')}>entrar como Rodrigo</button><button onClick={() => (supabase.auth as any).demoSignIn('I')}>entrar como Inês</button><button onClick={() => (supabase.auth as any).demoSignIn('M')}>entrar como Maria (housekeeping)</button></p>}
     </section>
+  );
+}
+
+/**
+ * Entrar com um código de outro aparelho (Perfil → «Entrar noutro aparelho»). Serve também para a app no ecrã
+ * principal do iPhone, que não partilha a sessão com o Safari. A ligação «?codigo=…» já traz o código preenchido.
+ */
+function FromDevice() {
+  const pre = typeof location !== 'undefined' ? new URLSearchParams(location.search).get('codigo') ?? '' : '';
+  const [open, setOpen] = useState(!!pre);
+  const [code, setCode] = useState(pre.toUpperCase());
+  const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false);
+  async function go(e: FormEvent) {
+    e.preventDefault(); setErr('');
+    if (code.replace(/[^A-Za-z0-9]/g, '').length !== 8) return setErr('O código tem 8 letras e números (ex.: ABCD-2345).');
+    setBusy(true);
+    const why = await enterWithCode(code);
+    setBusy(false);
+    if (why) setErr(why); else if (pre) history.replaceState(null, '', location.pathname);
+  }
+  if (!open) return <button className="btn quiet wide press" onClick={() => setOpen(true)}>Já uso a NIKKI noutro aparelho <Icon n="arrow" s={20} /></button>;
+  return (
+    <form className="form tile card" style={{ padding: 16 }} onSubmit={go}>
+      <p className="s" style={{ fontSize: 'var(--t-m)' }}>No aparelho onde já tens a NIKKI: Perfil → «Entrar noutro aparelho». Escreve aqui o código que aparece. Sem e-mails, sem esperas.</p>
+      <label>Código<input className="code" value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} placeholder="ABCD-2345" maxLength={9} autoCapitalize="characters" autoComplete="off" /></label>
+      {err && <p className="err">{err}</p>}
+      <button className="btn wide press" disabled={busy}>Entrar <Icon n="arrow" s={20} /></button>
+    </form>
   );
 }
 

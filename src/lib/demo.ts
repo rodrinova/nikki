@@ -643,6 +643,8 @@ export function createDemoClient() {
         if (name === 'calendar-link' && b.action === 'icloud') { db.calendar_links.push({ id: uid(), profile_id: me, household_id: b.household, provider: 'icloud', account_hint: `${String(b.apple_id)[0]}•••@${String(b.apple_id).split('@')[1] ?? 'icloud.com'}`, status: 'ok', last_sync_at: new Date().toISOString(), last_error: null, created_at: new Date().toISOString() }); return { data: { ok: true }, error: null }; }
         if (name === 'calendar-link' && b.action === 'google') { db.calendar_links.push({ id: uid(), profile_id: me, household_id: b.household, provider: 'google', account_hint: 'r•••@gmail.com', status: 'ok', last_sync_at: new Date().toISOString(), last_error: null, created_at: new Date().toISOString() }); return { data: { url: '#' }, error: null }; }
         if (name === 'calendar-link' && b.action === 'unlink') { db.calendar_links = db.calendar_links.filter((l) => !(l.profile_id === me && l.provider === b.provider)); return { data: { ok: true }, error: null }; }
+        if (name === 'device-link' && b.action === 'create') return { data: { code: 'NIKK-2345', expires_at: new Date(Date.now() + 600_000).toISOString() }, error: null };
+        if (name === 'device-link' && b.action === 'redeem') return String(b.code).toUpperCase().replace(/[^A-Z0-9]/g, '') === 'NIKK2345' ? { data: { token_hash: 'demo:R' }, error: null } : { data: { error: 'código inválido' }, error: null };
         return { data: { ok: true }, error: null };
       },
     },
@@ -659,7 +661,9 @@ export function createDemoClient() {
       async getSession() { return { data: { session: session() }, error: null }; },
       onAuthStateChange(cb: (e: string, s: any) => void) { authListeners.add(cb); return { data: { subscription: { unsubscribe: () => authListeners.delete(cb) } } }; },
       async signInWithOtp(o: { email: string; options?: { data?: { name?: string } } }) { pendingName = o.options?.data?.name ?? o.email.split('@')[0]; pendingEmail = o.email; return { data: {}, error: null }; },
-      async verifyOtp() {
+      async verifyOtp(o?: { token_hash?: string }) {
+        // Com o código de outro aparelho (na demonstração, NIKK-2345): entra como o Rodrigo.
+        if (o?.token_hash === 'demo:R') { me = R; emitAuth('SIGNED_IN'); return { data: {}, error: null }; }
         // Na demonstração, qualquer código entra como uma pessoa nova, sem casa e à espera de aprovação (mostra o pedido).
         me = 'demo-' + uid().slice(0, 8);
         db.profiles.push({ id: me, name: pendingName ? pendingName[0].toUpperCase() + pendingName.slice(1) : 'Tu', color: '#94B096', email: pendingEmail, status: 'pending', created_at: new Date().toISOString(), request: null, requested_at: null, approved_at: null, approved_via: null, last_seen_at: null });

@@ -946,3 +946,4 @@ button.ctile{border:0;text-align:left;align-items:flex-start;width:100%;font:inh
 .update-pill{position:fixed;left:0;right:0;margin:0 auto;width:max-content;bottom:calc(var(--bar) + 24px + env(safe-area-inset-bottom));z-index:2000;border:0;border-radius:999px;padding:10px 16px;background:var(--ink);color:var(--ground);font-size:var(--t-s);white-space:nowrap;box-shadow:0 6px 24px rgba(0,0,0,.25);animation:pillIn 320ms var(--ease-out) both}
 @keyframes pillIn{from{opacity:0;transform:translateY(12px)}}
 .update-pill b{font-weight:500;color:var(--accent)}
+.device-code{letter-spacing:.08em;text-align:center;margin:6px 0}

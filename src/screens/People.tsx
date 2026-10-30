@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { useSession } from '@/data/session';
@@ -9,6 +9,8 @@ import { useOverlays } from '@/ui/overlays';
 import { Icon } from '@/ui/Icon';
 import { Top } from './Home';
 import { marks, requests, spans } from '@/lib/perf';
+import { newDeviceCode } from '@/data/devices';
+import { Loading } from '@/ui/lazy';
 import { useHouse } from '@/data/house';
 import { usePush, type PushState } from '@/data/push';
 import { usePaid } from './Housekeeping';
@@ -138,9 +140,44 @@ export function Profile() {
         <Link className="press" to="/historia"><span className="k">A história da NIKKI</span><span className="v"><Icon n="arrow" s={16} /></span></Link>
         {appAdmin && <Link className="press" to="/admin"><span className="k">Administração da app</span><span className="v">{adm.pending + adm.novo > 0 && <span className="badge">{adm.pending + adm.novo}</span>}<Icon n="arrow" s={16} /></span></Link>}
       </div>
+      <Devices />
       <Speed />
       <button className="btn quiet wide press" onClick={() => supabase.auth.signOut()}>Sair <Icon n="arrow" s={20} /></button>
     </>
+  );
+}
+
+/** Entrar com esta conta noutro aparelho: um código de 10 minutos, sem e-mail. */
+function Devices() {
+  const { open } = useOverlays();
+  return (
+    <div className="tile card rows">
+      <button className="press" onClick={() => open(<DeviceCode />)}><span className="k">Entrar noutro aparelho<span className="s" style={{ display: 'block' }}>Outro telemóvel, o computador, a NIKKI no ecrã principal</span></span><span className="v"><Icon n="arrow" s={16} /></span></button>
+    </div>
+  );
+}
+
+function DeviceCode() {
+  const { toast } = useOverlays();
+  const [c, setC] = useState<{ code: string; expires_at: string } | null>(null);
+  const [err, setErr] = useState('');
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => { newDeviceCode().then((r) => (r.ok ? setC(r.v) : setErr('Não deu para criar o código. Tenta outra vez.'))); }, []);
+  useEffect(() => { const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t); }, []);
+  const left = c ? Math.max(0, Math.round((Date.parse(c.expires_at) - now) / 1000)) : 0;
+  const link = c ? `${location.origin}${import.meta.env.BASE_URL}?codigo=${c.code}` : '';
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <p className="l">Entrar noutro aparelho</p>
+      {!c && !err && <Loading label="A criar o código" />}
+      {err && <p className="err">{err}</p>}
+      {c && <>
+        <p className="xl device-code" aria-live="polite">{left > 0 ? c.code : '— —'}</p>
+        <p className="s" style={{ fontSize: 'var(--t-m)' }}>{left > 0 ? `No outro aparelho, abre a NIKKI, toca em «Já uso a NIKKI noutro aparelho» e escreve este código. Vale ${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}, e só uma vez.` : 'Este código já passou do prazo. Pede outro.'}</p>
+        {left > 0 && <button className="btn quiet wide press" onClick={async () => { try { await navigator.clipboard.writeText(link); toast('Ligação copiada. Abre-a no outro aparelho.', { ok: true }); } catch { toast(link); } }}>Copiar a ligação <Icon n="arrow" s={20} /></button>}
+        <p className="s">Cada aparelho fica com a sua sessão: sair num não tira o outro. No iPhone, a NIKKI do ecrã principal e o Safari contam como dois aparelhos.</p>
+      </>}
+    </div>
   );
 }
 
