@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { U } from '../money';
-import { avgMonthly, badges, celebrate, nextBadge, freeMonths, fundCheck, healthScore, monthPlan, monthlyIncome, monthsAhead, realReturn, savings, suggestGoal, vacationUntil, sourceMonthly, entriesByMonth, splitFunds, cushionMin } from '../wealth';
+import { avgMonthly, badges, celebrate, nextBadge, freeMonths, fundCheck, healthScore, monthPlan, monthlyIncome, monthsAhead, realReturn, savings, suggestGoal, vacationUntil, sourceMonthly, entriesByMonth, splitFunds, cushionMin, netSeries } from '../wealth';
 
 const e = (v: number) => v * U;
 
@@ -172,4 +172,28 @@ describe('cushionMin', () => {
     expect(cushionMin(-2)).toBe(2_000 * U);
     expect(cushionMin(NaN)).toBe(2_000 * U);
   });
+});
+
+describe('netSeries', () => {
+  const A = [{ id: 'a', part: 1, archived: false }, { id: 'b', part: 0.5, archived: false }, { id: 'c', part: 0, archived: false }];
+  it('em cada dia soma o último valor de cada ativo, pela parte de quem vê', () => {
+    const s = netSeries(A, [
+      { asset_id: 'a', on_date: '2026-01-10', value: 100 },
+      { asset_id: 'b', on_date: '2026-02-01', value: 200 },
+      { asset_id: 'c', on_date: '2026-02-01', value: 999 },
+      { asset_id: 'a', on_date: '2026-03-05', value: 150 },
+    ]);
+    expect(s).toEqual([{ on: '2026-01-10', v: 100 }, { on: '2026-02-01', v: 200 }, { on: '2026-03-05', v: 250 }]);
+  });
+  it('vários valores no mesmo dia dão um ponto só', () => {
+    expect(netSeries(A, [{ asset_id: 'b', on_date: '2026-01-01', value: 40 }, { asset_id: 'a', on_date: '2026-01-01', value: 10 }])).toEqual([{ on: '2026-01-01', v: 30 }]);
+  });
+  it('um ativo retirado conta só até ao último valor registado', () => {
+    const s = netSeries([{ id: 'a', part: 1, archived: true }, { id: 'b', part: 1, archived: false }], [
+      { asset_id: 'a', on_date: '2026-01-01', value: 100 },
+      { asset_id: 'b', on_date: '2026-02-01', value: 50 },
+    ]);
+    expect(s).toEqual([{ on: '2026-01-01', v: 100 }, { on: '2026-02-01', v: 50 }]);
+  });
+  it('sem valores, sem pontos', () => expect(netSeries(A, [])).toEqual([]));
 });

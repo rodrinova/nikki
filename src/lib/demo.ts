@@ -74,6 +74,11 @@ function seed() {
     const id = uid();
     db.assets.push({ id, household_id: H, owner_id: owner, name, kind, expected_return: ret, role, invested: !['casa', 'carro'].includes(kind), archived: false, created_at: ago(200) });
     db.asset_snapshots.push({ asset_id: id, household_id: H, on_date: addDays(today, -9), value: value.toFixed(2), created_at: ago(9) });
+    // Valores dos meses anteriores (a evolução do património): a crescer, com os altos e baixos da bolsa.
+    for (let m = 1; m <= 8; m++) {
+      const v = value * (1 - (kind === 'casa' ? 0.004 : 0.035) * m) * (['etf', 'acoes'].includes(kind) ? 1 + 0.03 * Math.sin(m * 1.7) : 1);
+      db.asset_snapshots.push({ asset_id: id, household_id: H, on_date: addDays(today, -9 - 30 * m), value: v.toFixed(2), created_at: ago(9 + 30 * m) });
+    }
   };
   asset('Conta à ordem', 'ordem', null, 1300, 0, 'cushion');
   asset('Certificados de Aforro', 'aforro', null, 9000, 2.5, 'emergency');

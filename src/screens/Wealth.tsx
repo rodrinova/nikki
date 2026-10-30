@@ -9,7 +9,7 @@ import { Icon } from '@/ui/Icon';
 import { Poster } from '@/ui/Poster';
 import { How, Year } from '@/ui/Year';
 import { U, eur, parseAmount, toU } from '@/lib/money';
-import { monthKey, monthName, todayStr } from '@/lib/dates';
+import { monthKey, monthName, parseDate, todayStr } from '@/lib/dates';
 import { shortDate } from '@/lib/admin';
 import { KINDS, LEVELS, MILESTONES, WHERE, celebrate, entriesByMonth, fundCheck, liqOf, nextBadge, sourceMonthly, vacationUntil, type AssetKind, type FundRole } from '@/lib/wealth';
 import { Top } from './Home';
@@ -354,19 +354,54 @@ function NetWorth({ w }: { w: W }) {
       <span className="s">{w.casa ? (partner ? 'Património do casal' : 'Património') : 'O teu património'}</span>
       <p className="xl">{eur(n.total, 0)}<small>€</small></p>
       <p className="s">{parts.filter(Boolean).join(' · ')}</p>
+      {w.history.length > 1 && <NetChart points={w.history} />}
     </section>
+  );
+}
+
+// Um dia «AAAA-MM-DD» (hora local) em texto curto.
+const day = (d: string) => shortDate(`${d}T12:00:00`);
+
+/** Evolução do património: os valores registados ao longo do tempo (o eixo é o tempo real entre registos). */
+function NetChart({ points }: { points: { on: string; v: number }[] }) {
+  const [sel, setSel] = useState<number | null>(null);
+  const W = 340, H = 150, L = 4, R = 4, T = 12, B = 22;
+  const t = (d: string) => parseDate(d).getTime();
+  const t0 = t(points[0].on), t1 = t(points[points.length - 1].on);
+  let lo = Math.min(...points.map((p) => p.v)), hi = Math.max(...points.map((p) => p.v));
+  if (hi - lo < U) { lo -= U; hi += U; }
+  const pad = (hi - lo) * 0.12; lo -= pad; hi += pad;
+  const x = (d: string) => L + (t1 > t0 ? ((t(d) - t0) / (t1 - t0)) * (W - L - R) : (W - L - R) / 2);
+  const y = (v: number) => T + (1 - (v - lo) / (hi - lo)) * (H - T - B);
+  const k = sel ?? points.length - 1, p = points[k], first = points[0];
+  const diff = p.v - first.v;
+  const line = points.map((q, n) => `${n ? 'L' : 'M'}${x(q.on).toFixed(1)},${y(q.v).toFixed(1)}`).join(' ');
+  return (
+    <figure className="net-chart" aria-label="Evolução do património">
+      <svg viewBox={`0 0 ${W} ${H}`} role="img"
+        onPointerMove={(e) => { const r = (e.currentTarget as SVGSVGElement).getBoundingClientRect(); const px = ((e.clientX - r.left) / r.width) * W; let best = 0; points.forEach((q, i) => { if (Math.abs(x(q.on) - px) < Math.abs(x(points[best].on) - px)) best = i; }); setSel(best); }}
+        onPointerLeave={() => setSel(null)}>
+        <path d={`${line} L${x(points[points.length - 1].on).toFixed(1)},${H - B} L${x(first.on).toFixed(1)},${H - B} Z`} className="net-area" />
+        <path d={line} className="gc-line net-line" />
+        <line x1={x(p.on)} x2={x(p.on)} y1={T} y2={H - B} className="gc-cross" />
+        <circle cx={x(p.on)} cy={y(p.v)} r={4.5} className="gc-dot net-dot" />
+        <text x={L} y={H - 6} className="gc-ax" textAnchor="start">{day(first.on)}</text>
+        <text x={W - R} y={H - 6} className="gc-ax" textAnchor="end">{day(points[points.length - 1].on)}</text>
+      </svg>
+      <figcaption className="s">{day(p.on)}: {money(p.v)}{k > 0 ? ` · ${diff >= 0 ? '+' : '−'}${money(Math.abs(diff))} desde ${day(first.on)}` : ''}</figcaption>
+    </figure>
   );
 }
 
 function Assets({ w }: { w: W }) {
   const { open } = useOverlays();
   const owner = useOwner();
-  if (!w.items.length) return <p className="s">Ainda nada. Junta as contas, depósitos e investimentos da casa (e a casa própria, que fica fora das contas).</p>;
+  if (!w.shown.length) return <p className="s">{w.casa || !w.items.length ? 'Ainda nada. Junta as contas, depósitos e investimentos da casa (e a casa própria, que fica fora das contas).' : 'Ainda nada teu. Junta as tuas contas, depósitos e investimentos.'}</p>;
   return (
-    <div className="tile card rows">{w.items.map((a) => (
+    <div className="tile card rows">{w.shown.map((a) => (
       <button key={a.id} className="press" onClick={() => open(<AssetSheet asset={a} />)} style={a.part === 0 ? { opacity: 0.5 } : undefined}>
         <span className="st2"><span>{a.name}</span><span className="s">{KINDS[a.kind as AssetKind]?.name ?? a.kind} · {owner(a.owner_id)}{a.liq !== 'out' ? ` · ${String(a.expected_return).replace('.', ',')}%/ano` : ' · fora das contas'}{a.role ? ` · ${ROLE[a.role].toLowerCase()}` : ''}</span></span>
-        <span className="v">{money(a.value)}{a.part > 0 && a.part < 1 ? <span className="s"> · tua parte {money(a.mine)}</span> : null}</span>
+        <span className="v">{w.casa ? money(a.value) : money(a.mine)}{w.casa && a.part > 0 && a.part < 1 ? <span className="s"> · tua parte {money(a.mine)}</span> : null}{!w.casa && a.part < 1 ? <span className="s"> de {money(a.value)}</span> : null}</span>
       </button>
     ))}</div>
   );
@@ -457,7 +492,9 @@ function AssetSheet({ asset, role: presetRole }: { asset?: AssetRow & { value?: 
   const [value, setValue] = useState(asset?.value ? eur(asset.value).replace(/\s/g, '') : '');
   const [ret, setRet] = useState(asset ? String(asset.expected_return).replace('.', ',') : String(RETURN[(presetRole ? 'remunerada' : 'etf')]).replace('.', ','));
   const [role, setRole] = useState<FundRole | null>(asset?.role ?? presetRole ?? null);
+  const [on, setOn] = useState(todayStr());
   const [err, setErr] = useState('');
+  const log = asset ? snapshots.rows.filter((s) => s.asset_id === asset.id).sort((a, b) => (a.on_date < b.on_date ? 1 : -1)) : [];
   const liq = liqOf(kind);
   const check = role ? fundCheck(kind, role) : null;
   const pickKind = (k: AssetKind) => { setKind(k); if (!asset) setRet(String(RETURN[k]).replace('.', ',')); };
@@ -466,7 +503,8 @@ function AssetSheet({ asset, role: presetRole }: { asset?: AssetRow & { value?: 
     e.preventDefault(); setErr('');
     const v = parseAmount(value), r = Number(ret.replace(',', '.'));
     if (!name.trim()) return setErr('Dá um nome (ex.: Conta poupança, ETF World).');
-    if (!v) return setErr('Indica o valor de hoje.');
+    if (!v) return setErr('Indica o valor.');
+    if (!on || on > todayStr()) return setErr('O dia do valor não pode ser depois de hoje.');
     if (!Number.isFinite(r) || r < -20 || r > 30) return setErr('O retorno estimado vai de −20% a 30% por ano.');
     // O papel de fundo só o escolhe quem é dono (ou qualquer um dos dois, se for partilhado).
     const keepRole = partner && owner === partner.id ? (asset?.owner_id === owner ? asset.role : null) : role;
@@ -474,8 +512,9 @@ function AssetSheet({ asset, role: presetRole }: { asset?: AssetRow & { value?: 
     let id = asset?.id;
     if (id) { const { error } = await supabase.from('assets').update(row).eq('id', id); if (error) return setErr(error.message); }
     else { const { data, error } = await supabase.from('assets').insert(row).select('id').single(); if (error) return setErr(error.message); id = (data as { id: string }).id; }
-    if (!asset || toU(v) !== asset.value) {
-      const { error } = await supabase.from('asset_snapshots').upsert({ asset_id: id, household_id: house!.id, on_date: todayStr(), value: v }, { onConflict: 'asset_id,on_date' });
+    // Cada valor novo fica registado com o dia (é daqui que sai a evolução do património).
+    if (!asset || toU(v) !== asset.value || on !== todayStr()) {
+      const { error } = await supabase.from('asset_snapshots').upsert({ asset_id: id, household_id: house!.id, on_date: on, value: v }, { onConflict: 'asset_id,on_date' });
       if (error) return setErr(error.message);
     }
     assets.reload(); snapshots.reload(); close(); toast(asset ? 'Guardado.' : `${name.trim()} juntou-se ao património.`, { ok: true });
@@ -493,9 +532,10 @@ function AssetSheet({ asset, role: presetRole }: { asset?: AssetRow & { value?: 
         <div className="chips" role="group" aria-label="Tipo">{(Object.keys(KINDS) as AssetKind[]).map((k) => <button key={k} type="button" className="press" aria-pressed={kind === k} onClick={() => pickKind(k)}>{KINDS[k].name}</button>)}</div>
         {owners.length > 1 && <div className="seg" role="group" aria-label="De quem">{owners.map(([id, l]) => <button key={l} type="button" className="press" aria-pressed={owner === id} onClick={() => setOwner(id)}>{l}</button>)}</div>}
         <div className="two">
-          <label>Valor hoje (€)<input inputMode="decimal" value={value} onChange={(e) => setValue(e.target.value)} placeholder="0,00" /></label>
-          {liq !== 'out' && <label>Retorno estimado (%/ano)<input inputMode="decimal" value={ret} onChange={(e) => setRet(e.target.value)} /></label>}
+          <label>Valor (€)<input inputMode="decimal" value={value} onChange={(e) => setValue(e.target.value)} placeholder="0,00" /></label>
+          <label>No dia<input type="date" value={on} max={todayStr()} onChange={(e) => setOn(e.target.value)} /></label>
         </div>
+        {liq !== 'out' && <label>Retorno estimado (%/ano)<input inputMode="decimal" value={ret} onChange={(e) => setRet(e.target.value)} /></label>}
         {liq === 'out' ? <p className="s">Fica registado, mas fora das contas: não rende para pagar a despesa.</p> : partner && owner === partner.id ? <p className="s">É de {partner.name}: só {partner.name} pode escolher se é um fundo. Nos teus fundos entra só o que é teu ou dos dois.</p> : <>
           <div className="seg" role="group" aria-label="Papel">
             <button type="button" className="press" aria-pressed={role === null} onClick={() => setRole(null)}>Investimento</button>
@@ -507,6 +547,10 @@ function AssetSheet({ asset, role: presetRole }: { asset?: AssetRow & { value?: 
         {err && <p className="err">{err}</p>}
         <button className="btn wide press">Guardar <Icon n="check" s={20} /></button>
       </form>
+      {log.length > 0 && <details className="gym-table"><summary className="s">Valores registados ({log.length})</summary>
+        <table><thead><tr><th>Dia</th><th>Valor</th></tr></thead>
+          <tbody>{log.map((s) => <tr key={s.on_date}><td>{day(s.on_date)}</td><td>{money(toU(s.value))}</td></tr>)}</tbody></table>
+      </details>}
       {asset && <button className="back press" onClick={archive}>Retirar do património</button>}
     </Sheet>
   );
