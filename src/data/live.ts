@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { DEMO, supabase } from '@/lib/supabase';
 import { cache } from '@/lib/cache';
+import { mark, span } from '@/lib/perf';
 
 /**
  * Linhas de uma tabela da casa, sempre atualizadas: lê e volta a ler quando alguém muda alguma coisa
@@ -29,13 +30,18 @@ export function useLive<T>(table: string, householdId: string | null | undefined
       if (!data || data.length < 1000) break;
     }
     fresh.current = key;
+    mark('dados da rede'); if (table === 'expenses') mark('despesas da rede');
     setError(null); setRows(all); setLoading(false);
     if (!DEMO) cache.set(key, all);
   }, [key, table, householdId, select, order?.column, order?.ascending]);
 
   useEffect(() => {
     fresh.current = null;
-    if (householdId && !DEMO) cache.get<T[]>(key).then((c) => { if (c && fresh.current !== key) { setRows(c); setLoading(false); } });
+    const t0 = performance.now();
+    if (householdId && !DEMO) cache.get<T[]>(key).then((c) => {
+      if (table === 'expenses') span('ler a cópia das despesas', performance.now() - t0);
+      if (c && fresh.current !== key) { mark('cópia local'); setRows(c); setLoading(false); }
+    });
     load();
     if (!householdId) return;
     const ch = supabase.channel(`nikki-${table}-${householdId}-${Math.random().toString(36).slice(2)}`)

@@ -39,8 +39,22 @@ const swManifest = (): Plugin => ({
     const dir = opts.dir!, sw = `${dir}/sw.js`;
     if (!fs.existsSync(sw)) return;
     const files = Object.keys(bundle).filter((f) => !/pdf|worker|\.map$|\.html$/.test(f)).sort();
-    const version = createHash('sha1').update(files.join('|')).digest('hex').slice(0, 10);
-    fs.writeFileSync(sw, fs.readFileSync(sw, 'utf8').replace('/*VERSION*/', version).replace('/*PRECACHE*/[]', JSON.stringify(files)));
+    // A versão muda quando muda um ficheiro ou a própria página (que não muda de nome).
+    const page = Object.values(bundle).find((c) => c.fileName === 'index.html');
+    const version = createHash('sha1').update(files.join('|') + (page && page.type === 'asset' ? String(page.source) : '')).digest('hex').slice(0, 10);
+    // O essencial para abrir (a entrada, o que ela importa logo, o CSS e a letra) guarda-se ao instalar; o resto
+    // (ecrãs que se abrem depois) guarda-se mais tarde, devagar, para não disputar a rede com os dados.
+    const core = new Set<string>();
+    const walk = (f: string) => {
+      const c = bundle[f];
+      if (!c || core.has(f)) return;
+      core.add(f);
+      if (c.type === 'chunk') { c.imports.forEach(walk); (c as any).viteMetadata?.importedCss?.forEach((x: string) => core.add(x)); }
+    };
+    Object.values(bundle).forEach((c) => { if (c.type === 'chunk' && c.isEntry) walk(c.fileName); });
+    files.filter((f) => /\.(woff2|css)$/.test(f)).forEach((f) => core.add(f));
+    const first = files.filter((f) => core.has(f)), later = files.filter((f) => !core.has(f));
+    fs.writeFileSync(sw, fs.readFileSync(sw, 'utf8').replace('/*VERSION*/', version).replace('/*PRECACHE*/[]', JSON.stringify(first)).replace('/*LATER*/[]', JSON.stringify(later)));
   },
 });
 

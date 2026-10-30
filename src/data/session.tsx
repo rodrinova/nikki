@@ -2,6 +2,7 @@ import { cache } from '@/lib/cache';
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
+import { mark } from '@/lib/perf';
 import { store } from '@/lib/store';
 
 export interface Profile { id: string; name: string; color: string }
@@ -60,7 +61,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [ratioRow, setRatioRow] = useState<State['ratioRow']>(null);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => { setSession(data.session); if (!data.session) setReady(true); });
+    supabase.auth.getSession().then(({ data }) => { setSession(data.session); if (!data.session) (mark('sessão'), setReady(true)); });
     const { data } = supabase.auth.onAuthStateChange((e, s) => {
       setSession(s);
       if (e === 'SIGNED_OUT') { cache.clear(); try { Object.keys(localStorage).filter((k) => k.startsWith('nikki_session_')).forEach((k) => store.remove(k)); } catch { /* sem armazenamento */ } }
@@ -76,20 +77,20 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       const v = JSON.parse(store.get(SNAP(uid)) ?? 'null');
       if (!v) return;
       setMe(v.me); setAppAdmin(v.appAdmin); setHouses(v.houses); setMembers(v.members); setStaff(v.staff); setRatioRow(v.ratioRow);
-      setReady(true);
+      (mark('sessão'), setReady(true));
     } catch { /* resumo estragado: espera pela rede */ }
   }, [session?.user.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const reload = useCallback(async () => {
     const uid = session?.user.id;
-    if (!uid) { setMe(null); setAppAdmin(false); setHouses([]); setMembers([]); setReady(true); return; }
+    if (!uid) { setMe(null); setAppAdmin(false); setHouses([]); setMembers([]); (mark('sessão'), setReady(true)); return; }
     const [{ data: p, error: pe }, { data: ms }, { data: adm }] = await Promise.all([
       supabase.from('profiles').select('id, name, color, status, request, requested_at').eq('id', uid).maybeSingle(),
       supabase.from('memberships').select('household_id, role, households(name, children)').eq('profile_id', uid),
       supabase.rpc('is_app_admin'),
     ]);
     // Sem rede: fica o resumo guardado, se houver.
-    if (pe && store.get(SNAP(uid))) { setReady(true); return; }
+    if (pe && store.get(SNAP(uid))) { (mark('sessão'), setReady(true)); return; }
     setMe(p as Me | null);
     setAppAdmin(adm === true);
     // Última visita (uma vez por arranque): a administração vê quem usa a app, nunca o quê.
@@ -112,7 +113,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       snap = { members: all.filter((m) => m.role !== 'staff'), staff: all.filter((m) => m.role === 'staff').map(({ id, name, color }) => ({ id, name, color })), ratioRow: ratio };
     } else { setMembers([]); setStaff([]); setRatioRow(null); }
     store.set(SNAP(uid), JSON.stringify({ me: p, appAdmin: adm === true, houses: hs, ...snap }));
-    setReady(true);
+    (mark('sessão'), setReady(true));
   }, [session?.user.id, houseId]);
 
   useEffect(() => { reload(); }, [reload]);
