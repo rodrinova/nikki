@@ -46,7 +46,8 @@ export function useWealth(view: WealthView) {
     if (casa) spend = avgMonthly(monthTotals.rows, today);
     else {
       const by = new Map<string, number>();
-      for (const e of expenses.rows) if (e.category !== INVEST && me) { const k = monthKey(e.spent_on); by.set(k, (by.get(k) ?? 0) + partOf(e, me.id)); }
+      // Os eventos e as compras extraordinárias ficam fora da média (como na da casa e no normal do Money).
+      for (const e of expenses.rows) if (e.category !== INVEST && !e.occasion_id && me) { const k = monthKey(e.spent_on); by.set(k, (by.get(k) ?? 0) + partOf(e, me.id)); }
       spend = avgMonthly([...by].map(([month, total]) => ({ month, total })), today);
     }
 
