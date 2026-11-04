@@ -256,6 +256,7 @@ function ExpenseDetail({ e, label }: { e: ExpenseRow; label: string }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <p className="xl">{eur(toU(e.amount))}<small>€</small></p>
       <div className="tile card rows" style={{ background: 'var(--tile-2)' }}>
+        {toU(e.amount) < 0 && <div><span className="k">Tipo</span><span className="v">Reembolso</span></div>}
         <div><span className="k">Categoria</span><span className="v">{catLabel(e.category)}</span></div>
         <div><span className="k">Dia</span><span className="v">{dayLabel(e.spent_on)}</span></div>
         <div><span className="k">De quem é</span><span className="v">{label}</span></div>
@@ -277,6 +278,9 @@ export function ExpenseSheet() {
   // Eventos (com o módulo ligado) e compras extraordinárias (sempre): a despesa pode juntar-se a um deles.
   const allOccs = occasions.rows.filter((o) => o.purchase || on('eventos'));
   const [newBuy, setNewBuy] = useState(false);
+  // Reembolso: o dinheiro que volta (um jantar da empresa que adiantaste, uma devolução). Guarda-se negativo e abate na
+  // categoria e no mês em que entra. Liga-se no botão ou escrevendo «reembolso».
+  const [refundSet, setRefund] = useState<boolean | null>(null);
   const [oldOccs, setOldOccs] = useState(false);
   const [occSet, setOcc] = useState<string | null | undefined>(undefined);
   const { close, toast } = useOverlays();
@@ -287,6 +291,7 @@ export function ExpenseSheet() {
   const [text, setText] = useState('');
   const q = parseQuick(text, todayStr(), { partner: partner?.name, cats: CATEGORIES, cars: garage, occasions: allOccs });
   const note = q.note;
+  const refund = refundSet ?? /\breembols/i.test(text);
   const g = useMemo(() => guess(note, expenses.rows as Past[], me?.id ?? '', !!partner, CATEGORIES), [note, expenses.rows, me?.id, partner]);
   const [catSet, setCat] = useState<string | null>(null);
   const cat = catSet ?? q.category ?? g.category;
@@ -317,7 +322,7 @@ export function ExpenseSheet() {
   // Os campos do carro: depois do valor, ou logo que a nota diz que é do carro (para começar pela foto do talão).
   // Numa compra extraordinária (a entrada do carro novo, uma prestação) não há abastecimento nem km: fica à parte.
   const buying = !!allOccs.find((o) => o.id === occ)?.purchase;
-  const car = !buying && cat === 'Carros' && (q.amount || (note && g.why !== 'default')) ? pick : undefined;
+  const car = !refund && !buying && cat === 'Carros' && (q.amount || (note && g.why !== 'default')) ? pick : undefined;
   // A despesa de um carro fica, por defeito, de quem é o carro (como na Garagem); pode mudar-se a seguir.
   const splitFor = (c: CarRow): Split => (!partner || c.owner_id === me?.id ? 'mine' : c.owner_id === null ? 'shared' : 'other');
   const split: Split = splitSet ?? q.split ?? (cat === 'Carros' && pick && !buying ? splitFor(pick) : cat !== g.category ? splitOf(cat, expenses.rows as Past[], me?.id ?? '', !!partner) : g.split);
@@ -330,6 +335,7 @@ export function ExpenseSheet() {
   const setF = (x: CarEntry) => car && setEntry({ car: car.id, f: x });
   const last = car ? lastOdometer(carLogs.rows, car) : null;
   const v = q.amount ? parseAmount(q.amount) : null;
+  const sv = v ? (refund ? -toU(v) : toU(v)) : 0; // o valor com o sinal, para mostrar
   const spentOn = day === 'hoje' ? todayStr() : day === 'ontem' ? addDays(todayStr(), -1) : date;
   // Em Contas ou Casa, com a Casa ligada: de que conta fixa é (reconhecida pela nota e pelo valor, ou escolhida).
   const [bf, setBf] = useState<BillEntry>(billEntry);
@@ -337,13 +343,13 @@ export function ExpenseSheet() {
   // Tem a certeza quando foi a pessoa a escolher ou quando repete o que fez antes no mesmo sítio (num carro, pergunta sempre).
   const sure = ok || catSet !== null || carSet !== null || !!q.category || (g.why === 'history' && cat !== 'Carros');
   const occName = occ ? allOccs.find((o) => o.id === occ)?.name : undefined;
-  const ask = (cat === 'Carros' && car && f ? `${KIND_ASK[f.kind]} do ${car.name}${partner ? `, ${splitWord}` : ''}` : `${bc.bill ? bc.bill.name : catLabel(cat)}${partner ? `, ${splitWord}` : ''}`) + (occName ? `, ${occName}` : '') + '?';
+  const ask = (refund ? 'Reembolso: ' : '') + (cat === 'Carros' && car && f ? `${KIND_ASK[f.kind]} do ${car.name}${partner ? `, ${splitWord}` : ''}` : `${bc.bill ? bc.bill.name : catLabel(cat)}${partner ? `, ${splitWord}` : ''}`) + (occName ? `, ${occName}` : '') + '?';
   const saveBill = useSaveBill();
   const pct = Math.round(myShare * 100);
   const mineShare = paidBy === 'me' ? payerShare : 1 - payerShare;
   const mp = Math.round(mineShare * 100);
   const hint = !v ? '' : !partner ? 'Em teu nome.' : split === 'shared'
-    ? `Partilhada ${mp}/${100 - mp}${q.share === undefined ? '' : ' (escrito)'}: ${eur(toU(v) * mineShare)} € na tua parte, ${eur(toU(v) * (1 - mineShare))} € na parte de ${partner.name}.${partnerPaid ? ` Pagou ${partner.name}.` : ''}${q.share === undefined && pct === mp ? ' A percentagem muda-se em Pessoas.' : ''}`
+    ? `Partilhada ${mp}/${100 - mp}${q.share === undefined ? '' : ' (escrito)'}: ${eur(sv * mineShare)} € na tua parte, ${eur(sv * (1 - mineShare))} € na parte de ${partner.name}.${partnerPaid ? ` Pagou ${partner.name}.` : ''}${q.share === undefined && pct === mp ? ' A percentagem muda-se em Pessoas.' : ''}`
     : split === 'other' ? `Toda na parte de ${partner.name}. ${partnerPaid ? `Pagou ${partner.name}.` : 'Pagaste tu.'}` : partnerPaid ? `Só tua. Pagou ${partner.name}.` : 'Só tua.';
 
   async function save(e: FormEvent) {
@@ -358,7 +364,7 @@ export function ExpenseSheet() {
     if (car && f && (f.kind === 'fuel' || f.kind === 'charge') && !f.odo.trim() && !noKm) return setErr('E os km do conta-quilómetros? Sem eles, este depósito fica fora do consumo.');
     setBusy(true);
     const { data, error } = await supabase.from('expenses').insert({
-      household_id: house.id, created_by: me.id, amount: v, category: cat, spent_on, car_id: car?.id ?? null, occasion_id: allOccs.some((o) => o.id === occ) ? occ : null,
+      household_id: house.id, created_by: me.id, amount: refund ? `-${v}` : v, category: cat, spent_on, car_id: car?.id ?? null, occasion_id: allOccs.some((o) => o.id === occ) ? occ : null,
       // Quem pagou: tu, ou a outra pessoa (escrito «pagou a Inês» ou escolhido em «Mudar»).
       ...(partnerPaid
         ? { paid_by: partner!.id, split: split === 'shared' ? 'shared' : split === 'mine' ? 'other' : 'mine', other_id: split === 'other' ? null : me.id, payer_share: split === 'shared' ? payerShare : null }
@@ -372,16 +378,16 @@ export function ExpenseSheet() {
     }
     setBusy(false);
     if (error) return setErr(error.message);
-    const billErr = await saveBill(bc, bf, (data as { id: string }).id, v, spent_on);
+    const billErr = refund ? null : await saveBill(bc, bf, (data as { id: string }).id, v, spent_on);
     if (again) {
-      setDone((d) => ({ n: (d?.n ?? 0) + 1, total: (d?.total ?? 0) + toU(v), last: `${eur(toU(v))} € · ${car ? car.name : note.trim() || cat}` }));
-      setOldOccs(false); setText(''); setCat(null); setSplit(null); setDay(null); setDate(null); setMore(false); setOk(false); setNoKm(false); setErr(''); setEntry(null); setBf(billEntry()); setPaid(null); setCarId(null); // o evento escolhido mantém-se (várias despesas do mesmo casamento)
+      setDone((d) => ({ n: (d?.n ?? 0) + 1, total: (d?.total ?? 0) + sv, last: `${eur(sv)} € · ${car ? car.name : note.trim() || cat}` }));
+      setOldOccs(false); setText(''); setCat(null); setSplit(null); setDay(null); setDate(null); setMore(false); setOk(false); setNoKm(false); setErr(''); setEntry(null); setBf(billEntry()); setPaid(null); setCarId(null); setRefund(null); // o evento escolhido mantém-se (várias despesas do mesmo casamento)
       setTimeout(() => amtRef.current?.focus(), 30);
     } else close();
     if (billErr) toast(`A despesa ficou guardada, mas não se ligou à conta: ${billErr}`);
     // Um pagamento em Carros com «IUC» ou o nome da seguradora na nota ensina a Garagem (mês, data e valor).
-    const learned = cat === 'Carros' && note.trim() && (!f || f.kind === 'other' || f.kind === 'service') ? await learn({ car, note }, toU(v), spent_on) : null;
-    if (!again || learned) toast(learned ?? `${eur(toU(v))} € · ${car ? car.name : cat}${n && n.litres !== null ? ` · ${String(n.litres).replace('.', ',')} L` : ''}${bc.bill && bf.pick !== 'none' ? ` · ${bc.bill.name}` : ''} · ${dayLabel(spent_on)}${partner ? ' · ' + (split === 'shared' ? 'partilhada' : split === 'mine' ? 'minha' : `de ${partner.name}`) + (partnerPaid ? ` · pagou ${partner.name}` : '') : ''}${occName ? ` · ${occName}` : ''}`, { ok: true });
+    const learned = !refund && cat === 'Carros' && note.trim() && (!f || f.kind === 'other' || f.kind === 'service') ? await learn({ car, note }, toU(v), spent_on) : null;
+    if (!again || learned) toast(learned ?? `${eur(sv)} € · ${refund ? 'reembolso · ' : ''}${car ? car.name : cat}${n && n.litres !== null ? ` · ${String(n.litres).replace('.', ',')} L` : ''}${bc.bill && bf.pick !== 'none' ? ` · ${bc.bill.name}` : ''} · ${dayLabel(spent_on)}${partner ? ' · ' + (split === 'shared' ? 'partilhada' : split === 'mine' ? 'minha' : `de ${partner.name}`) + (partnerPaid ? ` · pagou ${partner.name}` : '') : ''}${occName ? ` · ${occName}` : ''}`, { ok: true });
   }
 
   const chip = (on: boolean, txt: string, f: () => void) => <button type="button" className="press" aria-pressed={on} onClick={f} key={txt}>{txt}</button>;
@@ -391,16 +397,16 @@ export function ExpenseSheet() {
       <label className="sr" htmlFor="amt">Valor e onde (ex.: 45 pingo doce)</label>
       <input id="amt" ref={amtRef} className="field quick" placeholder="45 pingo doce ontem partilhada" autoFocus value={text} onChange={(e) => { setText(e.target.value); setErr(''); }} enterKeyHint="done" />
       {v && !sure ? <div className="ask-card" role="group" aria-label="Confirmar">
-        <span className="l">{eur(toU(v))} €</span>
+        <span className="l">{eur(sv)} €</span>
         <p className="ask-q">{ask}</p>
         <div className="ask-btns">
           <button type="button" className="btn press" onClick={() => { setOk(true); setErr(''); }}>Sim</button>
           <button type="button" className="btn quiet press" onClick={() => { setOk(true); setMore(true); setErr(''); }}>Mudar</button>
         </div>
       </div> : v ? <div className="quick-sum">
-        <span className="l">{eur(toU(v))} €</span>
+        <span className="l">{eur(sv)} €</span>
         <button type="button" className="chip-sum press" aria-expanded={more} onClick={() => setMore(!more)}>
-          <span>{[car ? car.name : catLabel(cat), partner ? (split === 'shared' ? `partilhada${q.share !== undefined ? ` ${mp}/${100 - mp}` : ''}` : split === 'mine' ? 'minha' : `de ${partner.name}`) : '', partnerPaid ? `pagou ${partner!.name}` : '', dayLabel(spentOn), occ ? allOccs.find((o) => o.id === occ)?.name ?? '' : ''].filter(Boolean).join(' · ')}</span>
+          <span>{[refund ? 'reembolso' : '', car ? car.name : catLabel(cat), partner ? (split === 'shared' ? `partilhada${q.share !== undefined ? ` ${mp}/${100 - mp}` : ''}` : split === 'mine' ? 'minha' : `de ${partner.name}`) : '', partnerPaid ? `pagou ${partner!.name}` : '', dayLabel(spentOn), occ ? allOccs.find((o) => o.id === occ)?.name ?? '' : ''].filter(Boolean).join(' · ')}</span>
           <span className="s">{more ? 'Fechar' : 'Mudar'}</span>
         </button>
       </div> : <QuickHint q={q} partner={partner?.name} err={err} cars={garage} occs={allOccs} />}
@@ -412,7 +418,11 @@ export function ExpenseSheet() {
         <p className="s why"><span className="dot" aria-hidden="true" /><span>{entryWhy(f)}</span></p>
         {(f.kind === 'fuel' || f.kind === 'charge') && !f.odo.trim() && <label className="check s"><input type="checkbox" checked={noKm} onChange={(e) => setNoKm(e.target.checked)} /> Não sei os km agora</label>}
       </div>}
-      {sure && <BillFields c={bc} f={bf} set={setBf} amount={v ? toU(v) : 0} spent_on={spentOn} />}
+      {sure && !refund && <BillFields c={bc} f={bf} set={setBf} amount={v ? toU(v) : 0} spent_on={spentOn} />}
+      {v && (sure || more) && <div className="chips" role="group" aria-label="Despesa ou reembolso">
+        {chip(!refund, 'Despesa', () => setRefund(false))}{chip(refund, 'Reembolso', () => setRefund(true))}
+      </div>}
+      {v && refund && <p className="s why" style={{ marginTop: -8 }}><span className="dot" aria-hidden="true" /><span>Reembolso: abate {eur(toU(v))} € em {catLabel(cat)} neste mês.</span></p>}
       {v && (sure || more) && <div className="chips wrap" role="group" aria-label="Evento ou compra extraordinária">
         {chip(!occ, 'Sem evento', () => setOcc(null))}
         {allOccs.filter((o) => !o.archived || o.id === occ || oldOccs).map((o) => chip(occ === o.id, `${o.purchase ? '◆ ' : ''}${o.name}${o.archived ? ' (arquivado)' : ''}`, () => setOcc(o.id)))}
@@ -552,7 +562,7 @@ export function Cats() {
         <div className="tile card rows">{m.byCat.map(([n, v]) => (
           <div key={n} style={{ flexDirection: 'column', alignItems: 'stretch', justifyContent: 'center', gap: 8, padding: '10px 0' }}>
             <span style={{ display: 'flex', justifyContent: 'space-between' }}><span>{n}</span><span>{eur(v, 0)} €</span></span>
-            <span style={{ height: 2, background: 'var(--tile-2)', display: 'block' }}><span style={{ display: 'block', height: 2, width: `${((v / mx) * 100).toFixed(1)}%`, background: 'var(--ink)' }} /></span>
+            <span style={{ height: 2, background: 'var(--tile-2)', display: 'block' }}><span style={{ display: 'block', height: 2, width: `${((Math.max(v, 0) / mx) * 100).toFixed(1)}%`, background: 'var(--ink)' }} /></span>
           </div>
         ))}</div>
       </>}

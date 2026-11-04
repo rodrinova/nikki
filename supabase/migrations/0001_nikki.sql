@@ -1462,3 +1462,9 @@ create table if not exists nikki.device_codes (
 alter table nikki.device_codes enable row level security;
 revoke all on nikki.device_codes from anon, authenticated, public;
 grant all on nikki.device_codes to service_role;
+
+-- ───────────────────────── reembolsos ─────────────────────────
+-- Uma despesa pode ser negativa: um reembolso (um jantar da empresa que se adiantou, uma devolução). Abate na
+-- categoria e no mês em que entra, e numa partilhada mexe nas contas a dois como uma despesa com o sinal trocado.
+alter table nikki.expenses drop constraint if exists expenses_amount_check;
+alter table nikki.expenses add constraint expenses_amount_check check (amount <> 0);

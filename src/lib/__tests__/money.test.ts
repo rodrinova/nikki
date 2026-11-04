@@ -223,3 +223,23 @@ describe('monthlySeries', () => {
     expect(monthlySeries([ex('2026-10-02', '10')], 'r', '2026-10-30').avg).toBeNull();
   });
 });
+
+describe('reembolsos (valor negativo)', () => {
+  const jantar = ex({ paid_by: R, amount: '60.00', category: 'Restaurantes', spent_on: '2026-10-05' });
+  const reembolso = ex({ paid_by: R, amount: '-60.00', category: 'Restaurantes', spent_on: '2026-10-20' });
+  it('abate na categoria e no mês em que entra', () => {
+    const m = monthSpend([jantar, reembolso, ex({ paid_by: R, amount: '15.00', spent_on: '2026-10-07' })], R, '2026-10');
+    expect(m.total).toBe(toU('15.00'));
+    expect(m.byCat).toContainEqual(['Restaurantes', 0]);
+  });
+  it('numa partilhada, abate a parte de cada um e devolve o adiantado nas contas a dois', () => {
+    const gasto = ex({ paid_by: R, other_id: I, amount: '100.00', split: 'shared', payer_share: '0.500' });
+    const volta = ex({ paid_by: R, other_id: I, amount: '-40.00', split: 'shared', payer_share: '0.500' });
+    expect(partOf(volta, R)).toBe(toU('-20.00'));
+    expect(partOf(volta, I)).toBe(toU('-20.00'));
+    expect(pairBalance([gasto, volta], [], R, I)).toBe(toU('30.00'));
+  });
+  it('mostra-se com o sinal', () => {
+    expect(eur(toU('-363.72'))).toBe('−363,72');
+  });
+});
