@@ -1468,3 +1468,34 @@ grant all on nikki.device_codes to service_role;
 -- categoria e no mês em que entra, e numa partilhada mexe nas contas a dois como uma despesa com o sinal trocado.
 alter table nikki.expenses drop constraint if exists expenses_amount_check;
 alter table nikki.expenses add constraint expenses_amount_check check (amount <> 0);
+
+-- ───────────────────────── notificações: chaves e agendamento ─────────────────────────
+-- As chaves VAPID e o segredo do agendamento vivem aqui (só a chave de serviço lê): a função «push» cria as chaves
+-- na primeira volta, a app lê só a pública por rpc('push_public_key'), e o pg_cron chama a função de 15 em 15 min.
+create extension if not exists pg_net;
+create extension if not exists pg_cron;
+create table if not exists nikki.push_config (
+  id boolean primary key default true check (id),
+  vapid_public text,
+  vapid_private text,
+  cron_secret text not null default replace(gen_random_uuid()::text || gen_random_uuid()::text, '-', '')
+);
+alter table nikki.push_config enable row level security;
+revoke all on nikki.push_config from anon, authenticated, public;
+grant all on nikki.push_config to service_role;
+insert into nikki.push_config (id) values (true) on conflict (id) do nothing;
+
+create or replace function nikki.push_public_key() returns text
+language sql stable security definer set search_path = '' as $$
+  select vapid_public from nikki.push_config where id
+$$;
+revoke all on function nikki.push_public_key() from public, anon;
+grant execute on function nikki.push_public_key() to authenticated;
+
+select cron.unschedule('nikki-push') where exists (select 1 from cron.job where jobname = 'nikki-push');
+select cron.schedule('nikki-push', '*/15 * * * *', $cron$
+  select net.http_post(
+    url := 'https://imbflvhufvvjcfetljsd.supabase.co/functions/v1/push',
+    headers := jsonb_build_object('content-type', 'application/json', 'x-cron-secret', (select cron_secret from nikki.push_config where id)),
+    body := '{}'::jsonb);
+$cron$);

@@ -1,13 +1,40 @@
 // Notificações (Web Push). Chamada de 15 em 15 minutos pelo pg_cron (cabeçalho x-cron-secret): envia o resumo das
 // 8h00 a quem o tem ligado e os avisos que não esperam (o que se paga hoje ou já passou, mensagens do housekeeping),
 // cada um uma só vez (push_sent). Também aceita {test:true} da app, com a sessão, para um «Experimentar».
-// Precisa dos segredos VAPID_PUBLIC, VAPID_PRIVATE, VAPID_SUBJECT, PUSH_CRON_SECRET e TZ=Europe/Lisbon.
+// As chaves VAPID e o segredo do agendamento estão em nikki.push_config (só a chave de serviço lê): na primeira
+// volta, sem chaves, a função cria-as e guarda-as. A app lê a pública por rpc('push_public_key').
 
 import webpush from 'npm:web-push@3.6.7';
 import { admin, cors, json } from '../_shared/calendars.ts';
 import { morning, urgent, type DigestIn } from '../../../src/lib/digest.ts';
 
-webpush.setVapidDetails(Deno.env.get('VAPID_SUBJECT') ?? 'mailto:nikki@exemplo.pt', Deno.env.get('VAPID_PUBLIC')!, Deno.env.get('VAPID_PRIVATE')!);
+// As contas do resumo usam datas locais (src/lib/dates.ts) e a função corre em UTC (não se pode mudar o TZ): as
+// horas dos eventos passam para a hora de Lisboa escrita sem fuso, que lida aqui dá a hora certa.
+const wall = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Lisbon', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' });
+const lisbonLocal = (iso: string | null) => {
+  if (!iso) return iso;
+  const p = Object.fromEntries(wall.formatToParts(new Date(iso)).map((x) => [x.type, x.value]));
+  return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}:${p.second}`;
+};
+
+const SUBJECT = Deno.env.get('VAPID_SUBJECT') ?? 'https://rodrinova.github.io/nikki/';
+interface Config { vapid_public: string | null; vapid_private: string | null; cron_secret: string }
+
+/** As chaves (criadas uma vez, na primeira volta) e o segredo do pg_cron. */
+async function config(): Promise<Config> {
+  const { data, error } = await admin.from('push_config').select('vapid_public, vapid_private, cron_secret').eq('id', true).single();
+  if (error || !data) throw new Error(`push_config: ${error?.message ?? 'sem linha'}`);
+  let c = data as Config;
+  if (!c.vapid_public || !c.vapid_private) {
+    const k = webpush.generateVAPIDKeys();
+    // Só grava se ainda não houver chaves (duas voltas ao mesmo tempo ficam com as mesmas).
+    await admin.from('push_config').update({ vapid_public: k.publicKey, vapid_private: k.privateKey }).eq('id', true).is('vapid_public', null);
+    const again = await admin.from('push_config').select('vapid_public, vapid_private, cron_secret').eq('id', true).single();
+    c = again.data as Config;
+  }
+  webpush.setVapidDetails(SUBJECT, c.vapid_public!, c.vapid_private!);
+  return c;
+}
 
 interface Sub { endpoint: string; profile_id: string; household_id: string; p256dh: string; auth: string; morning: boolean }
 type Msg = { title: string; body: string; url: string };
@@ -50,12 +77,14 @@ async function houseData(h: string, today: string) {
     paid = [...(p1.data ?? []).map((r: { month: string }) => r.month), ...((p2.data ?? []) as { period_to: string }[]).map((r) => r.period_to.slice(0, 7))];
   }
   const staff = new Set(((mem.data ?? []) as { profile_id: string; role: string }[]).filter((m) => m.role === 'staff').map((m) => m.profile_id));
-  return { events: ev.data ?? [], deadlines: dl.data ?? [], chores: ch.data ?? [], todos: td.data ?? [], hk: card, paid, messages: (ms.data ?? []) as DigestIn['messages'], staff };
+  const events = ((ev.data ?? []) as { starts_at: string; ends_at: string | null }[]).map((e) => ({ ...e, starts_at: lisbonLocal(e.starts_at)!, ends_at: lisbonLocal(e.ends_at) }));
+  return { events, deadlines: dl.data ?? [], chores: ch.data ?? [], todos: td.data ?? [], hk: card, paid, messages: (ms.data ?? []) as DigestIn['messages'], staff };
 }
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: cors });
   const body = await req.json().catch(() => ({}));
+  const cfg = await config();
   // «Experimentar» a partir da app: só para os aparelhos de quem chama.
   if (body.test) {
     const jwt = (req.headers.get('authorization') ?? '').replace(/^Bearer /, '');
@@ -66,9 +95,10 @@ Deno.serve(async (req) => {
     for (const s of (data ?? []) as Sub[]) if (await send(s, { title: 'NIKKI', body: 'As notificações estão ligadas. Até amanhã às 8h00.', url: '/' })) n++;
     return json({ sent: n });
   }
-  if (req.headers.get('x-cron-secret') !== Deno.env.get('PUSH_CRON_SECRET')) return json({ error: 'não autorizado' }, 401);
+  if (req.headers.get('x-cron-secret') !== cfg.cron_secret) return json({ error: 'não autorizado' }, 401);
 
   const { day: today, hour } = lisbon();
+  if (body.check) return json({ ok: true, today, hour, tz: new Date().getTimezoneOffset(), julho: lisbonLocal('2026-07-01T18:30:00Z'), janeiro: lisbonLocal('2026-01-15T18:30:00Z') }); // para verificar a hora
   if (hour < 8 || hour >= 22) return json({ quiet: true }); // de noite não se incomoda ninguém
   const { data: subs } = await admin.from('push_subs').select('*');
   const byHouse = new Map<string, Sub[]>();
