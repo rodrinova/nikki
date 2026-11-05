@@ -75,13 +75,13 @@ function seed() {
     const c1 = uid(), c2 = uid();
     db.salvage_cars.push(
       { id: c1, owner_id: R, name: 'Golf VI 2012', brand: 'Volkswagen', plate: '12-AB-34', bought_on: addDays(today, -150), price: '2200.00', price_paid_by: 'me', hour_rate: '40', status: 'sold', sold_on: addDays(today, -70), sold_for: '4100.00', sale_to: 'me', created_at: `${addDays(today, -150)}T10:00:00Z` },
-      { id: c2, owner_id: R, name: 'Clio IV 2017', brand: 'Renault', plate: 'AA-56-CD', bought_on: addDays(today, -25), price: '3100.00', price_paid_by: 'me', hour_rate: '40', status: 'repair', sold_on: null, sold_for: null, sale_to: 'me', created_at: `${addDays(today, -25)}T10:00:00Z` },
+      { id: c2, owner_id: R, name: 'Clio IV 2017', brand: 'Renault', plate: 'AA-56-CD', bought_on: addDays(today, -25), price: '3100.00', reg_cost: '65.00', reg_paid_by: 'half', price_paid_by: 'me', hour_rate: '40', status: 'repair', sold_on: null, sold_for: null, sale_to: 'me', created_at: `${addDays(today, -25)}T10:00:00Z` },
     );
     const lg = (car: string, kind: string, d: number, amount: string | null, hours: string | null, note: string, paid_by = 'partner') =>
       db.salvage_logs.push({ id: uid(), car_id: car, kind, on_date: addDays(today, -d), amount, hours, note, paid_by, by_link: paid_by === 'partner', created_at: `${addDays(today, -d)}T18:00:00Z` });
     lg(c1, 'part', 140, '380.00', null, 'Farol e para-choques'); lg(c1, 'hours', 138, null, '6', 'Chapa'); lg(c1, 'part', 130, '210.00', null, 'Pneus', 'me'); db.salvage_logs.push({ id: uid(), car_id: c1, kind: 'transfer', on_date: addDays(today, -125), amount: '190.00', hours: null, note: null, paid_by: 'me', by_link: false, created_at: `${addDays(today, -125)}T18:00:00Z` }); lg(c1, 'hours', 120, null, '8', 'Pintura');
     lg(c2, 'part', 20, '450.00', null, 'Capô'); lg(c2, 'hours', 18, null, '5', 'Desmontar'); lg(c2, 'hours', 6, null, '3', 'Alinhar');
-    db.salvage_links.push({ token: 'demo-pedro', owner_id: R, partner_name: 'Pedro', created_at: ago(20), revoked_at: null });
+    db.salvage_links.push({ token: 'k7m2px', owner_id: R, partner_name: 'Pedro', created_at: ago(20), revoked_at: null });
   }
   // Património de exemplo: fundos (um deles num ETF, que não conta como maneio), investimentos e a casa própria.
   const asset = (name: string, kind: string, owner: string | null, value: number, ret: number, role: string | null = null) => {
@@ -433,8 +433,8 @@ export function createDemoClient() {
           ...(this.t === 'todos' ? { owner_id: null, due_on: null, done_at: null, done_by: null, created_by: me } : {}),
           ...(this.t === 'chore_logs' ? { expense_id: null, note: null } : {}),
           ...(['salvage_cars', 'salvage_links', 'salvage_settings'].includes(this.t) ? { owner_id: me } : {}),
-          ...(this.t === 'salvage_cars' ? { price_me: null, brand: null, plate: null, status: 'repair', sold_on: null, sold_for: null, sale_to: 'me', hour_rate: '40' } : {}),
-          ...(this.t === 'salvage_logs' ? { by_link: false, note: null, hours: null, amount: null } : {}),
+          ...(this.t === 'salvage_cars' ? { price_me: null, brand: null, plate: null, reg_cost: null, reg_paid_by: 'half', status: 'repair', sold_on: null, sold_for: null, sale_to: 'me', hour_rate: '40' } : {}),
+          ...(this.t === 'salvage_logs' ? { by_link: false, note: null, hours: null, amount: null, removed_at: null } : {}),
           ...(this.t === 'salvage_links' ? { token: uid().replace(/-/g, ''), revoked_at: null, partner_name: 'Pedro' } : {}),
           // Como o gatilho da base: com fonte de rendimento, quem recebeu e o tipo vêm da fonte.
           ...(this.t === 'income_entries' ? (() => { const src = p.income_id ? db.incomes.find((i: Row) => i.id === p.income_id) : null;
@@ -612,23 +612,48 @@ export function createDemoClient() {
         for (const x of db.income_entries) if (x.household_id === args.h && x.received_on >= args.since && ['reembolso', 'acerto'].includes(x.kind) && !['Future Me', 'Prendas'].includes(x.category) && !x.occasion_id) by.set(x.received_on.slice(0, 7), (by.get(x.received_on.slice(0, 7)) ?? 0) - Number(x.amount));
         return { data: [...by].sort().map(([month, total]) => ({ month, total: total.toFixed(2) })), error: null };
       }
-      if (name === 'salvage_link_view' || name === 'salvage_link_add' || name === 'salvage_link_remove') {
-        // Como as funções da base: pela ligação, sem conta.
+      if (name === 'salvage_link_view' || name === 'salvage_link_do') {
+        // Como as funções da base: pela ligação, sem conta; o sócio vê e muda tudo o mesmo (do lado do dono).
         const l = db.salvage_links.find((x) => x.token === args.t && !x.revoked_at);
         if (name === 'salvage_link_view') {
           if (!l) return { data: null, error: null };
           const cars = db.salvage_cars.filter((c) => c.owner_id === l.owner_id).sort((a, b) => (a.bought_on < b.bought_on ? 1 : -1))
-            .map((c) => ({ ...c, logs: db.salvage_logs.filter((g) => g.car_id === c.id).sort((a, b) => (a.on_date < b.on_date ? 1 : -1)) }));
-          return { data: { partner: l.partner_name, cars }, error: null };
+            .map(({ owner_id: _o, ...c }) => ({ ...c, logs: db.salvage_logs.filter((g) => g.car_id === c.id && !g.removed_at).sort((a, b) => (a.on_date < b.on_date ? 1 : -1)) }));
+          const owner = db.profiles.find((p) => p.id === l.owner_id)?.name ?? null;
+          const rate = db.salvage_settings.find((x) => x.owner_id === l.owner_id)?.hour_rate ?? '40';
+          return { data: { partner: l.partner_name, owner, rate, cars }, error: null };
         }
         if (!l) return err('ligação inválida');
-        if (name === 'salvage_link_add') {
+        const a = args.a ?? {};
+        const own = (id: string) => db.salvage_cars.find((c) => c.id === id && c.owner_id === l.owner_id);
+        if (args.op === 'car_add') {
           const id = uid();
-          db.salvage_logs.push({ id, car_id: args.car, kind: args.k, amount: args.k === 'part' ? String(args.amt) : null, hours: args.k === 'hours' ? String(args.hrs) : null, note: args.nt || null, paid_by: 'partner', by_link: true, on_date: args.d ?? todayStr(), created_at: new Date().toISOString() });
+          db.salvage_cars.push({ id, owner_id: l.owner_id, name: a.name, brand: a.brand ?? null, plate: a.plate ?? null, bought_on: a.bought_on ?? todayStr(), price: String(a.price), price_me: a.price_me ?? null, price_paid_by: a.price_paid_by ?? 'me', hour_rate: String(a.hour_rate ?? 40), reg_cost: a.reg_cost ?? null, reg_paid_by: a.reg_paid_by ?? 'half', status: 'repair', sold_on: null, sold_for: null, sale_to: 'me', created_at: new Date().toISOString() });
           return { data: id, error: null };
         }
-        db.salvage_logs = db.salvage_logs.filter((g) => !(g.id === args.log && g.by_link));
-        return { data: null, error: null };
+        if (args.op === 'car_set') {
+          const c = own(a.id); if (!c) return err('não encontrado');
+          const { id: _i, ...patch } = a; Object.assign(c, patch);
+          return { data: c.id, error: null };
+        }
+        if (args.op === 'log_add') {
+          if (!own(a.car_id)) return err('carro não encontrado');
+          const id = uid();
+          db.salvage_logs.push({ id, car_id: a.car_id, kind: a.kind, amount: a.amount ?? null, hours: a.hours === null || a.hours === undefined ? null : String(a.hours), note: a.note || null, paid_by: a.paid_by ?? 'partner', by_link: true, on_date: a.on_date ?? todayStr(), removed_at: null, created_at: new Date().toISOString() });
+          return { data: id, error: null };
+        }
+        if (args.op === 'log_remove') {
+          const g = db.salvage_logs.find((x) => x.id === a.id && own(x.car_id)); if (!g) return err('não encontrado');
+          g.removed_at = new Date().toISOString();
+          return { data: g.id, error: null };
+        }
+        if (args.op === 'rate_set') {
+          const st = db.salvage_settings.find((x) => x.owner_id === l.owner_id);
+          if (st) st.hour_rate = String(a.hour_rate); else db.salvage_settings.push({ owner_id: l.owner_id, partner_name: l.partner_name, hour_rate: String(a.hour_rate) });
+          for (const c of db.salvage_cars) if (c.owner_id === l.owner_id && c.status !== 'sold') c.hour_rate = String(a.hour_rate);
+          return { data: l.owner_id, error: null };
+        }
+        return err('operação desconhecida');
       }
       if (name === 'occasion_totals') {
         // Só os totais de cada evento, com as «só minhas» de cada um (como a função da base).

@@ -621,6 +621,17 @@ do $$ declare t text := (select token from _tok); v jsonb; c uuid; begin
   perform nikki.salvage_link_add(t, c, 'hours', null, 3, 'Chapa', null);
   perform nikki.salvage_link_add(t, c, 'part', 120.5, null, 'Farol', null);
   assert jsonb_array_length(nikki.salvage_link_view(t)->'cars'->0->'logs') = 2, 'registou horas e uma peça';
+  perform nikki.salvage_link_do(t, 'log_add', jsonb_build_object('car_id', c, 'kind', 'transfer', 'amount', 50, 'paid_by', 'partner', 'on_date', '2026-01-02'));
+  perform nikki.salvage_link_do(t, 'car_set', jsonb_build_object('id', c, 'plate', 'AA-00-BB', 'reg_cost', 120));
+  perform nikki.salvage_link_do(t, 'car_add', jsonb_build_object('name', 'Niro', 'brand', 'Kia', 'price', 4000));
+  v := nikki.salvage_link_view(t);
+  assert jsonb_array_length(v->'cars') = 2, 'o sócio cria carros';
+  assert (select count(*) from jsonb_array_elements(v->'cars') e where e->>'plate' = 'AA-00-BB' and (e->>'reg_cost')::numeric = 120) = 1, 'o sócio muda o carro';
+  perform nikki.salvage_link_do(t, 'log_remove', jsonb_build_object('id', (select e->'logs'->0->>'id' from jsonb_array_elements(v->'cars') e where e->>'id' = c::text)));
+  assert (select jsonb_array_length(e->'logs') from jsonb_array_elements(nikki.salvage_link_view(t)->'cars') e where e->>'id' = c::text) = 2, 'o sócio tira um registo';
+  assert length(t) = 6, 'ligação curta';
+  begin perform nikki.salvage_link_do('errado', 'car_add', '{"name":"X","price":1}'); raise exception 'devia falhar';
+  exception when raise_exception then null; end;
   assert nikki.salvage_link_view('errado') is null, 'ligação errada não vê nada';
   begin perform nikki.salvage_link_add('errado', c, 'hours', null, 1, null, null); raise exception 'devia falhar';
   exception when raise_exception then null; end;

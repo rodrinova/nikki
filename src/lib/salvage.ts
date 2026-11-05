@@ -11,10 +11,12 @@ import { toU } from './money';
 
 export type Who = 'me' | 'partner';
 export type SalvageStatus = 'repair' | 'selling' | 'sold';
-export interface SalvageLog { id: string; kind: 'part' | 'hours' | 'transfer'; on_date: string; amount: number | string | null; hours: number | string | null; note: string | null; paid_by: Who; by_link?: boolean }
+export interface SalvageLog { id: string; kind: 'part' | 'hours' | 'transfer'; on_date: string; amount: number | string | null; hours: number | string | null; note: string | null; paid_by: Who; by_link?: boolean; removed_at?: string | null }
+export type RegWho = Who | 'half';
 export interface SalvageCar {
   id: string; name: string; brand?: string | null; plate?: string | null; bought_on: string; price: number | string; price_me?: number | string | null; price_paid_by: Who; hour_rate: number | string;
   status: SalvageStatus; sold_on: string | null; sold_for: number | string | null; sale_to: Who; logs: SalvageLog[];
+  reg_cost?: number | string | null; reg_paid_by?: RegWho;
 }
 
 const DAY = 86_400_000;
@@ -26,9 +28,14 @@ export function carNumbers(c: SalvageCar, today: string) {
   const sum = (k: SalvageLog['kind'], who?: Who) => c.logs.filter((l) => l.kind === k && (!who || l.paid_by === who)).reduce((t, l) => t + toU(l.amount ?? 0), 0);
   const partsMe = sum('part', 'me'), partsPartner = sum('part', 'partner');
   const sentMe = sum('transfer', 'me'), sentPartner = sum('transfer', 'partner');
-  const hours = c.logs.filter((l) => l.kind === 'hours').reduce((t, l) => t + Number(l.hours ?? 0), 0);
+  const hrs = (who: Who) => c.logs.filter((l) => l.kind === 'hours' && l.paid_by === who).reduce((t, l) => t + Number(l.hours ?? 0), 0);
+  // As horas são de quem trabalhou (paid_by): do mecânico, na vista do dono; do próprio, na vista do mecânico.
+  const hoursPartner = hrs('partner'), hoursMe = hrs('me'), hours = hoursPartner + hoursMe;
   const labor = Math.round(hours * rate), halfLabor = Math.round(labor / 2);
-  const cost = price + partsMe + partsPartner + labor;
+  // O registo do carro (na compra): a meias por omissão, ou todo de um.
+  const reg = toU(c.reg_cost ?? 0), regWho = c.reg_paid_by ?? 'half';
+  const regMe = regWho === 'half' ? Math.round(reg / 2) : regWho === 'me' ? reg : 0;
+  const cost = price + reg + partsMe + partsPartner + labor;
   const sold = c.status === 'sold' && c.sold_for !== null && c.sold_on !== null;
   const sale = sold ? toU(c.sold_for!) : null;
   const profit = sale === null ? null : sale - cost;
@@ -39,12 +46,13 @@ export function carNumbers(c: SalvageCar, today: string) {
   const fromPrice = Math.round(price / 2) - priceMe;
   const fromParts = Math.round((partsPartner - partsMe) / 2);
   const fromTransfers = sentPartner - sentMe;
-  const fromHours = halfLabor;
+  const fromHours = Math.round((hoursPartner - hoursMe) * rate / 2);
+  const fromReg = Math.round(reg / 2) - regMe;
   const fromSale = sale === null ? 0 : (c.sale_to === 'me' ? 1 : -1) * Math.round(sale / 2);
-  const owe = fromPrice + fromParts + fromTransfers + fromHours + fromSale;
+  const owe = fromPrice + fromReg + fromParts + fromTransfers + fromHours + fromSale;
   // O dinheiro do dono dentro do carro (para o Património, antes da venda): a sua metade dos custos em dinheiro.
-  const moneyMe = priceMe + partsMe + sentMe - sentPartner;
-  return { price, priceMe, partsMe, partsPartner, sentMe, sentPartner, hours, labor, halfLabor, cost, sale, profit, roi, annual, days: span, owe, parts: { fromPrice, fromParts, fromTransfers, fromHours, fromSale }, moneyMe };
+  const moneyMe = priceMe + regMe + partsMe + sentMe - sentPartner;
+  return { price, priceMe, reg, regMe, partsMe, partsPartner, sentMe, sentPartner, hours, labor, halfLabor, cost, sale, profit, roi, annual, days: span, owe, parts: { fromPrice, fromReg, fromParts, fromTransfers, fromHours, fromSale }, moneyMe };
 }
 
 export function totals(cars: SalvageCar[], today: string) {
@@ -61,4 +69,30 @@ export function totals(cars: SalvageCar[], today: string) {
   const myProfit = sold.reduce((t, v) => t + Math.round(v.x.profit! / 2), 0);
   const owe = n.reduce((t, v) => t + v.x.owe, 0); // a conta corrente de todos os carros
   return { profit, myProfit, roi, annual, avgDays: Math.round(avgDays), invested, sold: sold.length, open: open.length, owe };
+}
+
+const other = (w: Who): Who => (w === 'me' ? 'partner' : 'me');
+/**
+ * O mesmo carro visto pelo sócio: os dados guardam-se do lado do dono («me» = o dono); na página do mecânico
+ * troca-se quem pagou, quem recebeu e quanto pagou cada um da compra, e as contas saem certas para ele.
+ */
+export function flipCar(c: SalvageCar): SalvageCar {
+  return {
+    ...c,
+    price_me: c.price_me === null || c.price_me === undefined ? c.price_me : String(Math.round((Number(c.price) - Number(c.price_me)) * 100) / 100),
+    price_paid_by: other(c.price_paid_by), sale_to: other(c.sale_to),
+    reg_paid_by: !c.reg_paid_by || c.reg_paid_by === 'half' ? c.reg_paid_by : other(c.reg_paid_by),
+    logs: c.logs.map((l) => ({ ...l, paid_by: other(l.paid_by) })),
+  };
+}
+/** Troca o lado de um pedaço de carro ou de registo (o que se grava a partir da página do sócio). */
+export function flipPatch<T extends Record<string, unknown>>(p: T, price?: number | string): T {
+  const o: Record<string, unknown> = { ...p };
+  for (const k of ['paid_by', 'price_paid_by', 'sale_to'] as const) if (o[k] === 'me' || o[k] === 'partner') o[k] = other(o[k] as Who);
+  if (o.reg_paid_by === 'me' || o.reg_paid_by === 'partner') o.reg_paid_by = other(o.reg_paid_by as Who);
+  if ('price_me' in o && o.price_me !== null && o.price_me !== undefined) {
+    const total = Number(o.price ?? price ?? 0);
+    o.price_me = String(Math.round((total - Number(o.price_me)) * 100) / 100);
+  }
+  return o as T;
 }

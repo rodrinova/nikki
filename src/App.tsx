@@ -138,8 +138,8 @@ function Shell() {
   useEffect(() => { scrollTo(0, 0); if (pathname !== '/melhorar' && pathname !== '/perfil') lastPlace.path = pathname; }, [pathname]);
 
   // A página do mecânico (salvados): abre só com a ligação, com ou sem sessão, e não mostra mais nada da NIKKI.
-  if (pathname.startsWith('/s/')) return (
-    <div className="app"><main className="screen"><Suspense fallback={<Loading page />}><Routes><Route path="/s/:token" element={<SalvageLinkPage />} /></Routes></Suspense></main><SheetHost /></div>
+  if (pathname.startsWith('/s/') || pathname.startsWith('/p/')) return (
+    <div className="app"><main className="screen"><Suspense fallback={<Loading page />}><Routes><Route path="/s/:token" element={<SalvageLinkPage />} /><Route path="/p/:code" element={<SalvageLinkPage />} /><Route path="/p/:code/:id" element={<SalvageLinkPage />} /></Routes></Suspense></main><SheetHost /></div>
   );
   if (!ready) return <Loading page />;
   if (!session) return (
@@ -265,7 +265,7 @@ function BrandDefs() {
 export default function App() {
   const [intro, endIntro] = useIntro();
   return (
-    <Router basename={DEMO ? undefined : import.meta.env.BASE_URL.replace(/\/$/, '') || undefined}>
+    <Router basename={DEMO ? undefined : import.meta.env.BASE_URL.replace(/\/$/, '') || undefined} {...(DEMO && location.hash.startsWith('#/') ? { initialEntries: [location.hash.slice(1)] } : {})}>
       <BrandDefs />
       {intro && <Intro onDone={endIntro} />}
       <OverlayProvider>
