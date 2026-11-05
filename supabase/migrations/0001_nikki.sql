@@ -1771,3 +1771,21 @@ begin
     returning id into i;
   return i;
 end $$;
+
+-- ───────────────────────── salvados: marca e matrícula ─────────────────────────
+-- name fica com o modelo («Golf VI 2012»); a marca e a matrícula são opcionais.
+alter table nikki.salvage_cars add column if not exists brand text check (length(brand) <= 30);
+alter table nikki.salvage_cars add column if not exists plate text check (length(plate) <= 12);
+create or replace function nikki.salvage_link_view(t text) returns jsonb
+language sql stable security definer set search_path = '' as $$
+  select jsonb_build_object(
+    'partner', l.partner_name,
+    'cars', coalesce((select jsonb_agg(jsonb_build_object(
+        'id', c.id, 'name', c.name, 'brand', c.brand, 'plate', c.plate, 'bought_on', c.bought_on, 'price', c.price, 'price_me', c.price_me, 'price_paid_by', c.price_paid_by,
+        'hour_rate', c.hour_rate, 'status', c.status, 'sold_on', c.sold_on, 'sold_for', c.sold_for, 'sale_to', c.sale_to,
+        'logs', coalesce((select jsonb_agg(jsonb_build_object('id', g.id, 'kind', g.kind, 'on_date', g.on_date, 'amount', g.amount,
+                    'hours', g.hours, 'note', g.note, 'paid_by', g.paid_by, 'by_link', g.by_link) order by g.on_date desc, g.created_at desc)
+                  from nikki.salvage_logs g where g.car_id = c.id), '[]'::jsonb)) order by c.bought_on desc)
+      from nikki.salvage_cars c where c.owner_id = l.owner_id), '[]'::jsonb))
+  from nikki.salvage_links l where l.token = t and l.revoked_at is null;
+$$;

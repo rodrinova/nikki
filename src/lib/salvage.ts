@@ -13,7 +13,7 @@ export type Who = 'me' | 'partner';
 export type SalvageStatus = 'repair' | 'selling' | 'sold';
 export interface SalvageLog { id: string; kind: 'part' | 'hours' | 'transfer'; on_date: string; amount: number | string | null; hours: number | string | null; note: string | null; paid_by: Who; by_link?: boolean }
 export interface SalvageCar {
-  id: string; name: string; bought_on: string; price: number | string; price_me?: number | string | null; price_paid_by: Who; hour_rate: number | string;
+  id: string; name: string; brand?: string | null; plate?: string | null; bought_on: string; price: number | string; price_me?: number | string | null; price_paid_by: Who; hour_rate: number | string;
   status: SalvageStatus; sold_on: string | null; sold_for: number | string | null; sale_to: Who; logs: SalvageLog[];
 }
 

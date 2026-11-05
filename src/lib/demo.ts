@@ -74,8 +74,8 @@ function seed() {
   {
     const c1 = uid(), c2 = uid();
     db.salvage_cars.push(
-      { id: c1, owner_id: R, name: 'Golf VI 2012', bought_on: addDays(today, -150), price: '2200.00', price_paid_by: 'me', hour_rate: '40', status: 'sold', sold_on: addDays(today, -70), sold_for: '4100.00', sale_to: 'me', created_at: `${addDays(today, -150)}T10:00:00Z` },
-      { id: c2, owner_id: R, name: 'Clio IV 2017', bought_on: addDays(today, -25), price: '3100.00', price_paid_by: 'me', hour_rate: '40', status: 'repair', sold_on: null, sold_for: null, sale_to: 'me', created_at: `${addDays(today, -25)}T10:00:00Z` },
+      { id: c1, owner_id: R, name: 'Golf VI 2012', brand: 'Volkswagen', plate: '12-AB-34', bought_on: addDays(today, -150), price: '2200.00', price_paid_by: 'me', hour_rate: '40', status: 'sold', sold_on: addDays(today, -70), sold_for: '4100.00', sale_to: 'me', created_at: `${addDays(today, -150)}T10:00:00Z` },
+      { id: c2, owner_id: R, name: 'Clio IV 2017', brand: 'Renault', plate: 'AA-56-CD', bought_on: addDays(today, -25), price: '3100.00', price_paid_by: 'me', hour_rate: '40', status: 'repair', sold_on: null, sold_for: null, sale_to: 'me', created_at: `${addDays(today, -25)}T10:00:00Z` },
     );
     const lg = (car: string, kind: string, d: number, amount: string | null, hours: string | null, note: string, paid_by = 'partner') =>
       db.salvage_logs.push({ id: uid(), car_id: car, kind, on_date: addDays(today, -d), amount, hours, note, paid_by, by_link: paid_by === 'partner', created_at: `${addDays(today, -d)}T18:00:00Z` });
@@ -433,7 +433,7 @@ export function createDemoClient() {
           ...(this.t === 'todos' ? { owner_id: null, due_on: null, done_at: null, done_by: null, created_by: me } : {}),
           ...(this.t === 'chore_logs' ? { expense_id: null, note: null } : {}),
           ...(['salvage_cars', 'salvage_links', 'salvage_settings'].includes(this.t) ? { owner_id: me } : {}),
-          ...(this.t === 'salvage_cars' ? { price_me: null, status: 'repair', sold_on: null, sold_for: null, sale_to: 'me', hour_rate: '40' } : {}),
+          ...(this.t === 'salvage_cars' ? { price_me: null, brand: null, plate: null, status: 'repair', sold_on: null, sold_for: null, sale_to: 'me', hour_rate: '40' } : {}),
           ...(this.t === 'salvage_logs' ? { by_link: false, note: null, hours: null, amount: null } : {}),
           ...(this.t === 'salvage_links' ? { token: uid().replace(/-/g, ''), revoked_at: null, partner_name: 'Pedro' } : {}),
           // Como o gatilho da base: com fonte de rendimento, quem recebeu e o tipo vêm da fonte.
