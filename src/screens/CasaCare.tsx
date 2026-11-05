@@ -12,6 +12,7 @@ import { invoiceText } from '@/lib/ocr';
 import { Shot, rid, shrink } from './Tickets';
 import { Loading, later } from '@/ui/lazy';
 const Scanner = later(() => import('@/ui/Scanner'), 'Scanner');
+import { Hint } from './Home';
 import { MaintDoneSheet, useChoreDone } from './Today';
 
 // Casa, fase 2: tarefas que se repetem (de alguém, à vez ou de quem pegar), manutenção (com sugestões) e garantias
@@ -145,7 +146,7 @@ function SuggestSheet({ home }: { home: string | null }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       <p className="l">Manutenção da casa</p>
-      <p className="s">Escolhe as que se aplicam. Podes mudar as datas e a frequência depois.</p>
+      <p className="s">Escolhe as que se aplicam.</p>
       <div className="tile card setup">{MAINTENANCE.map((s) => {
         const done = have.has(s.title), on = pick.has(s.key);
         return (
@@ -178,7 +179,7 @@ export function WarrantiesSection({ home, homeOf }: { home: string | null; homeO
           <span className="st2"><span>{w.item}</span><span className="s">{w.store ? `${w.store} · ` : ''}{s.state === 'ended' ? `acabou a ${dt(s.end)}` : <span className={s.state === 'soon' ? 'warn' : ''}>até {dt(s.end)}{s.state === 'soon' ? ` · faltam ${s.days} dias` : ''}</span>}</span></span>
           {w.receipt_path ? <Icon n="doc" s={16} /> : null}
         </button>
-      ))}</div> : <p className="s">Tira uma foto ao talão quando comprares um eletrodoméstico: a NIKKI guarda-o e avisa antes de a garantia acabar. Em Portugal são 3 anos. A gaveta dos talões pode reformar-se.</p>}
+      ))}</div> : <Hint>Tira uma foto ao talão quando comprares um eletrodoméstico: a NIKKI guarda-o e avisa antes de a garantia acabar. Em Portugal são 3 anos. A gaveta dos talões pode reformar-se.</Hint>}
     </section>
   );
 }

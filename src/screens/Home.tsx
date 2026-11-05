@@ -26,6 +26,7 @@ import { fmt, nextCheck, summary } from '@/lib/gym';
 import { useAgendaItems } from '@/data/agenda';
 import { AgendaPane } from './Agenda';
 import { warrantyState } from '@/lib/chores';
+import { CountUp } from '@/ui/CountUp';
 import { useWealth } from '@/data/wealth';
 
 export function Top({ title, right }: { title: string; right?: ReactNode }) {
@@ -46,7 +47,10 @@ export function useSeen(k: string) {
   useEffect(() => { store.set(key, String(n + 1)); }, [key, n]);
   return n;
 }
-export const Hint = ({ show, children }: { show: boolean; children: ReactNode }) => (show ? <p className="hint">{children}</p> : null);
+/** Uma explicação que não precisa de estar sempre à vista: um «?» discreto que abre ao tocar. */
+export const Hint = ({ children }: { show?: boolean; children: ReactNode }) => (
+  <details className="hint"><summary aria-label="Saber mais"><span aria-hidden="true">?</span></summary><p className="s">{children}</p></details>
+);
 
 const hello = () => { const h = new Date().getHours(); return h >= 6 && h < 12 ? 'Bom dia' : h < 20 && h >= 12 ? 'Boa tarde' : 'Boa noite'; };
 
@@ -183,6 +187,9 @@ function Now() {
   );
 }
 
+/** O calor do brilho pelo ritmo do mês: mais quente quando vai acima do habitual, mais frio abaixo (0 a 1). */
+export const heat = (p: { fresh?: boolean; pct?: number }) => (p.fresh || p.pct === undefined ? 0.5 : Math.max(0, Math.min(1, 0.5 + p.pct / 100)));
+
 /** Dinheiro numa frase: o mês comparado com o habitual e, a dois, como estão entre vocês. */
 function MoneyLine() {
   const { partner } = useSession();
@@ -190,9 +197,11 @@ function MoneyLine() {
   const pace = m.pace.fresh ? '' : `, ${Math.abs(m.pace.pct)}% ${m.pace.pct >= 0 ? 'acima' : 'abaixo'} do habitual`;
   const us = partner && L ? (L.even ? 'Entre nós: estão quites.' : L.v > 0 ? `Entre nós: adiantaste ${eur(Math.abs(L.v))} € a mais.` : `Entre nós: ${partner.name} adiantou ${eur(Math.abs(L.v))} € a mais.`) : '';
   return (
-    <Link className="tile money-line press" to="/dinheiro">
-      <span className="st2"><span>{cap1(monthName(m.key))}{partner ? ', a tua parte' : ''}: {eur(m.total, 0)} €{pace}.</span>{us && <span className="s">{us}</span>}</span>
-      <Icon n="chev" s={16} />
+    <Link className="tile money-line hero press" style={{ ['--heat' as any]: heat(m.pace) }} to="/dinheiro" aria-label={`${cap1(monthName(m.key))}${partner ? ', a tua parte' : ''}: ${eur(m.total, 0)} €${pace}. ${us}`}>
+      <span className="hero-top"><span className="s">{cap1(monthName(m.key))}{partner ? ' · a tua parte' : ''}</span><span className="ic" aria-hidden="true"><Icon n="chev" s={16} /></span></span>
+      <span className="hero-n"><CountUp to={m.total} fmt={(v) => eur(v, 0)} /><small>€</small></span>
+      {!m.pace.fresh && <span className="pill">{m.pace.pct >= 0 ? '↗' : '↘'} {m.pace.pct === 0 ? 'no ritmo habitual' : `${Math.abs(m.pace.pct)}% ${m.pace.pct > 0 ? 'acima' : 'abaixo'} do habitual`}</span>}
+      {us && <span className="s">{us}</span>}
     </Link>
   );
 }
@@ -257,11 +266,12 @@ export function Hub() {
   const { me } = useSession();
   return (
     <>
-      <p className="l" style={{ paddingTop: 8 }}>{hello()}, {me?.name}.</p>
-      <AgendaPane />
-      <Now />
-      <MoneyLine />
-      <GoalLine />
+      <p className="l hello" style={{ paddingTop: 8 }}>{hello()}, {me?.name}.</p>
+      {/* Em ecrãs largos, uma grelha: a agenda ao lado do dinheiro e dos avisos. */}
+      <div className="hub">
+        <div className="hub-a"><AgendaPane /></div>
+        <div className="hub-b"><MoneyLine /><Now /><GoalLine /></div>
+      </div>
       <MonthClose />
       <FirstSteps />
     </>
@@ -291,7 +301,7 @@ function MonthClose() {
       foot={`${partner ? 'A tua parte' : 'Total'} em ${name} · ${eur(c.total, 0)} €`}
       how={c.normal
         ? <How><p className="s">{eur(c.total)} € em {name} ÷ {eur(c.normal)} € do teu normal = {(c.total / c.normal).toFixed(2).replace('.', ',')}.</p><p className="s">O teu normal é a média do dia a dia nos 12 meses completos antes de {name}. Os eventos ficam de fora.</p></How>
-        : <p className="s">A partir de agora, cada mês mede-se contra o teu normal. Sem sermões.</p>}
+        : <p className="s">Daqui para a frente, cada mês compara-se com o teu normal.</p>}
       share={`${cap(name)} fechou: ${band.toLowerCase()}. Contas feitas na NIKKI.`}
       onClose={done}
     />

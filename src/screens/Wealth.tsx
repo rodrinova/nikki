@@ -14,7 +14,7 @@ import { useZoom } from '@/ui/zoom';
 import { ZoomHint } from '@/ui/ZoomHint';
 import { shortDate } from '@/lib/admin';
 import { KINDS, LEVELS, MILESTONES, WHERE, celebrate, entriesByMonth, fundCheck, liqOf, nextBadge, sourceMonthly, vacationUntil, type AssetKind, type FundRole } from '@/lib/wealth';
-import { Top } from './Home';
+import { Top, Hint } from './Home';
 
 // Património: a saúde financeira da família e quantos meses vive do que tem. Regras em docs/CALCULOS.md, secção 6.
 
@@ -60,7 +60,7 @@ export function Wealth() {
         <div className="wbar"><span className="s">Rendimentos {w.casa ? 'da casa' : 'teus'}</span><button className="tb press" onClick={() => open(<IncomeSheet />)}>Juntar</button></div>
         <Incomes w={w} />
       </section>
-      <p className="s">Os valores e os retornos são os que indicam. A NIKKI faz contas simples; não é o vosso gestor de conta (nem cobra comissões).</p>
+      <Hint>Os valores e os retornos são os que indicam. A NIKKI faz contas simples; não é o vosso gestor de conta (nem cobra comissões).</Hint>
     </>
   );
 }
@@ -211,7 +211,7 @@ function Free({ w }: { w: W }) {
   if (!w.spend) return (
     <section className="tile pane" aria-label="Meses livres" style={{ minHeight: 0 }}>
       <span className="s">Meses do ano que os investimentos pagam</span>
-      <p className="s" style={{ fontSize: 'var(--t-m)' }}>Conta-se ao primeiro mês completo de despesas. Spoiler: é a parte mais gira.</p>
+      <p className="s" style={{ fontSize: 'var(--t-m)' }}>Aparece ao primeiro mês completo de despesas.</p>
     </section>
   );
   const today = todayStr(), v = vacationUntil(w.fm, Number(today.slice(0, 4)));
@@ -306,14 +306,14 @@ function Plan({ w }: { w: W }) {
       <div><span className="k">Sai, em média</span><span className="v">− {money(w.spend.avg)}</span></div>
       <div><span>Sobra</span><span className="v">{money(Math.max(0, sv.surplus))}</span></div>
       {sv.surplus <= 0
-        ? <div><span className="s">Por agora não sobra: sai, em média, mais do que entra. O primeiro passo está na despesa, não no banco.</span></div>
+        ? <div><span className="s">Por agora sai mais do que entra. O primeiro passo está na despesa.</span></div>
         : rows.map(([l, v, role]) => (
           <div key={l} className={v > 0 ? 'go' : 'idle'}>
             <span className="k">{l}</span>
             <span className="v">{v > 0 ? money(v) : !role ? '—' : (role === 'emergency' ? (w.emergencyTarget ?? 0) > w.emergency.value : w.cushionTarget > w.cushion.value) ? 'a seguir' : 'completo'}{v > 0 && role && <button className="tb press" onClick={() => open(<PutSheet role={role} amount={v} w={w} />)}>Já pus</button>}</span>
           </div>
         ))}
-      <div><How><p className="s">Entra: cada rendimento × as vezes por ano ÷ 12 (o salário vem 14 vezes). Sai: a despesa média dos meses completos.</p><p className="s">O que sobra enche primeiro o fundo de emergência, depois o dos imprevistos. Com os dois cheios, investe-se. É esta a ordem que deixa dormir.</p></How></div>
+      <div><How><Hint>Entra: cada rendimento × as vezes por ano ÷ 12 (o salário vem 14 vezes). Sai: a despesa média dos meses completos.</Hint><Hint>O que sobra enche primeiro o fundo de emergência, depois o dos imprevistos. Com os dois cheios, investe-se. É esta a ordem que deixa dormir.</Hint></How></div>
     </section>
   );
 }
@@ -425,7 +425,7 @@ function Incomes({ w }: { w: W }) {
   const { open } = useOverlays();
   const { members } = useSession();
   const { incomeEntries } = useHouse();
-  if (!w.incomeRows.length) return <p className="s">O que entra, líquido: salário, subsídio de alimentação, extras. Com isto a NIKKI diz quanto fica e para onde vai.</p>;
+  if (!w.incomeRows.length) return <Hint>O que entra, líquido: salário, subsídio de alimentação, extras. Com isto a NIKKI diz quanto fica e para onde vai.</Hint>;
   const today = todayStr();
   const entries = incomeEntries.rows.map((e) => ({ ...e, amount: toU(e.amount) }));
   return (
@@ -550,7 +550,7 @@ function AssetSheet({ asset, role: presetRole }: { asset?: AssetRow & { value?: 
           <label>No dia<input type="date" value={on} max={todayStr()} onChange={(e) => setOn(e.target.value)} /></label>
         </div>
         {liq !== 'out' && <label>Retorno estimado (%/ano)<input inputMode="decimal" value={ret} onChange={(e) => setRet(e.target.value)} /></label>}
-        {liq === 'out' ? <p className="s">Fica registado, mas fora das contas: é para viver, não para pagar o supermercado.</p> : partner && owner === partner.id ? <p className="s">É de {partner.name}: só {partner.name} pode escolher se é um fundo. Nos teus fundos entra só o que é teu ou dos dois.</p> : <>
+        {liq === 'out' ? <Hint>Fica registado, mas fora das contas: é para viver, não para pagar o supermercado.</Hint> : partner && owner === partner.id ? <p className="s">É de {partner.name}: só {partner.name} pode escolher se é um fundo. Nos teus fundos entra só o que é teu ou dos dois.</p> : <>
           <div className="seg" role="group" aria-label="Papel">
             <button type="button" className="press" aria-pressed={role === null} onClick={() => setRole(null)}>Investimento</button>
             <button type="button" className="press" aria-pressed={role === 'emergency'} onClick={() => setRole('emergency')}>Emergência</button>
@@ -661,7 +661,7 @@ function IncomeSheet({ income }: { income?: IncomeRow }) {
           <label>Valor líquido de cada pagamento (€)<input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0,00" /></label>
           <div className="chips" role="group" aria-label="Vezes por ano">{[14, 13, 12, 11].map((n) => <button key={n} type="button" className="press" aria-pressed={times === n} onClick={() => setTimes(n)}>{n}× por ano</button>)}</div>
           <p className="s">{kind === 'salario' ? 'Em Portugal o salário vem 14 vezes (com os subsídios de férias e de Natal). Viva Portugal.' : kind === 'alimentacao' ? 'O subsídio de alimentação vem 11 vezes: nas férias, ao que parece, não se come.' : 'Quantas vezes por ano entra.'}</p>
-        </> : <p className="s">Para o que varia (horas extra, prémios, recibos verdes): registas cada entrada e a NIKKI usa a média dos últimos 12 meses.</p>}
+        </> : <Hint>Para o que varia (horas extra, prémios, recibos verdes): registas cada entrada e a NIKKI usa a média dos últimos 12 meses.</Hint>}
         {err && <p className="err">{err}</p>}
         <button className="btn wide press">Guardar <Icon n="check" s={20} /></button>
       </form>

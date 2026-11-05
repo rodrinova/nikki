@@ -113,7 +113,7 @@ export function Tickets() {
   return (
     <>
       <Top title="Ideias e problemas" />
-      <p className="s" style={{ fontSize: 'var(--t-m)' }}>A NIKKI melhora com o que lhe contas. Aqui vês o estado e a resposta. Sem formulários de três páginas.</p>
+      <p className="s" style={{ fontSize: 'var(--t-m)' }}>Conta o que melhorar. Aqui vês o estado e a resposta.</p>
       <form className="form" onSubmit={send}>
         <div className="seg" role="group" aria-label="Tipo">
           <button type="button" className="press" aria-pressed={kind === 'ideia'} onClick={() => setKind('ideia')}>Ideia</button>

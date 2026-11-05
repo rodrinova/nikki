@@ -94,7 +94,7 @@ export function Shop() {
             );
           })}</ul></div>
         ))}</div>
-      ) : <p className="s" style={{ fontSize: 'var(--t-m)' }}>A lista está vazia. Escreve o primeiro artigo e a NIKKI arruma por corredor. O carrinho agradece.</p>}
+      ) : <p className="s" style={{ fontSize: 'var(--t-m)' }}>Lista vazia. Escreve o primeiro artigo.</p>}
     </>
   );
 }

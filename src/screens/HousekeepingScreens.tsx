@@ -46,7 +46,7 @@ function HkMain({ h }: { h: HkRow }) {
     <>
       <Top title={h.name} />
       <p className="s" style={{ fontSize: 'var(--t-m)' }}>{daysLabel(h.weekdays, h.start_time)} · próxima visita {dayLabel(next)}</p>
-      {!her && <div className="tile read-card"><span className="st2"><span>{h.name} ainda não tem a NIKKI</span><span className="s">Com uma conta própria, vê a lista de cada visita, troca mensagens convosco e pede produtos.</span></span><div className="actions"><button className="btn press" onClick={() => open(<HkInvite h={h} />)}>Convidar <Icon n="arrow" s={18} /></button></div></div>}
+      {!her && <div className="tile read-card"><span className="st2"><span>{h.name} ainda não tem a NIKKI</span><span className="s">Com conta própria: a lista de cada visita, mensagens e compras.</span></span><div className="actions"><button className="btn press" onClick={() => open(<HkInvite h={h} />)}>Convidar <Icon n="arrow" s={18} /></button></div></div>}
       <section className="stack" aria-label="Planear as visitas">
         <div className="wbar"><span className="s">Planear as visitas</span>{once > 0 && <span className="s">{once} {once === 1 ? 'pontual' : 'pontuais'} por fazer</span>}</div>
         <div className="hk-days">{days.map((d) => {
@@ -114,7 +114,7 @@ export function HkDay() {
           {just.length ? <div className="tile card rows">{just.map((i) => (
             <div key={i.task.id}><span className="st2"><span>{i.task.title}</span><span className="s">{i.task.chore_id ? 'da manutenção da casa' : i.task.due_on && i.task.due_on < day ? `pedida para ${dayLabel(i.task.due_on)}, ainda por fazer` : !i.task.due_on ? 'para a próxima visita' : 'pontual'}</span></span>
               <button type="button" className="x-btn press" aria-label={`Tirar: ${i.task.title}`} onClick={() => drop(i.task.id)}><Icon n="close" s={14} /></button></div>
-          ))}</div> : <p className="s">Nada de especial. Junta acima o que for só para este dia.</p>}
+          ))}</div> : <p className="s">Nada de especial para este dia.</p>}
         </section>
         <section className="stack" aria-label="Da rotina">
           <div className="wbar"><span className="s">Da rotina</span><Link className="tb quiet press" to="/housekeeping/tarefas">Mudar a rotina</Link></div>
