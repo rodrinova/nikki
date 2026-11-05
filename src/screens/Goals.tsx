@@ -24,7 +24,8 @@ const STATE: Record<Progress['state'], string> = { ok: 'no caminho', risk: 'em r
 /** O progresso de um objetivo, medido com os números da casa. */
 export function useGoalProgress() {
   const { me } = useSession();
-  const { expenses, billPayments, carLogs, gym } = useHouse();
+  const { spendRows, billPayments, carLogs, gym } = useHouse();
+  const expenses = { rows: spendRows }; // com os reembolsos e acertos a abater
   const casa = useWealth('casa'), eu = useWealth('eu');
   const today = todayStr();
   return (g: GoalRow): Progress => {
@@ -73,7 +74,8 @@ export function GoalLine() {
 /** As sugestões: categorias que subiram, consumos a subir, carro a gastar mais, e o passo que falta na saúde financeira. */
 function useSuggestions(): Suggestion[] {
   const { me } = useSession();
-  const { expenses, goals, bills, billPayments, homes, cars, carLogs, on } = useHouse();
+  const { spendRows, goals, bills, billPayments, homes, cars, carLogs, on } = useHouse();
+  const expenses = { rows: spendRows }; // com os reembolsos e acertos a abater
   const casa = useWealth('casa');
   const today = todayStr();
   if (!me) return [];

@@ -24,6 +24,36 @@ export interface Transfer {
   made_on: string;
 }
 
+/**
+ * Entradas de dinheiro (nikki.income_entries): salário e outros rendimentos, reembolsos, acertos, presentes. Quem
+ * recebeu (`received_by`) faz o papel de quem pagou numa despesa, com o sinal trocado: os reembolsos e os acertos abatem
+ * nos gastos da categoria e do evento; numa partilhada, quem recebeu fica a dever a parte do outro.
+ */
+export type EntryKind = 'salario' | 'alimentacao' | 'complemento' | 'reembolso' | 'acerto' | 'presente' | 'outro';
+export interface MoneyIn {
+  id: string;
+  received_by: string;
+  other_id: string | null;
+  amount: number | string;
+  split: Split;
+  payer_share: number | string | null;
+  received_on: string;
+  kind: EntryKind;
+  category: string | null;
+  occasion_id?: string | null;
+  income_id?: string | null;
+}
+/** Os tipos que abatem nos gastos (o resto conta como rendimento). */
+export const abates = (k: EntryKind) => k === 'reembolso' || k === 'acerto';
+/** Uma entrada como uma despesa negativa (o mesmo cálculo de partes e de contas a dois, com o sinal trocado). */
+export function entryAsExpense<T extends MoneyIn>(x: T): Expense & { entry: T; occasion_id: string | null } {
+  const a = String(x.amount).trim();
+  return {
+    id: `in:${x.id}`, paid_by: x.received_by, other_id: x.other_id, amount: a.startsWith('-') ? a.slice(1) : `-${a}`,
+    split: x.split, payer_share: x.payer_share, spent_on: x.received_on, category: x.category ?? 'Outros', occasion_id: x.occasion_id ?? null, entry: x,
+  };
+}
+
 export const U = 100_000; // unidades por euro
 
 /** Euros (numeric) → unidades inteiras, sem erro de float. */

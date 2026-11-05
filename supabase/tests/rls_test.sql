@@ -79,6 +79,22 @@ do $$ declare h uuid := (select v::uuid from ctx where k = 'h'); begin
   assert nikki.pair_balance(h, '00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-00000000000b') = -0.005, 'depois da transferência';
 end $$;
 
+-- Uma entrada partilhada: a Inês recebe 40 de reembolso de um jantar a meias → fica a dever 20 ao Rodrigo, e o
+-- reembolso abate 40 nos gastos da casa desse mês.
+do $$ declare h uuid := (select v::uuid from ctx where k = 'h'); t0 numeric; begin
+  t0 := (select total from nikki.house_month_totals(h, date_trunc('month', current_date)::date) where month = to_char(current_date, 'YYYY-MM'));
+  insert into nikki.income_entries (household_id, kind, category, amount, split, other_id, payer_share, created_by)
+    values (h, 'reembolso', 'Restaurantes', 40, 'shared', '00000000-0000-0000-0000-00000000000a', 0.5, auth.uid());
+  assert (select received_by from nikki.income_entries where kind = 'reembolso') = auth.uid(), 'quem recebeu: quem regista';
+  assert nikki.pair_balance(h, '00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-00000000000b') = 19.995,
+    'depois da entrada: ' || nikki.pair_balance(h, '00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-00000000000b');
+  assert (select total from nikki.house_month_totals(h, date_trunc('month', current_date)::date) where month = to_char(current_date, 'YYYY-MM')) = t0 - 40, 'o reembolso abate';
+  begin
+    insert into nikki.income_entries (household_id, kind, amount, split, created_by) values (h, 'nada', 10, 'mine', auth.uid());
+    raise exception 'devia falhar';
+  exception when check_violation then null; end;
+end $$;
+
 -- Os dois são iguais: a Inês também muda a taxa; convidar mais alguém não dá (a casa já tem duas pessoas)
 do $$ begin
   update nikki.share_ratios set ratio_a = 0.6;
@@ -325,9 +341,9 @@ do $$ begin
   exception when check_violation then null; end;
   begin insert into nikki.incomes (household_id, profile_id, kind, amount) select v::uuid, '00000000-0000-0000-0000-00000000000c', 'salario', 900 from ctx where k = 'h'; raise exception 'devia falhar';
   exception when insufficient_privilege then null; end;
-  -- 100 + 24 + 12,35 + 46,80 + 30: inclui a despesa só da Inês, que o Rodrigo não vê uma a uma
+  -- 100 + 24 + 12,35 + 46,80 + 30 − 40 (o reembolso): inclui a despesa só da Inês, que o Rodrigo não vê uma a uma
   assert (select count(*) from nikki.expenses) = 4, 'o Rodrigo continua sem ver a despesa só da Inês';
-  assert (select total from nikki.house_month_totals((select v::uuid from ctx where k = 'h'), date_trunc('month', current_date)::date)) = 213.15, 'total do casal no mês';
+  assert (select total from nikki.house_month_totals((select v::uuid from ctx where k = 'h'), date_trunc('month', current_date)::date)) = 173.15, 'total do casal no mês';
 end $$;
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
 do $$ begin

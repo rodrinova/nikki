@@ -6,7 +6,7 @@ import { useHouse } from '@/data/house';
 import { useOverlays } from '@/ui/overlays';
 import { Icon } from '@/ui/Icon';
 import { Loading } from '@/ui/lazy';
-import { eur, parseAmount, toU } from '@/lib/money';
+import { abates, eur, parseAmount, toU } from '@/lib/money';
 import { todayStr } from '@/lib/dates';
 import { shortDate } from '@/lib/admin';
 import { KINDS, countdown, kindName, sortOccasions, summary, type Guest, type Occasion, type OccItem, type OccasionKind } from '@/lib/occasions';
@@ -35,10 +35,10 @@ function useTotals() {
 }
 
 function useStats() {
-  const { expenses, occGuests, occItems, occVendors, occGifts } = useHouse();
+  const { spendRows, occGuests, occItems, occVendors, occGifts } = useHouse();
   const totals = useTotals();
   const today = todayStr();
-  return (o: Occasion) => summary(o, expenses.rows, occGuests.rows, occItems.rows, occVendors.rows, occGifts.rows, today, totals.get(o.id));
+  return (o: Occasion) => summary(o, spendRows, occGuests.rows, occItems.rows, occVendors.rows, occGifts.rows, today, totals.get(o.id));
 }
 
 export function Occasions() {
@@ -330,9 +330,9 @@ function Gifts({ o }: { o: Occasion }) {
 }
 
 function Spent({ o, total }: { o: Occasion; total: number }) {
-  const { expenses } = useHouse();
+  const { spendRows, incomeEntries } = useHouse();
   const { members, partner } = useSession();
-  const list = expenses.rows.filter((e) => e.occasion_id === o.id).sort((a, b) => b.spent_on.localeCompare(a.spent_on));
+  const list = spendRows.filter((e) => e.occasion_id === o.id).sort((a, b) => b.spent_on.localeCompare(a.spent_on));
   const who = (id: string) => members.find((m) => m.id === id)?.name ?? '';
   // As «só minhas» do outro ligadas ao evento contam no total, mas não se mostram uma a uma.
   const hidden = total - list.reduce((t, e) => t + toU(e.amount), 0);
@@ -343,6 +343,11 @@ function Spent({ o, total }: { o: Occasion; total: number }) {
         <div key={e.id}><span className="st2"><span>{e.note || e.category}</span><span className="s">{dt(e.spent_on)} · {e.category} · pagou {who(e.paid_by)}</span></span><span>{eur(toU(e.amount))} €</span></div>
       ))}</div>}
       {hidden > 0 && <p className="s">Mais {eur(hidden)} € em despesas só {partner ? `de ${partner.name}` : 'pessoais'}, ligadas ao evento.</p>}
+      {(() => {
+        // O dinheiro que entrou ligado ao evento e não abate (presentes em dinheiro, por exemplo): à parte, para saber.
+        const got = incomeEntries.rows.filter((x) => x.occasion_id === o.id && !abates(x.kind));
+        return got.length > 0 && <p className="s why"><span className="dot" aria-hidden="true" /><span>Entrou {eur(got.reduce((t, x) => t + toU(x.amount), 0))} € ligado ao evento ({got.length} {got.length === 1 ? 'entrada' : 'entradas'}).</span></p>;
+      })()}
     </section>
   );
 }

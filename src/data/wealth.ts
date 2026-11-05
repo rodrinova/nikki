@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useSession } from './session';
 import { useHouse, type AssetRow, type GoalRow } from './house';
 import { monthKey, todayStr } from '@/lib/dates';
-import { partOf, toU } from '@/lib/money';
+import { abates, partOf, toU } from '@/lib/money';
 import {
   EMERGENCY_MONTHS, cushionMin, avgMonthly, badges, freeMonths, fundCheck, healthScore, incomeMonthly, liqOf, monthPlan, netSeries, splitFunds,
   realReturn, savings, suggestGoal, type FundRole,
@@ -19,7 +19,7 @@ export interface WealthAsset extends AssetRow { value: number; part: number; min
  */
 export function useWealth(view: WealthView) {
   const { me, partner, myShare, house } = useSession();
-  const { assets, snapshots, incomes, incomeEntries, expenses, monthTotals } = useHouse();
+  const { assets, snapshots, incomes, incomeEntries, spendRows, monthTotals } = useHouse();
   return useMemo(() => {
     const today = todayStr();
     const solo = !partner;
@@ -47,14 +47,23 @@ export function useWealth(view: WealthView) {
     else {
       const by = new Map<string, number>();
       // Os eventos e as compras extraordinárias ficam fora da média (como na da casa e no normal do Money).
-      for (const e of expenses.rows) if (e.category !== INVEST && !e.occasion_id && me) { const k = monthKey(e.spent_on); by.set(k, (by.get(k) ?? 0) + partOf(e, me.id)); }
+      for (const e of spendRows) if (e.category !== INVEST && !e.occasion_id && me) { const k = monthKey(e.spent_on); by.set(k, (by.get(k) ?? 0) + partOf(e, me.id)); }
       spend = avgMonthly([...by].map(([month, total]) => ({ month, total })), today);
     }
 
     const incomeRows = incomes.rows.filter((r) => casa || r.profile_id === me?.id);
     // Rendimento habitual: fixo (valor × vezes por ano) ou pelos registos (média dos últimos 12 meses completos).
     const entries = incomeEntries.rows.map((e) => ({ income_id: e.income_id, received_on: e.received_on, amount: toU(e.amount) }));
-    const income = incomeMonthly(incomeRows.map((r) => ({ id: r.id, mode: r.mode ?? 'fixed', amount: r.amount === null ? null : toU(r.amount), times_per_year: r.times_per_year })), entries, today);
+    // As entradas soltas (sem fonte, registadas no Dinheiro) que são rendimento: contam como mais uma fonte «pelos
+    // registos», pela parte de quem vê (os reembolsos e os acertos não são rendimento: abatem nos gastos).
+    // Sem contar duas vezes: um salário solto de quem já tem um salário fixo no Património não soma.
+    const fixedKind = new Set(incomes.rows.filter((r) => (r.mode ?? 'fixed') === 'fixed').map((r) => `${r.profile_id}:${r.kind}`));
+    const loose = incomeEntries.rows.filter((e) => !e.income_id && !abates(e.kind) && !fixedKind.has(`${e.received_by}:${e.kind}`)).map((e) => ({
+      income_id: 'soltas', received_on: e.received_on,
+      amount: casa ? toU(e.amount) : me ? partOf({ ...e, id: e.id, paid_by: e.received_by, spent_on: e.received_on, category: e.category ?? '' }, me.id) : 0,
+    })).filter((e) => e.amount > 0);
+    const sources = incomeRows.map((r) => ({ id: r.id, mode: r.mode ?? 'fixed', amount: r.amount === null ? null : toU(r.amount), times_per_year: r.times_per_year }));
+    const income = incomeMonthly(loose.length ? [...sources, { id: 'soltas', mode: 'log' as const, amount: null, times_per_year: 12 }] : sources, [...entries, ...loose], today);
     // Os fundos de cada um só com o que é seu ou partilhado (pela sua parte): o que é do outro nunca entra.
     const fund = (role: FundRole) => {
       const list = mine.filter((a) => a.role === role).map((a) => ({ ...a, check: fundCheck(a.kind, role) }));
@@ -86,7 +95,7 @@ export function useWealth(view: WealthView) {
       casa, solo, items, mine, shown, history, net, spend, income, incomeRows, emergency, cushion, emergencyTarget, cushionTarget, sv, plan, fm, passiveYear,
       score, badges: badges(scoreIn), goal, ready: !assets.loading && !snapshots.loading && (!casa || !monthTotals.loading),
     };
-  }, [view, me, partner, myShare, house?.children, assets.rows, assets.loading, snapshots.rows, snapshots.loading, incomes.rows, incomeEntries.rows, expenses.rows, monthTotals.rows, monthTotals.loading]);
+  }, [view, me, partner, myShare, house?.children, assets.rows, assets.loading, snapshots.rows, snapshots.loading, incomes.rows, incomeEntries.rows, spendRows, monthTotals.rows, monthTotals.loading]);
 }
 
 export type Wealth = ReturnType<typeof useWealth>;
