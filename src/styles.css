@@ -1339,3 +1339,17 @@ details.hint > p{margin-top:8px;animation:in 260ms var(--ease-out) both}
 .salv-add{display:grid;grid-template-columns:1fr 1fr 1.4fr;gap:8px}
 .salv-add .btn{justify-content:center;padding:0 10px}
 .salv-grid > button.tile{display:flex;flex-direction:column;gap:4px;padding:14px 16px;border:0;text-align:left;color:inherit}
+
+/* O cabeçalho em vidro com o desfoque numa camada por trás: o Safari desfocava também o que estava dentro (o avatar). */
+.status{-webkit-backdrop-filter:none;backdrop-filter:none;background:transparent;isolation:isolate}
+.status::before{content:"";position:absolute;inset:0;z-index:-1;background:color-mix(in srgb,var(--ground) 70%,transparent);-webkit-backdrop-filter:blur(18px) saturate(140%);backdrop-filter:blur(18px) saturate(140%)}
+
+/* A agenda aberta no mês: no telemóvel, pontos (compacta); a partir do iPad, os títulos de cada dia. */
+.ag.open .ag-d{min-height:52px}
+.ag.open .ag-d .mt{display:none}
+.ag.open .ag-d .dots{justify-content:center}
+@media (min-width:760px){
+  .ag.open .ag-d{min-height:74px}
+  .ag.open .ag-d .mt{display:block}
+  .ag.open .ag-d .dots{display:none}
+}

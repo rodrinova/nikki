@@ -43,7 +43,8 @@ export function openPlace(place: string) {
  */
 export function AgendaPane({ defaultOpen = false }: { defaultOpen?: boolean }) {
   const today = todayStr();
-  const [open, setOpen] = useState(defaultOpen);
+  // Aberta no mês inteiro por omissão; fica como a pessoa a deixou da última vez.
+  const [open, setOpen] = useState(() => { const v = store.get('nikki_agenda_open'); return v === null ? defaultOpen : v === '1'; });
   const [sel, setSel] = useState(today);
   const [mk, setMk] = useState(monthKey(today));
   const { open: sheet } = useOverlays();
@@ -56,7 +57,7 @@ export function AgendaPane({ defaultOpen = false }: { defaultOpen?: boolean }) {
     if (open) { const k = dir > 0 ? nextMonth(mk) : prevMonth(mk); setMk(k); setSel(k === monthKey(today) ? today : `${k}-01`); }
     else setSel(addDays(sel, 7 * dir));
   };
-  const toggle = (v: boolean) => { setOpen(v); if (v) setMk(monthKey(sel)); };
+  const toggle = (v: boolean) => { setOpen(v); store.set('nikki_agenda_open', v ? '1' : '0'); if (v) setMk(monthKey(sel)); };
   const shown = open ? mk : monthKey(sel);
   const list = by.get(sel) ?? [];
   const next = by.get(addDays(today, 1)) ?? [];
@@ -82,10 +83,12 @@ export function AgendaPane({ defaultOpen = false }: { defaultOpen?: boolean }) {
         return (
           <button key={d} role="gridcell" className={`ag-d press${out ? ' out' : ''}${d === sel ? ' sel' : ''}${d === today ? ' today' : ''}`} aria-label={`${dayTitle(d, today)}${its.length ? `, ${its.length} ${its.length === 1 ? 'coisa' : 'coisas'}` : ''}`} onClick={() => setSel(d)}>
             <span className="n">{Number(d.slice(8, 10))}</span>
-            {open ? <>
+            {open && <>
               {its.slice(0, 3).map((it, j) => <span key={j} className={`mt k-${it.kind}`} style={it.color ? { ['--c' as string]: it.color } : undefined}>{it.title}</span>)}
               {its.length > 3 && <span className="mt more">+{its.length - 3}</span>}
-            </> : <span className="dots" aria-hidden="true">{its.slice(0, 3).map((it, j) => <i key={j} className={`k-${it.kind}`} style={it.color ? { ['--c' as string]: it.color } : undefined} />)}</span>}
+            </>}
+            {/* No telemóvel, o mês aberto mostra só pontos (os títulos ficam para ecrãs largos e para a lista do dia). */}
+            <span className="dots" aria-hidden="true">{its.slice(0, 3).map((it, j) => <i key={j} className={`k-${it.kind}`} style={it.color ? { ['--c' as string]: it.color } : undefined} />)}</span>
           </button>
         );
       }))}</div>
@@ -94,7 +97,7 @@ export function AgendaPane({ defaultOpen = false }: { defaultOpen?: boolean }) {
         {list.length ? <div className="rows">{list.map((it, j) => <DayRow key={j} it={it} day={sel} />)}</div> : <p className="s">Nada neste dia.</p>}
       </div>
       {/* Fechada (no início), mostra também amanhã: o que importa de manhã é hoje e amanhã. */}
-      {!open && sel === today && <div className="ag-day">
+      {sel === today && <div className="ag-day">
         <span className="s">{dayTitle(addDays(today, 1), today)}</span>
         {next.length ? <div className="rows">{next.map((it, j) => <DayRow key={j} it={it} day={addDays(today, 1)} />)}</div> : <p className="s">Nada amanhã.</p>}
       </div>}
