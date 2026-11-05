@@ -5,12 +5,12 @@ import { monthKey } from './dates';
 
 export interface PairEntry {
   id: string;
-  kind: 'expense' | 'transfer';
+  kind: 'expense' | 'transfer' | 'entry'; // entry: uma entrada de dinheiro partilhada (quem recebeu fica a dever)
   date: string; // YYYY-MM-DD
   at: string; // para desempatar no mesmo dia
   title: string;
   category: string | null;
-  payer: string; // quem pagou ou transferiu
+  payer: string; // quem pagou, transferiu ou recebeu
   amount: number; // unidades
   effect: number; // nas contas a dois de quem vê: + adiantou, − o outro adiantou
 }
@@ -23,7 +23,8 @@ export function pairEntries(
   const out: PairEntry[] = [];
   for (const e of expenses) {
     if (e.split === 'mine' || ![e.paid_by, e.other_id].includes(me) || ![e.paid_by, e.other_id].includes(other)) continue;
-    out.push({ id: e.id, kind: 'expense', date: e.spent_on, at: e.created_at ?? '', title: e.note?.trim() || e.category, category: e.category, payer: e.paid_by, amount: toU(e.amount), effect: owedTo(e, me) });
+    const entry = e.id.startsWith('in:'); // uma entrada vista como despesa negativa (ver entryAsExpense)
+    out.push({ id: e.id, kind: entry ? 'entry' : 'expense', date: e.spent_on, at: e.created_at ?? '', title: e.note?.trim() || (entry ? 'Entrada' : e.category), category: entry && e.category === 'Outros' ? null : e.category, payer: e.paid_by, amount: Math.abs(toU(e.amount)), effect: owedTo(e, me) });
   }
   transfers.forEach((t, j) => {
     const mine = t.from_id === me && t.to_id === other, theirs = t.from_id === other && t.to_id === me;

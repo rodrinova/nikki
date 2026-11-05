@@ -5,7 +5,15 @@ import { useSession } from './session';
 // Notificações no telemóvel (Web Push): pedir licença, registar este aparelho e guardar a subscrição.
 // No iPhone só funcionam com a NIKKI no ecrã principal (iOS 16.4 ou mais recente).
 
-const VAPID = import.meta.env.VITE_VAPID_PUBLIC as string | undefined;
+// A chave pública: a do build (VITE_VAPID_PUBLIC) ou, sem ela, a que a função «push» criou (rpc, uma vez por abertura).
+let vapid: Promise<string | null> | null = null;
+const publicKey = () => (vapid ??= (async () => {
+  const fixed = import.meta.env.VITE_VAPID_PUBLIC as string | undefined;
+  if (fixed) return fixed;
+  const { data, error } = await supabase.rpc('push_public_key');
+  if (error || !data) { vapid = null; return null; } // tenta outra vez da próxima
+  return data as string;
+})());
 const key = (b64: string) => { const p = '='.repeat((4 - (b64.length % 4)) % 4); const r = atob((b64 + p).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from(r, (c) => c.charCodeAt(0)); };
 
 export type PushState = 'demo' | 'unsupported' | 'install' | 'blocked' | 'off' | 'on' | 'nokey';
@@ -20,7 +28,7 @@ export function usePush() {
     if (DEMO) return setState('demo');
     if (ios() && !standalone()) return setState('install');
     if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) return setState('unsupported');
-    if (!VAPID) return setState('nokey');
+    if (!(await publicKey())) return setState('nokey');
     if (Notification.permission === 'denied') return setState('blocked');
     const sub = await (await navigator.serviceWorker.ready).pushManager.getSubscription();
     if (!sub) return setState('off');
@@ -31,10 +39,11 @@ export function usePush() {
   useEffect(() => { check(); }, [check]);
 
   const enable = async (): Promise<string | null> => {
-    if (state === 'demo' || !me || !house || !VAPID) return null;
+    const pub = state === 'demo' ? null : await publicKey();
+    if (!pub || !me || !house) return null;
     if ((await Notification.requestPermission()) !== 'granted') { setState('blocked'); return 'Sem licença para notificações. Muda nas definições do telemóvel.'; }
     const reg = await navigator.serviceWorker.ready;
-    const sub = (await reg.pushManager.getSubscription()) ?? (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key(VAPID) }));
+    const sub = (await reg.pushManager.getSubscription()) ?? (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key(pub) }));
     const j = sub.toJSON() as { endpoint: string; keys: { p256dh: string; auth: string } };
     const { error } = await supabase.from('push_subs').upsert({ endpoint: j.endpoint, profile_id: me.id, household_id: house.id, p256dh: j.keys.p256dh, auth: j.keys.auth, morning });
     if (error) return error.message;

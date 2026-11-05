@@ -1462,3 +1462,160 @@ create table if not exists nikki.device_codes (
 alter table nikki.device_codes enable row level security;
 revoke all on nikki.device_codes from anon, authenticated, public;
 grant all on nikki.device_codes to service_role;
+
+
+-- ───────────────────────── notificações: chaves e agendamento ─────────────────────────
+-- As chaves VAPID e o segredo do agendamento vivem aqui (só a chave de serviço lê): a função «push» cria as chaves
+-- na primeira volta, a app lê só a pública por rpc('push_public_key'), e o pg_cron chama a função de 15 em 15 min.
+-- (pg_net e pg_cron só existem no Supabase: numa base local de testes, o agendamento fica de fora.)
+do $$ begin
+  if exists (select 1 from pg_available_extensions where name = 'pg_cron') then
+    create extension if not exists pg_net;
+    create extension if not exists pg_cron;
+  end if;
+end $$;
+create table if not exists nikki.push_config (
+  id boolean primary key default true check (id),
+  vapid_public text,
+  vapid_private text,
+  cron_secret text not null default replace(gen_random_uuid()::text || gen_random_uuid()::text, '-', '')
+);
+alter table nikki.push_config enable row level security;
+revoke all on nikki.push_config from anon, authenticated, public;
+grant all on nikki.push_config to service_role;
+insert into nikki.push_config (id) values (true) on conflict (id) do nothing;
+
+create or replace function nikki.push_public_key() returns text
+language sql stable security definer set search_path = '' as $$
+  select vapid_public from nikki.push_config where id
+$$;
+revoke all on function nikki.push_public_key() from public, anon;
+grant execute on function nikki.push_public_key() to authenticated;
+
+do $do$ begin
+  if exists (select 1 from pg_extension where extname = 'pg_cron') then
+    perform cron.unschedule('nikki-push') where exists (select 1 from cron.job where jobname = 'nikki-push');
+    perform cron.schedule('nikki-push', '*/15 * * * *', $cron$
+      select net.http_post(
+        url := 'https://imbflvhufvvjcfetljsd.supabase.co/functions/v1/push',
+        headers := jsonb_build_object('content-type', 'application/json', 'x-cron-secret', (select cron_secret from nikki.push_config where id)),
+        body := '{}'::jsonb);
+    $cron$);
+  end if;
+end $do$;
+
+-- ───────────────────────── entradas de dinheiro ─────────────────────────
+-- As entradas (salário, outros rendimentos, reembolsos, acertos, presentes) são linhas de income_entries, com ou sem
+-- fonte de rendimento. Têm quem recebeu, tipo, categoria, evento e partilha (como as despesas). Os reembolsos e os
+-- acertos abatem nos gastos da categoria e do evento; as outras contam como rendimento. Numa partilhada, quem recebeu
+-- fica a dever a parte do outro nas contas a dois.
+alter table nikki.income_entries alter column income_id drop not null;
+alter table nikki.income_entries add column if not exists received_by uuid references nikki.profiles (id);
+alter table nikki.income_entries add column if not exists kind text;
+alter table nikki.income_entries add column if not exists category text check (length(category) <= 40);
+alter table nikki.income_entries add column if not exists occasion_id uuid references nikki.occasions (id) on delete set null;
+alter table nikki.income_entries add column if not exists split text not null default 'mine';
+alter table nikki.income_entries add column if not exists other_id uuid references nikki.profiles (id);
+alter table nikki.income_entries add column if not exists payer_share numeric(4, 3);
+update nikki.income_entries x set received_by = i.profile_id, kind = coalesce(x.kind, i.kind)
+  from nikki.incomes i where i.id = x.income_id and x.received_by is null;
+update nikki.income_entries set received_by = created_by where received_by is null;
+update nikki.income_entries set kind = 'outro' where kind is null;
+alter table nikki.income_entries alter column received_by set default auth.uid();
+alter table nikki.income_entries alter column received_by set not null;
+alter table nikki.income_entries alter column kind set default 'outro';
+alter table nikki.income_entries alter column kind set not null;
+alter table nikki.income_entries drop constraint if exists income_entries_kind_check;
+alter table nikki.income_entries add constraint income_entries_kind_check
+  check (kind in ('salario', 'alimentacao', 'complemento', 'reembolso', 'acerto', 'presente', 'outro'));
+alter table nikki.income_entries drop constraint if exists income_entries_split_check;
+alter table nikki.income_entries add constraint income_entries_split_check check (
+  split in ('mine', 'shared', 'other') and (split = 'mine') = (other_id is null) and (split = 'shared') = (payer_share is not null)
+  and (payer_share is null or payer_share between 0.1 and 0.9) and other_id is distinct from received_by);
+alter table nikki.income_entries drop constraint if exists income_entries_note_check;
+alter table nikki.income_entries add constraint income_entries_note_check check (length(note) <= 120);
+create index if not exists income_entries_household on nikki.income_entries (household_id, received_on);
+create index if not exists income_entries_occasion on nikki.income_entries (occasion_id) where occasion_id is not null;
+
+-- Com fonte de rendimento: quem recebeu e o tipo vêm da fonte.
+create or replace function nikki.income_entry_from_source() returns trigger
+language plpgsql security definer set search_path = '' as $$
+begin
+  if new.income_id is not null then
+    select i.profile_id, i.kind into new.received_by, new.kind from nikki.incomes i where i.id = new.income_id;
+  end if;
+  return new;
+end $$;
+create or replace trigger income_entry_from_source before insert or update of income_id on nikki.income_entries
+  for each row execute function nikki.income_entry_from_source();
+
+alter policy income_entries_house on nikki.income_entries
+  using (nikki.is_member(household_id))
+  with check (nikki.is_member(household_id)
+    and (income_id is null or exists (select 1 from nikki.incomes i where i.id = income_entries.income_id and i.household_id = income_entries.household_id))
+    and exists (select 1 from nikki.memberships m where m.household_id = income_entries.household_id and m.profile_id = income_entries.received_by and m.role <> 'staff')
+    and (other_id is null or exists (select 1 from nikki.memberships m where m.household_id = income_entries.household_id and m.profile_id = income_entries.other_id and m.role <> 'staff')));
+
+-- O que fica a dever quem recebeu, numa entrada partilhada ou do outro (o contrário de uma despesa).
+create or replace function nikki.entry_owed(split text, amount numeric, payer_share numeric) returns numeric
+language sql immutable set search_path = '' as $$
+  select case split when 'other' then amount when 'shared' then amount * (1 - payer_share) else 0 end
+$$;
+grant execute on function nikki.entry_owed(text, numeric, numeric) to authenticated;
+
+create or replace function nikki.pair_balance(h uuid, a uuid, b uuid) returns numeric
+language sql stable security invoker set search_path = '' as $$
+  with o as (select coalesce((select case when lo.profile_a = a then lo.amount_a else -lo.amount_a end
+                               from nikki.ledger_openings lo
+                               where lo.household_id = h and lo.profile_a = least(a, b) and lo.profile_b = greatest(a, b)), 0) as v,
+                    coalesce((select lo.cutover from nikki.ledger_openings lo
+                               where lo.household_id = h and lo.profile_a = least(a, b) and lo.profile_b = greatest(a, b)), '-infinity'::date) as since)
+  select o.v
+    + coalesce((select sum(case when e.paid_by = a then e.owed else -e.owed end) from nikki.expenses e
+                where e.household_id = h and e.split <> 'mine' and e.spent_on >= o.since
+                  and ((e.paid_by = a and e.other_id = b) or (e.paid_by = b and e.other_id = a))), 0)
+    + coalesce((select sum(case when t.from_id = a then t.amount else -t.amount end) from nikki.transfers t
+                where t.household_id = h and t.made_on >= o.since
+                  and ((t.from_id = a and t.to_id = b) or (t.from_id = b and t.to_id = a))), 0)
+    - coalesce((select sum(case when x.received_by = a then 1 else -1 end * nikki.entry_owed(x.split, x.amount, x.payer_share))
+                from nikki.income_entries x
+                where x.household_id = h and x.split <> 'mine' and x.received_on >= o.since
+                  and ((x.received_by = a and x.other_id = b) or (x.received_by = b and x.other_id = a))), 0)
+  from o;
+$$;
+
+-- As médias da casa e o gasto dos eventos descontam os reembolsos e os acertos (menos nas Prendas, onde nada abate).
+create or replace function nikki.house_month_totals(h uuid, since date) returns table (month text, total numeric)
+language sql stable security definer set search_path = '' as $$
+  select m, sum(v) from (
+    select to_char(e.spent_on, 'YYYY-MM') m, e.amount v from nikki.expenses e
+    where e.household_id = h and e.spent_on >= since and e.category <> 'Future Me' and e.occasion_id is null
+    union all
+    select to_char(x.received_on, 'YYYY-MM'), -x.amount from nikki.income_entries x
+    where x.household_id = h and x.received_on >= since and x.kind in ('reembolso', 'acerto')
+      and coalesce(x.category, '') not in ('Future Me', 'Prendas') and x.occasion_id is null
+  ) t where nikki.is_member(h)
+  group by 1 order by 1;
+$$;
+create or replace function nikki.occasion_totals(h uuid) returns table (occasion_id uuid, total numeric)
+language sql stable security definer set search_path = '' as $$
+  select o, sum(v) from (
+    select e.occasion_id o, e.amount v from nikki.expenses e where e.household_id = h and e.occasion_id is not null
+    union all
+    select x.occasion_id, -x.amount from nikki.income_entries x
+    where x.household_id = h and x.occasion_id is not null and x.kind in ('reembolso', 'acerto') and coalesce(x.category, '') <> 'Prendas'
+  ) t where nikki.is_member(h)
+  group by 1;
+$$;
+
+-- Os reembolsos que ficaram como despesas negativas passam a entradas (do tipo reembolso, na mesma categoria, com a
+-- mesma partilha); as despesas voltam a ser sempre positivas.
+insert into nikki.income_entries (household_id, received_by, kind, category, amount, received_on, note, split, other_id, payer_share, created_by, created_at)
+  select household_id, paid_by, 'reembolso', category, -amount, spent_on, note, split, other_id, payer_share, created_by, created_at
+  from nikki.expenses where amount < 0;
+delete from nikki.expenses where amount < 0;
+alter table nikki.expenses drop constraint if exists expenses_amount_check;
+alter table nikki.expenses add constraint expenses_amount_check check (amount > 0);
+
+-- Prendas: uma categoria onde as entradas nunca abatem. As despesas com «prenda» ou «presente» na nota passam para lá.
+update nikki.expenses set category = 'Prendas' where note ~* '(prend|present)' and category <> 'Prendas';

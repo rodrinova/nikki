@@ -243,13 +243,13 @@ function MonthlyCost({ car, logs }: { car: CarRow; logs: CarLog[] }) {
 export function CarScreen() {
   const { id } = useParams();
   const { house } = useSession();
-  const { cars, deadlines, occasions, expenses } = useHouse();
+  const { cars, deadlines, occasions, spendRows } = useHouse();
   const { open } = useOverlays();
   const owner = useOwnerLabel();
   const car = cars.rows.find((c) => c.id === id);
   // A compra do carro (compra extraordinária ligada a ele): quanto já se pagou, à parte do custo por km.
   const buy = car ? occasions.rows.find((o) => o.purchase && o.car_id === car.id) : undefined;
-  const bought = buy ? expenses.rows.filter((e) => e.occasion_id === buy.id).reduce((t, e) => t + toU(e.amount), 0) : 0;
+  const bought = buy ? spendRows.filter((e) => e.occasion_id === buy.id).reduce((t, e) => t + toU(e.amount), 0) : 0;
   const s = useCarStats(car, '12m');
   if (!car || !s) return <><Top title="Garagem" />{cars.loading ? <Loading /> : <p className="s">Este carro já não está na garagem.</p>}</>;
   const admin = !!house && house.role !== 'staff'; // os dois da casa são iguais

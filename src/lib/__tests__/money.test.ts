@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { eur, lit, openingOf, monthClose, monthSpend, monthlySeries, normalMonth, pace, pairBalance, parseAmount, partOf, toU, whiskerLean, yearFill, type Expense, type Transfer } from '../money';
+import { abates, entryAsExpense, eur, lit, openingOf, monthClose, monthSpend, monthlySeries, normalMonth, pace, pairBalance, parseAmount, partOf, toU, whiskerLean, yearFill, type Expense, type MoneyIn, type Transfer } from '../money';
 import { addDays, daysInMonth, monthWeeks, nextMonth, prevMonth, toDateStr, weekOf, weekdayName } from '../dates';
 
 const R = 'rodrigo', I = 'ines';
@@ -221,5 +221,42 @@ describe('monthlySeries', () => {
   });
   it('sem meses completos não há média', () => {
     expect(monthlySeries([ex('2026-10-02', '10')], 'r', '2026-10-30').avg).toBeNull();
+  });
+});
+
+describe('entradas de dinheiro', () => {
+  const entrada = (p: Partial<MoneyIn>): MoneyIn => ({ id: String(++n), received_by: R, other_id: null, amount: '60.00', split: 'mine', payer_share: null, received_on: '2026-10-20', kind: 'reembolso', category: 'Restaurantes', ...p });
+  it('um reembolso abate na categoria e no mês em que entra', () => {
+    const jantar = ex({ paid_by: R, amount: '60.00', category: 'Restaurantes', spent_on: '2026-10-05' });
+    const m = monthSpend([jantar, entryAsExpense(entrada({})), ex({ paid_by: R, amount: '15.00', spent_on: '2026-10-07' })], R, '2026-10');
+    expect(m.total).toBe(toU('15.00'));
+    expect(m.byCat).toContainEqual(['Restaurantes', 0]);
+  });
+  it('só os reembolsos e os acertos abatem', () => {
+    expect(abates('reembolso')).toBe(true);
+    expect(abates('acerto')).toBe(true);
+    expect(abates('salario')).toBe(false);
+    expect(abates('presente')).toBe(false);
+    // Nas Prendas nenhuma entrada abate, nem um reembolso.
+    expect(abates('reembolso', 'Prendas')).toBe(false);
+    expect(abates('acerto', 'Restaurantes')).toBe(true);
+  });
+  it('numa partilhada, quem recebeu fica a dever a parte do outro', () => {
+    const gasto = ex({ paid_by: R, other_id: I, amount: '100.00', split: 'shared', payer_share: '0.500' });
+    const volta = entryAsExpense(entrada({ received_by: R, other_id: I, amount: '40.00', split: 'shared', payer_share: '0.500' }));
+    expect(partOf(volta, R)).toBe(toU('-20.00'));
+    expect(partOf(volta, I)).toBe(toU('-20.00'));
+    // O Rodrigo adiantou 50 no jantar; recebeu 40 a meias, fica a dever 20 → 30.
+    expect(pairBalance([gasto, volta], [], R, I)).toBe(toU('30.00'));
+    // A Inês recebe 40 a meias (como no teste SQL): fica a dever 20 ao Rodrigo.
+    expect(pairBalance([entryAsExpense(entrada({ received_by: I, other_id: R, amount: '40.00', split: 'shared', payer_share: '0.5' }))], [], R, I)).toBe(toU('20.00'));
+  });
+  it('uma entrada «de» outra pessoa conta toda para ela', () => {
+    const x = entryAsExpense(entrada({ received_by: R, other_id: I, amount: '25.00', split: 'other' }));
+    expect(partOf(x, I)).toBe(toU('-25.00'));
+    expect(pairBalance([x], [], R, I)).toBe(toU('-25.00'));
+  });
+  it('mostra-se com o sinal', () => {
+    expect(eur(toU('-363.72'))).toBe('−363,72');
   });
 });

@@ -94,7 +94,9 @@ function seed() {
   // Um rendimento irregular «pelos registos»: as explicações do Rodrigo, uma entrada por mês, valores diferentes.
   { const id = uid(); db.incomes.push({ id, household_id: H, profile_id: R, kind: 'complemento', label: 'Explicações', amount: null, times_per_year: 12, mode: 'log', created_at: ago(200) });
     db.income_entries = [];
-    let k = monthKey(today); for (const v of ['180.00', '240.00', '120.00', '200.00', '160.00', '220.00']) { k = prevMonth(k); db.income_entries.push({ id: uid(), household_id: H, income_id: id, received_on: `${k}-28`, amount: v, note: null, created_by: R, created_at: `${k}-28T18:00:00Z` }); } }
+    let k = monthKey(today); for (const v of ['180.00', '240.00', '120.00', '200.00', '160.00', '220.00']) { k = prevMonth(k); db.income_entries.push({ id: uid(), household_id: H, income_id: id, received_on: `${k}-28`, amount: v, note: null, created_by: R, created_at: `${k}-28T18:00:00Z`, received_by: R, kind: 'complemento', category: null, occasion_id: null, split: 'mine', other_id: null, payer_share: null }); } }
+  // Uma entrada solta: o reembolso de um jantar a meias (abate em Restaurantes; a Inês fica a dever a parte do Rodrigo).
+  db.income_entries.push({ id: uid(), household_id: H, income_id: null, received_on: addDays(today, -2), amount: '40.00', note: 'Reembolso jantar', created_by: I, created_at: `${addDays(today, -2)}T20:00:00Z`, received_by: I, kind: 'reembolso', category: 'Restaurantes', occasion_id: null, split: 'shared', other_id: R, payer_share: '0.500' });
   // Três meses: dois completos (o "normal") e o corrente até hoje. Valores de exemplo.
   const plan: [number, string, string, string, string | null, number | null, string][] = [
     // dia, categoria, valor, pagou, com quem (ou de quem), parte de quem pagou, nota
@@ -411,6 +413,9 @@ export function createDemoClient() {
           ...(this.t === 'chores' ? { archived: false, home_id: null, turn_id: null, note: null, kind: 'task', assign: 'anyone' } : {}),
           ...(this.t === 'todos' ? { owner_id: null, due_on: null, done_at: null, done_by: null, created_by: me } : {}),
           ...(this.t === 'chore_logs' ? { expense_id: null, note: null } : {}),
+          // Como o gatilho da base: com fonte de rendimento, quem recebeu e o tipo vêm da fonte.
+          ...(this.t === 'income_entries' ? (() => { const src = p.income_id ? db.incomes.find((i: Row) => i.id === p.income_id) : null;
+            return { received_by: me, kind: 'outro', category: null, occasion_id: null, split: 'mine', other_id: null, payer_share: null, note: null, created_by: me, ...(src ? { received_by: src.profile_id, kind: src.kind } : {}) }; })() : {}),
           ...(this.t === 'warranties' ? { archived: false, home_id: null, store: null, price: null, receipt_path: null, years: 3 } : {}),
           ...(this.t === 'homes' ? { archived: false, name: 'Casa', tenure: null, imi: null, track_usage: false, updated_at: new Date().toISOString() } : {}),
           ...(this.t === 'bills' ? { home_id: null, archived: false, owner_id: null, keywords: null, provider: null, unit: null, contract_ends_on: null, every_months: 1, due_day: null, expected: null } : {}),
@@ -581,6 +586,7 @@ export function createDemoClient() {
         if (!db.memberships.some((m) => m.profile_id === me && m.household_id === args.h)) return { data: [], error: null };
         const by = new Map<string, number>();
         for (const e of db.expenses) if (e.household_id === args.h && e.spent_on >= args.since && e.category !== 'Future Me' && !e.occasion_id) by.set(e.spent_on.slice(0, 7), (by.get(e.spent_on.slice(0, 7)) ?? 0) + Number(e.amount));
+        for (const x of db.income_entries) if (x.household_id === args.h && x.received_on >= args.since && ['reembolso', 'acerto'].includes(x.kind) && !['Future Me', 'Prendas'].includes(x.category) && !x.occasion_id) by.set(x.received_on.slice(0, 7), (by.get(x.received_on.slice(0, 7)) ?? 0) - Number(x.amount));
         return { data: [...by].sort().map(([month, total]) => ({ month, total: total.toFixed(2) })), error: null };
       }
       if (name === 'occasion_totals') {
@@ -588,6 +594,7 @@ export function createDemoClient() {
         if (!db.memberships.some((m) => m.profile_id === me && m.household_id === args.h && m.role !== 'staff')) return { data: [], error: null };
         const by = new Map<string, number>();
         for (const e of db.expenses) if (e.household_id === args.h && e.occasion_id) by.set(e.occasion_id, (by.get(e.occasion_id) ?? 0) + Number(e.amount));
+        for (const x of db.income_entries) if (x.household_id === args.h && x.occasion_id && ['reembolso', 'acerto'].includes(x.kind) && x.category !== 'Prendas') by.set(x.occasion_id, (by.get(x.occasion_id) ?? 0) - Number(x.amount));
         return { data: [...by].map(([occasion_id, total]) => ({ occasion_id, total: total.toFixed(2) })), error: null };
       }
       if (name === 'touch') { if (p) p.last_seen_at = new Date().toISOString(); return { data: null, error: null }; }

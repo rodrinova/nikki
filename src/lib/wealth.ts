@@ -81,7 +81,7 @@ export const monthlyIncome = (rows: { amount: number; times_per_year: number }[]
  * contar só desde o mês da primeira entrada; com entradas só no mês corrente, conta o que já entrou.
  */
 export interface IncomeSrc { id: string; mode: 'fixed' | 'log'; amount: number | null; times_per_year: number }
-export interface IncomeEntry { id?: string; income_id: string; received_on: string; amount: number }
+export interface IncomeEntry { id?: string; income_id: string | null; received_on: string; amount: number }
 export function sourceMonthly(src: IncomeSrc, entries: IncomeEntry[], today: string): number {
   if (src.mode === 'fixed') return Math.round(((src.amount ?? 0) * src.times_per_year) / 12);
   const mine = entries.filter((e) => e.income_id === src.id);

@@ -31,18 +31,18 @@ segurança → Palavras-passe de apps) e põe-na na NIKKI. Pode revogá-la lá a
 
 ## Notificações (função `push`)
 
-1. Gerar as chaves VAPID (uma vez): `npx web-push generate-vapid-keys`.
-2. Segredos da função: `supabase secrets set VAPID_PUBLIC=… VAPID_PRIVATE=… VAPID_SUBJECT=mailto:o-teu-email PUSH_CRON_SECRET=<aleatório> TZ=Europe/Lisbon`.
-3. Na app (build): `VITE_VAPID_PUBLIC=<a chave pública>`.
-4. Publicar: `supabase functions deploy push --no-verify-jwt` (a app chama-a com a sessão para o «Experimentar»; o
-   pg_cron chama-a com `x-cron-secret`).
-5. Agendar de 15 em 15 minutos (SQL, com as extensões pg_cron e pg_net ligadas):
-   ```sql
-   select cron.schedule('nikki-push', '*/15 * * * *', $$
-     select net.http_post(url := 'https://imbflvhufvvjcfetljsd.supabase.co/functions/v1/push',
-       headers := jsonb_build_object('content-type', 'application/json', 'x-cron-secret', '<o mesmo PUSH_CRON_SECRET>'),
-       body := '{}'::jsonb);
-   $$);
-   ```
-Entre as 22h e as 8h não se envia nada. O resumo sai na primeira volta depois das 8h00; cada aviso vai uma só vez.
-No iPhone, as notificações só funcionam com a NIKKI adicionada ao ecrã principal (iOS 16.4+).
+Não há segredos a pôr à mão. A migração cria `nikki.push_config` (só a chave de serviço lê), liga o `pg_cron` e o
+`pg_net` e agenda a função de 15 em 15 minutos com o segredo dessa tabela. Na primeira volta, a função cria as chaves
+VAPID e guarda-as lá. A app lê a chave pública por `rpc('push_public_key')` (ou `VITE_VAPID_PUBLIC`, se existir no build).
+
+Publicar: a função importa `src/lib/*.ts` sem extensão, por isso junta-se num só ficheiro antes:
+```
+npx esbuild supabase/functions/push/index.ts --bundle --format=esm --platform=neutral --external:'npm:*' --outfile=/tmp/push.js
+```
+e publica-se esse ficheiro como `push`, sem verificação de JWT (a app chama-a com a sessão para o «Experimentar»; o
+pg_cron chama-a com `x-cron-secret`).
+
+A função corre em UTC: as horas dos eventos passam para a hora de Lisboa antes do resumo. Para verificar, chamar com
+`{"check": true}` e o `x-cron-secret`. Entre as 22h e as 8h não se envia nada. O resumo sai na primeira volta depois
+das 8h00; cada aviso vai uma só vez. No iPhone, as notificações só funcionam com a NIKKI adicionada ao ecrã principal
+(iOS 16.4+).

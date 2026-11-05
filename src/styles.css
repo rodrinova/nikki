@@ -105,12 +105,13 @@ body.nobar .app{padding-top:calc(env(safe-area-inset-top,0px) + 16px)}
 .bottom{position:fixed;z-index:20;left:0;right:0;bottom:0;background:var(--ground);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
 .bottom[hidden]{display:none}
 .bottom .in{max-width:520px;margin:0 auto;height:var(--bar);display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:center;padding-left:max(8px,env(safe-area-inset-left,0px));padding-right:max(8px,env(safe-area-inset-right,0px))}
-.bottom button{height:56px;border:0;background:transparent;color:var(--sub);display:grid;place-items:center;border-radius:10px;transition:color 220ms ease,transform 220ms var(--ease-out),background-color 220ms ease}
-.bottom button[aria-current="page"]{color:var(--ink)}
+/* A casa e os Espaços são ligações (<a>): o mesmo que os botões, ao centro da coluna. */
+.bottom .in > a,.bottom button{width:100%;height:56px;border:0;background:transparent;color:var(--sub);display:grid;place-items:center;border-radius:10px;transition:color 220ms ease,transform 220ms var(--ease-out),background-color 220ms ease}
+.bottom .in > a[aria-current="page"],.bottom button[aria-current="page"]{color:var(--ink)}
 .bottom .add{width:56px;justify-self:center;background:var(--tile-2);color:var(--ink)}
 .bottom .add svg{transition:transform 240ms var(--ease-out)}
 .bottom .add[aria-expanded="true"] svg{transform:rotate(45deg)}
-body.near .bottom button{color:var(--ink);transform:scale(1.06)}
+body.near .bottom .in > a,body.near .bottom button{color:var(--ink);transform:scale(1.06)}
 body.near .bottom .add{background:var(--accent);color:var(--on-accent)}
 
 /* ---------- lists ---------- */
@@ -612,6 +613,8 @@ textarea.note:focus{border-color:var(--ink)}
 .prog i{display:block;height:100%;background:var(--accent);transition:width 400ms var(--ease-out)}
 
 /* Agora: lista por urgência, dispensável */
+/* A NIKKI lembra: o conteúdo logo a seguir ao título (sem a altura mínima dos painéis, que deixava um buraco). */
+.pane.now{min-height:0;justify-content:flex-start}
 .now-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
 .now-row{display:flex;align-items:center;gap:4px;border-bottom:1px solid var(--line);touch-action:pan-y;transition:transform 200ms var(--ease-out),opacity 200ms ease;animation:now-in 260ms var(--ease-out) both}
 .now-row:last-child{border-bottom:0}

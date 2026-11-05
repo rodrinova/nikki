@@ -276,10 +276,10 @@ const cap = (t: string) => t[0].toUpperCase() + t.slice(1);
  */
 function MonthClose() {
   const { me, partner, house } = useSession();
-  const { expenses } = useHouse();
+  const { expenses, spendRows } = useHouse();
   const key = `nikki_closed_${house?.id}_${me?.id}`;
   const [seen, setSeen] = useState(() => store.get(key));
-  const c = useMemo(() => (expenses.loading || !me ? null : monthClose(expenses.rows.filter((e) => e.category !== INVEST && !e.occasion_id), me.id, todayStr())), [expenses.rows, expenses.loading, me]);
+  const c = useMemo(() => (expenses.loading || !me ? null : monthClose(spendRows.filter((e) => e.category !== INVEST && !e.occasion_id), me.id, todayStr())), [spendRows, expenses.loading, me]);
   const done = useCallback(() => { if (c) { store.set(key, c.key); setSeen(c.key); } }, [c, key]);
   if (!c || seen === c.key) return null;
   const name = monthName(c.key);

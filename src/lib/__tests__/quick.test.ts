@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { guess, parseQuick, type Past } from '../quick';
 
 const T = '2026-10-29'; // quinta
-const CATS = ['Supermercado', 'Restaurantes', 'Casa', 'Contas', 'Carros', 'Lazer', 'Saúde', 'Roupa', 'Viagens', 'Future Me'];
+const CATS = ['Supermercado', 'Restaurantes', 'Casa', 'Contas', 'Carros', 'Lazer', 'Saúde', 'Roupa', 'Viagens', 'Prendas', 'Future Me'];
 
 describe('ler o que se escreve', () => {
   it('valor e sítio, em qualquer ordem', () => {
@@ -91,5 +91,12 @@ describe('escrever tudo de uma vez', () => {
   });
   it('sem nada disto, como antes', () => {
     expect(parseQuick('45 pingo doce', T, ctx)).toEqual({ amount: '45', note: 'Pingo doce', day: null });
+  });
+});
+
+describe('prendas', () => {
+  it('«prenda» ou «presente» vai para as Prendas', () => {
+    expect(parseQuick('25 prenda avó', T, { cats: CATS })).toMatchObject({ amount: '25', category: 'Prendas' });
+    expect(parseQuick('40 presente Emma', T, { cats: CATS })).toMatchObject({ category: 'Prendas' });
   });
 });

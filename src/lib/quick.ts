@@ -32,6 +32,7 @@ const CAT_WORDS: Record<string, string[]> = {
   'Saúde': ['saude'],
   Roupa: ['roupa'],
   Viagens: ['viagem', 'viagens', 'ferias'],
+  Prendas: ['prenda', 'prendas', 'presente', 'presentes', 'oferta'],
   'Future Me': ['investir', 'investimento', 'poupanca', 'future me'],
 };
 const esc = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

@@ -227,7 +227,7 @@ function Notifications() {
     install: 'No iPhone: Partilhar → «Adicionar ao ecrã principal», abre a NIKKI pelo ícone e liga aqui. Três toques, prometido.',
     unsupported: 'Este navegador não recebe notificações.',
     blocked: 'As notificações estão bloqueadas nas definições do telemóvel para a NIKKI.',
-    nokey: 'Falta configurar o envio (chave VAPID). Ver supabase/functions/README.md.',
+    nokey: 'O envio ainda não está pronto. Tenta daqui a uns minutos.',
     demo: 'Na demonstração não chegam notificações; em baixo, o resumo de hoje tal como chegaria.',
   };
   const lit = p.state === 'on';
