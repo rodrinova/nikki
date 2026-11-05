@@ -3,6 +3,7 @@ import { useSession } from './session';
 import { useHouse, type AssetRow, type GoalRow } from './house';
 import { monthKey, todayStr } from '@/lib/dates';
 import { abates, partOf, toU } from '@/lib/money';
+import { carNumbers, totals as salvageTotals } from '@/lib/salvage';
 import {
   EMERGENCY_MONTHS, cushionMin, avgMonthly, badges, freeMonths, fundCheck, healthScore, incomeMonthly, liqOf, monthPlan, netSeries, splitFunds,
   realReturn, savings, suggestGoal, type FundRole,
@@ -19,7 +20,7 @@ export interface WealthAsset extends AssetRow { value: number; part: number; min
  */
 export function useWealth(view: WealthView) {
   const { me, partner, myShare, house } = useSession();
-  const { assets, snapshots, incomes, incomeEntries, spendRows, monthTotals } = useHouse();
+  const { assets, snapshots, incomes, incomeEntries, spendRows, monthTotals, salvage } = useHouse();
   return useMemo(() => {
     const today = todayStr();
     const solo = !partner;
@@ -35,6 +36,13 @@ export function useWealth(view: WealthView) {
       const value = latest.get(a.id)?.v ?? 0, part = partOfAsset(a);
       return { ...a, value, part, mine: Math.round(value * part), liq: liqOf(a.kind), real: realReturn(Number(a.expected_return)) };
     });
+    // Os salvados (só de quem os tem): o dinheiro ainda dentro dos carros por vender conta como investimento, com o
+    // retorno por ano dos já vendidos.
+    const salv = salvage.length && me ? salvageTotals(salvage, today) : null;
+    if (salv && salv.invested > 0) {
+      const er = salv.annual === null ? 0 : Math.round(salv.annual * 1000) / 10;
+      items.push({ id: 'salvados', owner_id: me!.id, name: 'Salvados', kind: 'outro', expected_return: er, role: null, archived: false, created_at: today, value: salv.invested, part: 1, mine: salv.invested, liq: liqOf('outro'), real: realReturn(er) });
+    }
     const mine = items.filter((a) => a.part > 0);
     // Na vista de uma pessoa, a lista mostra só o que é dela e o que é dos dois.
     const shown = casa ? items : mine;
@@ -62,6 +70,11 @@ export function useWealth(view: WealthView) {
       income_id: 'soltas', received_on: e.received_on,
       amount: casa ? toU(e.amount) : me ? partOf({ ...e, id: e.id, paid_by: e.received_by, spent_on: e.received_on, category: e.category ?? '' }, me.id) : 0,
     })).filter((e) => e.amount > 0);
+    // A minha metade do lucro de cada salvado vendido entra como rendimento, no dia da venda.
+    if (salvage.length && me) for (const c of salvage) {
+      const x = carNumbers(c, today);
+      if (x.profit !== null && x.profit > 0 && c.sold_on) loose.push({ income_id: 'soltas', received_on: c.sold_on, amount: Math.round(x.profit / 2) });
+    }
     const sources = incomeRows.map((r) => ({ id: r.id, mode: r.mode ?? 'fixed', amount: r.amount === null ? null : toU(r.amount), times_per_year: r.times_per_year }));
     const income = incomeMonthly(loose.length ? [...sources, { id: 'soltas', mode: 'log' as const, amount: null, times_per_year: 12 }] : sources, [...entries, ...loose], today);
     // Os fundos de cada um só com o que é seu ou partilhado (pela sua parte): o que é do outro nunca entra.
@@ -95,7 +108,7 @@ export function useWealth(view: WealthView) {
       casa, solo, items, mine, shown, history, net, spend, income, incomeRows, emergency, cushion, emergencyTarget, cushionTarget, sv, plan, fm, passiveYear,
       score, badges: badges(scoreIn), goal, ready: !assets.loading && !snapshots.loading && (!casa || !monthTotals.loading),
     };
-  }, [view, me, partner, myShare, house?.children, assets.rows, assets.loading, snapshots.rows, snapshots.loading, incomes.rows, incomeEntries.rows, spendRows, monthTotals.rows, monthTotals.loading]);
+  }, [view, me, partner, myShare, house?.children, assets.rows, assets.loading, snapshots.rows, snapshots.loading, incomes.rows, incomeEntries.rows, spendRows, salvage, monthTotals.rows, monthTotals.loading]);
 }
 
 export type Wealth = ReturnType<typeof useWealth>;

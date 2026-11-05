@@ -1619,3 +1619,104 @@ alter table nikki.expenses add constraint expenses_amount_check check (amount > 
 
 -- Prendas: uma categoria onde as entradas nunca abatem. As despesas com «prenda» ou «presente» na nota passam para lá.
 update nikki.expenses set category = 'Prendas' where note ~* '(prend|present)' and category <> 'Prendas';
+
+-- ───────────────────────── salvados (só para a administração da app) ─────────────────────────
+-- Carros salvados comprados a meias com um amigo mecânico: a compra, as peças (quem pagou), as horas dele (a 40 €/h)
+-- e a venda. As contas fazem-se a 40 €/h; o lucro divide-se a meias; no acerto, cada hora soma 20 € ao que o dono
+-- deve ao mecânico. O mecânico regista peças e horas por uma ligação secreta, sem conta (funções salvage_link_*).
+create table if not exists nikki.salvage_cars (
+  id uuid primary key default gen_random_uuid(),
+  owner_id uuid not null default auth.uid() references nikki.profiles (id) on delete cascade,
+  name text not null check (length(trim(name)) between 1 and 60),
+  bought_on date not null default current_date,
+  price numeric(12, 2) not null check (price >= 0),
+  price_paid_by text not null default 'me' check (price_paid_by in ('me', 'partner')),
+  hour_rate numeric(8, 2) not null default 40 check (hour_rate >= 0),
+  status text not null default 'repair' check (status in ('repair', 'selling', 'sold')),
+  sold_on date,
+  sold_for numeric(12, 2) check (sold_for >= 0),
+  sale_to text not null default 'me' check (sale_to in ('me', 'partner')), -- quem recebeu o dinheiro da venda
+  created_at timestamptz not null default now(),
+  check ((status = 'sold') = (sold_on is not null and sold_for is not null))
+);
+create index if not exists salvage_cars_owner on nikki.salvage_cars (owner_id);
+create table if not exists nikki.salvage_logs (
+  id uuid primary key default gen_random_uuid(),
+  car_id uuid not null references nikki.salvage_cars (id) on delete cascade,
+  kind text not null check (kind in ('part', 'hours')),
+  on_date date not null default current_date,
+  amount numeric(12, 2),
+  hours numeric(6, 2),
+  note text check (length(note) <= 80),
+  paid_by text not null default 'partner' check (paid_by in ('me', 'partner')),
+  by_link boolean not null default false,
+  created_at timestamptz not null default now(),
+  check ((kind = 'part' and amount > 0 and hours is null) or (kind = 'hours' and hours > 0 and amount is null))
+);
+create index if not exists salvage_logs_car on nikki.salvage_logs (car_id, on_date);
+create table if not exists nikki.salvage_links (
+  token text primary key default replace(gen_random_uuid()::text || gen_random_uuid()::text, '-', ''),
+  owner_id uuid not null default auth.uid() references nikki.profiles (id) on delete cascade,
+  partner_name text not null default 'Pedro' check (length(trim(partner_name)) between 1 and 40),
+  created_at timestamptz not null default now(),
+  revoked_at timestamptz
+);
+alter table nikki.salvage_cars enable row level security;
+alter table nikki.salvage_logs enable row level security;
+alter table nikki.salvage_links enable row level security;
+revoke all on nikki.salvage_cars, nikki.salvage_logs, nikki.salvage_links from anon, public;
+grant select, insert, update, delete on nikki.salvage_cars, nikki.salvage_logs, nikki.salvage_links to authenticated;
+grant all on nikki.salvage_cars, nikki.salvage_logs, nikki.salvage_links to service_role;
+do $$ begin
+  if not exists (select 1 from pg_policies where schemaname = 'nikki' and tablename = 'salvage_cars' and policyname = 'salvage_cars_own') then
+    create policy salvage_cars_own on nikki.salvage_cars for all to authenticated
+      using (owner_id = auth.uid()) with check (owner_id = auth.uid() and nikki.is_app_admin());
+  end if;
+  if not exists (select 1 from pg_policies where schemaname = 'nikki' and tablename = 'salvage_logs' and policyname = 'salvage_logs_own') then
+    create policy salvage_logs_own on nikki.salvage_logs for all to authenticated
+      using (exists (select 1 from nikki.salvage_cars c where c.id = car_id and c.owner_id = auth.uid()))
+      with check (exists (select 1 from nikki.salvage_cars c where c.id = car_id and c.owner_id = auth.uid()));
+  end if;
+  if not exists (select 1 from pg_policies where schemaname = 'nikki' and tablename = 'salvage_links' and policyname = 'salvage_links_own') then
+    create policy salvage_links_own on nikki.salvage_links for all to authenticated
+      using (owner_id = auth.uid()) with check (owner_id = auth.uid() and nikki.is_app_admin());
+  end if;
+end $$;
+
+-- A página do mecânico: pela ligação (sem conta), vê os carros do dono da ligação e regista peças e horas.
+create or replace function nikki.salvage_link_view(t text) returns jsonb
+language sql stable security definer set search_path = '' as $$
+  select jsonb_build_object(
+    'partner', l.partner_name,
+    'cars', coalesce((select jsonb_agg(jsonb_build_object(
+        'id', c.id, 'name', c.name, 'bought_on', c.bought_on, 'price', c.price, 'price_paid_by', c.price_paid_by,
+        'hour_rate', c.hour_rate, 'status', c.status, 'sold_on', c.sold_on, 'sold_for', c.sold_for, 'sale_to', c.sale_to,
+        'logs', coalesce((select jsonb_agg(jsonb_build_object('id', g.id, 'kind', g.kind, 'on_date', g.on_date, 'amount', g.amount,
+                    'hours', g.hours, 'note', g.note, 'paid_by', g.paid_by, 'by_link', g.by_link) order by g.on_date desc, g.created_at desc)
+                  from nikki.salvage_logs g where g.car_id = c.id), '[]'::jsonb)) order by c.bought_on desc)
+      from nikki.salvage_cars c where c.owner_id = l.owner_id), '[]'::jsonb))
+  from nikki.salvage_links l where l.token = t and l.revoked_at is null;
+$$;
+create or replace function nikki.salvage_link_add(t text, car uuid, k text, amt numeric, hrs numeric, nt text, d date) returns uuid
+language plpgsql security definer set search_path = '' as $$
+declare o uuid; i uuid;
+begin
+  select owner_id into o from nikki.salvage_links where token = t and revoked_at is null;
+  if o is null then raise exception 'ligação inválida'; end if;
+  if not exists (select 1 from nikki.salvage_cars where id = car and owner_id = o and status <> 'sold') then raise exception 'carro não encontrado'; end if;
+  insert into nikki.salvage_logs (car_id, kind, amount, hours, note, paid_by, by_link, on_date)
+    values (car, k, case when k = 'part' then amt end, case when k = 'hours' then hrs end, nullif(trim(nt), ''), 'partner', true, coalesce(d, current_date))
+    returning id into i;
+  return i;
+end $$;
+create or replace function nikki.salvage_link_remove(t text, log uuid) returns void
+language plpgsql security definer set search_path = '' as $$
+declare o uuid;
+begin
+  select owner_id into o from nikki.salvage_links where token = t and revoked_at is null;
+  if o is null then raise exception 'ligação inválida'; end if;
+  delete from nikki.salvage_logs g using nikki.salvage_cars c
+    where g.id = log and g.car_id = c.id and c.owner_id = o and g.by_link and g.created_at > now() - interval '7 days';
+end $$;
+revoke all on function nikki.salvage_link_view(text), nikki.salvage_link_add(text, uuid, text, numeric, numeric, text, date), nikki.salvage_link_remove(text, uuid) from public;
+grant execute on function nikki.salvage_link_view(text), nikki.salvage_link_add(text, uuid, text, numeric, numeric, text, date), nikki.salvage_link_remove(text, uuid) to anon, authenticated;

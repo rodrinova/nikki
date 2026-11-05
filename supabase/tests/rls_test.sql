@@ -596,4 +596,37 @@ do $$ begin
 end $$;
 rollback;
 
+-- Salvados: só a administração da app (o Rodrigo) cria; a Inês não vê; a ligação do mecânico vê e regista, sem conta.
+begin;
+insert into nikki.app_admins (profile_id) values ('00000000-0000-0000-0000-00000000000a') on conflict do nothing;
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+insert into nikki.salvage_cars (name, price) values ('Golf 2015', 1500);
+insert into nikki.salvage_links (partner_name) values ('Pedro');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+do $$ begin
+  assert (select count(*) from nikki.salvage_cars) = 0, 'a Inês não vê os salvados';
+  begin insert into nikki.salvage_cars (name, price) values ('X', 1); raise exception 'devia falhar';
+  exception when insufficient_privilege then null; end;
+end $$;
+reset role;
+create temp table _tok on commit drop as select token from nikki.salvage_links limit 1;
+grant select on _tok to anon;
+set role anon;
+set request.jwt.claim.sub = '';
+do $$ declare t text := (select token from _tok); v jsonb; c uuid; begin
+  v := nikki.salvage_link_view(t);
+  assert v->>'partner' = 'Pedro' and jsonb_array_length(v->'cars') = 1, 'a ligação vê o carro';
+  c := (v->'cars'->0->>'id')::uuid;
+  perform nikki.salvage_link_add(t, c, 'hours', null, 3, 'Chapa', null);
+  perform nikki.salvage_link_add(t, c, 'part', 120.5, null, 'Farol', null);
+  assert jsonb_array_length(nikki.salvage_link_view(t)->'cars'->0->'logs') = 2, 'registou horas e uma peça';
+  assert nikki.salvage_link_view('errado') is null, 'ligação errada não vê nada';
+  begin perform nikki.salvage_link_add('errado', c, 'hours', null, 1, null, null); raise exception 'devia falhar';
+  exception when raise_exception then null; end;
+  begin perform count(*) from nikki.salvage_cars; raise exception 'devia falhar';
+  exception when insufficient_privilege then null; end;
+end $$;
+rollback;
+
 \echo 'rls_test: tudo certo'

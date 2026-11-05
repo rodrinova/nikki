@@ -9,7 +9,9 @@ const files = readdirSync(assets);
 const js = files.filter((f) => f.endsWith('.js')).map((f) => readFileSync(join(assets, f), 'utf8')).join('\n');
 const css = files.filter((f) => f.endsWith('.css')).map((f) => readFileSync(join(assets, f), 'utf8')).join('\n');
 const icon = readFileSync(join(dir, 'icons/icon.svg'), 'utf8');
-const page = `<title>NIKKI app</title>
+const page = `<!DOCTYPE html>
+<meta charset="utf-8">
+<title>NIKKI app</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="icon" href="data:image/svg+xml,${encodeURIComponent(icon)}">
 <link rel="preconnect" href="https://fonts.googleapis.com">
