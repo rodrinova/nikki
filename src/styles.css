@@ -1332,3 +1332,10 @@ details.hint > p{margin-top:8px;animation:in 260ms var(--ease-out) both}
    pequeno e encostado à esquerda, com as barras fixas desalinhadas. As transições de lado são cortadas aqui. */
 @supports (overflow:clip){html,body{overflow-x:clip}}
 .app{overflow-x:clip}
+/* Salvados: a conta corrente */
+.salv-acc{display:flex;flex-direction:column;gap:4px;padding:16px 18px;border-color:rgba(var(--glow),.35)}
+.salv-acc.big .l{font-size:26px;letter-spacing:-0.03em}
+.salv-break .v{font-variant-numeric:tabular-nums}
+.salv-add{display:grid;grid-template-columns:1fr 1fr 1.4fr;gap:8px}
+.salv-add .btn{justify-content:center;padding:0 10px}
+.salv-grid > button.tile{display:flex;flex-direction:column;gap:4px;padding:14px 16px;border:0;text-align:left;color:inherit}

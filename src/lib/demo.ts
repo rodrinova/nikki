@@ -67,7 +67,7 @@ function seed() {
     share_ratios: [{ household_id: H, profile_a: R, profile_b: I, ratio_a: 0.5 }],
     invites: [], tickets: [], goals: [], assets: [], asset_snapshots: [], incomes: [], cars: [], car_logs: [], homes: [], bills: [], bill_payments: [], chores: [], chore_logs: [], todos: [], warranties: [], calendar_links: [], housekeeping: [], hk_tasks: [], hk_log: [], hk_messages: [], hk_paid: [], gym_fields: [], gym_prefs: [], gym_assessments: [],
     expenses: [], transfers: [], deadlines: [], shopping_items: [], events: [],
-    salvage_cars: [], salvage_logs: [], salvage_links: [],
+    salvage_cars: [], salvage_logs: [], salvage_links: [], salvage_settings: [],
   };
   others(db);
   // Salvados (só do Rodrigo): um vendido, um em reparação; a ligação do Pedro já criada.
@@ -79,7 +79,7 @@ function seed() {
     );
     const lg = (car: string, kind: string, d: number, amount: string | null, hours: string | null, note: string, paid_by = 'partner') =>
       db.salvage_logs.push({ id: uid(), car_id: car, kind, on_date: addDays(today, -d), amount, hours, note, paid_by, by_link: paid_by === 'partner', created_at: `${addDays(today, -d)}T18:00:00Z` });
-    lg(c1, 'part', 140, '380.00', null, 'Farol e para-choques'); lg(c1, 'hours', 138, null, '6', 'Chapa'); lg(c1, 'part', 130, '210.00', null, 'Pneus', 'me'); lg(c1, 'hours', 120, null, '8', 'Pintura');
+    lg(c1, 'part', 140, '380.00', null, 'Farol e para-choques'); lg(c1, 'hours', 138, null, '6', 'Chapa'); lg(c1, 'part', 130, '210.00', null, 'Pneus', 'me'); db.salvage_logs.push({ id: uid(), car_id: c1, kind: 'transfer', on_date: addDays(today, -125), amount: '190.00', hours: null, note: null, paid_by: 'me', by_link: false, created_at: `${addDays(today, -125)}T18:00:00Z` }); lg(c1, 'hours', 120, null, '8', 'Pintura');
     lg(c2, 'part', 20, '450.00', null, 'Capô'); lg(c2, 'hours', 18, null, '5', 'Desmontar'); lg(c2, 'hours', 6, null, '3', 'Alinhar');
     db.salvage_links.push({ token: 'demo-pedro', owner_id: R, partner_name: 'Pedro', created_at: ago(20), revoked_at: null });
   }
@@ -372,7 +372,7 @@ export function createDemoClient() {
     if (t === 'expenses') return houses.includes(r.household_id) && (r.paid_by === me || r.created_by === me || r.other_id === me);
     if (t === 'transfers') return houses.includes(r.household_id) && (r.from_id === me || r.to_id === me);
     if (t === 'events') return houses.includes(r.household_id) && (!r.private || r.owner_id === me || r.created_by === me);
-    if (t === 'salvage_cars' || t === 'salvage_links') return r.owner_id === me;
+    if (t === 'salvage_cars' || t === 'salvage_links' || t === 'salvage_settings') return r.owner_id === me;
     if (t === 'salvage_logs') return db.salvage_cars.some((c) => c.id === r.car_id && c.owner_id === me);
     return houses.includes(r.household_id);
   };
@@ -400,6 +400,7 @@ export function createDemoClient() {
     delete() { this.op = 'delete'; return this; }
     eq(c: string, v: any) { this.filters.push((r) => r[c] === v); return this; }
     in(c: string, vs: any[]) { this.filters.push((r) => vs.includes(r[c])); return this; }
+    neq(c: string, v: any) { this.filters.push((r) => r[c] !== v); return this; }
     is(c: string, v: any) { this.filters.push((r) => (r[c] ?? null) === v); return this; }
     limit(n: number) { this.rng = [0, n - 1]; return this; }
     order(c: string, o?: { ascending?: boolean }) { this.ord = { c, asc: o?.ascending ?? true }; return this; }
@@ -431,6 +432,10 @@ export function createDemoClient() {
           ...(this.t === 'chores' ? { archived: false, home_id: null, turn_id: null, note: null, kind: 'task', assign: 'anyone' } : {}),
           ...(this.t === 'todos' ? { owner_id: null, due_on: null, done_at: null, done_by: null, created_by: me } : {}),
           ...(this.t === 'chore_logs' ? { expense_id: null, note: null } : {}),
+          ...(['salvage_cars', 'salvage_links', 'salvage_settings'].includes(this.t) ? { owner_id: me } : {}),
+          ...(this.t === 'salvage_cars' ? { price_me: null, status: 'repair', sold_on: null, sold_for: null, sale_to: 'me', hour_rate: '40' } : {}),
+          ...(this.t === 'salvage_logs' ? { by_link: false, note: null, hours: null, amount: null } : {}),
+          ...(this.t === 'salvage_links' ? { token: uid().replace(/-/g, ''), revoked_at: null, partner_name: 'Pedro' } : {}),
           // Como o gatilho da base: com fonte de rendimento, quem recebeu e o tipo vêm da fonte.
           ...(this.t === 'income_entries' ? (() => { const src = p.income_id ? db.incomes.find((i: Row) => i.id === p.income_id) : null;
             return { received_by: me, kind: 'outro', category: null, occasion_id: null, split: 'mine', other_id: null, payer_share: null, note: null, created_by: me, ...(src ? { received_by: src.profile_id, kind: src.kind } : {}) }; })() : {}),

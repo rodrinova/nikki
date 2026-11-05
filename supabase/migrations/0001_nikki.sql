@@ -1720,3 +1720,54 @@ begin
 end $$;
 revoke all on function nikki.salvage_link_view(text), nikki.salvage_link_add(text, uuid, text, numeric, numeric, text, date), nikki.salvage_link_remove(text, uuid) from public;
 grant execute on function nikki.salvage_link_view(text), nikki.salvage_link_add(text, uuid, text, numeric, numeric, text, date), nikki.salvage_link_remove(text, uuid) to anon, authenticated;
+
+-- ───────────────────────── salvados: conta corrente ─────────────────────────
+-- A compra divide-se (price_me = quanto pagou o dono; por omissão, metade). Há transferências entre os dois (kind
+-- 'transfer'; paid_by = quem transferiu). O valor/hora e o nome do sócio ficam nas definições do dono.
+alter table nikki.salvage_cars add column if not exists price_me numeric(12, 2) check (price_me >= 0);
+alter table nikki.salvage_logs drop constraint if exists salvage_logs_kind_check;
+alter table nikki.salvage_logs add constraint salvage_logs_kind_check check (kind in ('part', 'hours', 'transfer'));
+alter table nikki.salvage_logs drop constraint if exists salvage_logs_check;
+alter table nikki.salvage_logs add constraint salvage_logs_check
+  check ((kind in ('part', 'transfer') and amount > 0 and hours is null) or (kind = 'hours' and hours > 0 and amount is null));
+create table if not exists nikki.salvage_settings (
+  owner_id uuid primary key default auth.uid() references nikki.profiles (id) on delete cascade,
+  partner_name text not null default 'Pedro' check (length(trim(partner_name)) between 1 and 40),
+  hour_rate numeric(8, 2) not null default 40 check (hour_rate >= 0),
+  updated_at timestamptz not null default now()
+);
+alter table nikki.salvage_settings enable row level security;
+grant select, insert, update, delete on nikki.salvage_settings to authenticated;
+grant all on nikki.salvage_settings to service_role;
+do $$ begin
+  if not exists (select 1 from pg_policies where schemaname = 'nikki' and tablename = 'salvage_settings' and policyname = 'salvage_settings_own') then
+    create policy salvage_settings_own on nikki.salvage_settings for all to authenticated
+      using (owner_id = auth.uid()) with check (owner_id = auth.uid() and nikki.is_app_admin());
+  end if;
+end $$;
+create or replace function nikki.salvage_link_view(t text) returns jsonb
+language sql stable security definer set search_path = '' as $$
+  select jsonb_build_object(
+    'partner', l.partner_name,
+    'cars', coalesce((select jsonb_agg(jsonb_build_object(
+        'id', c.id, 'name', c.name, 'bought_on', c.bought_on, 'price', c.price, 'price_me', c.price_me, 'price_paid_by', c.price_paid_by,
+        'hour_rate', c.hour_rate, 'status', c.status, 'sold_on', c.sold_on, 'sold_for', c.sold_for, 'sale_to', c.sale_to,
+        'logs', coalesce((select jsonb_agg(jsonb_build_object('id', g.id, 'kind', g.kind, 'on_date', g.on_date, 'amount', g.amount,
+                    'hours', g.hours, 'note', g.note, 'paid_by', g.paid_by, 'by_link', g.by_link) order by g.on_date desc, g.created_at desc)
+                  from nikki.salvage_logs g where g.car_id = c.id), '[]'::jsonb)) order by c.bought_on desc)
+      from nikki.salvage_cars c where c.owner_id = l.owner_id), '[]'::jsonb))
+  from nikki.salvage_links l where l.token = t and l.revoked_at is null;
+$$;
+create or replace function nikki.salvage_link_add(t text, car uuid, k text, amt numeric, hrs numeric, nt text, d date) returns uuid
+language plpgsql security definer set search_path = '' as $$
+declare o uuid; i uuid;
+begin
+  if k not in ('part', 'hours') then raise exception 'pela ligação só peças e horas'; end if;
+  select owner_id into o from nikki.salvage_links where token = t and revoked_at is null;
+  if o is null then raise exception 'ligação inválida'; end if;
+  if not exists (select 1 from nikki.salvage_cars where id = car and owner_id = o and status <> 'sold') then raise exception 'carro não encontrado'; end if;
+  insert into nikki.salvage_logs (car_id, kind, amount, hours, note, paid_by, by_link, on_date)
+    values (car, k, case when k = 'part' then amt end, case when k = 'hours' then hrs end, nullif(trim(nt), ''), 'partner', true, coalesce(d, current_date))
+    returning id into i;
+  return i;
+end $$;
