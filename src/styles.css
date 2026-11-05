@@ -1274,3 +1274,13 @@ details.hint > p{margin-top:8px;animation:in 260ms var(--ease-out) both}
 .lv-row i{width:10px;height:10px;border-radius:50%;flex-shrink:0}
 .lv-row .st2{flex:1}
 .lv-row .v{text-align:right}
+
+/* ═════════════════ Faturas e sugestões das compras ═════════════════ */
+.rcpt-pick{display:flex;align-items:center;gap:10px;min-height:46px;padding:0 16px;border-radius:var(--r-pill);border:1px dashed var(--glass-line);color:var(--sub);cursor:pointer;font-size:var(--t-s)}
+.rcpt-pick:hover{color:var(--ink);border-color:rgba(var(--glow),.45)}
+.rcpt-pick[aria-busy="true"]{opacity:.6;pointer-events:none}
+.sug-pill{align-self:flex-start;display:inline-flex;align-items:center;gap:8px;min-height:38px;padding:0 14px;border-radius:var(--r-pill);border:1px solid rgba(var(--glow),.45);background:rgba(var(--glow),.1);color:var(--ink);font-size:var(--t-s);animation:in 360ms var(--ease-out) both}
+.sug-row{gap:12px}
+.sug-row .st2{flex:1;min-width:0}
+.sug-btns{display:flex;gap:6px;flex-shrink:0}
+.sug-btns .tb.on{background:var(--ink);color:var(--ground);border-color:var(--ink)}
