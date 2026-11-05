@@ -25,6 +25,7 @@ import { MODULES, moduleOf } from '@/lib/modules';
 
 // Ecrãs menos usados (ou só de algumas pessoas): só se carregam quando se abrem.
 const Wealth = later(() => import('@/screens/Wealth'), 'Wealth');
+const WealthPart = later(() => import('@/screens/Wealth'), 'WealthPart');
 const Gym = later(() => import('@/screens/Gym'), 'Gym');
 const GymMetric = later(() => import('@/screens/Gym'), 'GymMetric');
 const Occasions = later(() => import('@/screens/Occasions'), 'Occasions');
@@ -40,6 +41,9 @@ const HkDay = later(() => import('@/screens/HousekeepingScreens'), 'HkDay');
 const HkPart = later(() => import('@/screens/HousekeepingScreens'), 'HkPart');
 const Admin = later(() => import('@/screens/Admin'), 'Admin');
 const Housekeeper = later(() => import('@/screens/Housekeeper'), 'Housekeeper');
+const Salvage = later(() => import('@/screens/Salvage'), 'Salvage');
+const SalvageCarScreen = later(() => import('@/screens/Salvage'), 'SalvageCarScreen');
+const SalvageLinkPage = later(() => import('@/screens/Salvage'), 'SalvageLinkPage');
 
 /**
  * Só o início tem barra de topo: a marca e o perfil. Os outros ecrãs começam no «Voltar».
@@ -62,7 +66,7 @@ function TopBar() {
  */
 function SideBar() {
   const { pathname } = useLocation();
-  const { me } = useSession();
+  const { me, appAdmin } = useSession();
   const { on } = useHouse();
   const { open, isOpen, close } = useOverlays();
   const at = (to: string) => (to === '/' ? pathname === '/' : pathname === to || pathname.startsWith(`${to}/`));
@@ -77,6 +81,7 @@ function SideBar() {
         {item('/', 'home', 'Início')}
         {item('/dinheiro', 'coins', 'Dinheiro')}
         {MODULES.filter((m) => on(m.k)).map((m) => item(m.to, m.ic, m.name))}
+        {appAdmin && item('/salvados', 'wrench', 'Salvados')}
         {item('/espacos', 'grid', 'Espaços')}
       </div>
       <Link className="side-me press" to="/perfil" aria-current={at('/perfil') ? 'page' : undefined}><span className="avatar" style={{ ['--c' as any]: me?.color }}>{me?.name?.[0]}</span><span>{me?.name}</span></Link>
@@ -114,6 +119,10 @@ function Shell() {
   useEffect(() => { document.body.classList.toggle('nobar', !onHub); }, [onHub]);
   useEffect(() => { scrollTo(0, 0); if (pathname !== '/melhorar' && pathname !== '/perfil') lastPlace.path = pathname; }, [pathname]);
 
+  // A página do mecânico (salvados): abre só com a ligação, com ou sem sessão, e não mostra mais nada da NIKKI.
+  if (pathname.startsWith('/s/')) return (
+    <div className="app"><main className="screen"><Suspense fallback={<Loading page />}><Routes><Route path="/s/:token" element={<SalvageLinkPage />} /></Routes></Suspense></main><SheetHost /></div>
+  );
   if (!ready) return <Loading page />;
   if (!session) return (
     <div className="app"><main className="screen">
@@ -151,6 +160,7 @@ function Shell() {
           <Route path="/contas" element={<Navigate to="/dinheiro?ver=entre-nos" replace />} />
           <Route path="/compras" element={<Gate k="compras"><Shop /></Gate>} />
           <Route path="/patrimonio" element={<Gate k="patrimonio"><Wealth /></Gate>} />
+          <Route path="/patrimonio/:part" element={<Gate k="patrimonio"><WealthPart /></Gate>} />
           <Route path="/casa" element={<Gate k="casa"><Casa /></Gate>} />
           <Route path="/casa/arranque/:id" element={<Gate k="casa"><CasaSetup key="edit" /></Gate>} />
           <Route path="/casa/nova" element={<Gate k="casa"><CasaSetup key="new" /></Gate>} />
@@ -169,6 +179,8 @@ function Shell() {
           <Route path="/modulos" element={<Modules />} />
           <Route path="/melhorar" element={<Tickets />} />
           {appAdmin && <Route path="/admin" element={<Admin />} />}
+          {appAdmin && <Route path="/salvados" element={<Salvage />} />}
+          {appAdmin && <Route path="/salvados/:id" element={<SalvageCarScreen />} />}
           <Route path="/pessoas" element={<People />} />
           <Route path="/perfil" element={<Profile />} />
           <Route path="/historia" element={<Story />} />

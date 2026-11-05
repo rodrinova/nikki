@@ -8,6 +8,7 @@ import { useLive } from './live';
 import { useSession } from './session';
 import { abates, entryAsExpense, toU, type Expense, type MoneyIn, type Transfer } from '@/lib/money';
 import type { CarLog } from '@/lib/garage';
+import type { SalvageCar } from '@/lib/salvage';
 import type { Bill, BillPayment } from '@/lib/home';
 import type { Chore, Todo } from '@/lib/chores';
 import type { Repeat } from '@/lib/agenda';
@@ -107,9 +108,22 @@ function useMonthTotals(h: string | null, expenses: unknown) {
   return { rows, loading, reload: load };
 }
 
+/** Os salvados (só da administração da app): para o Património os contar como investimento. */
+function useSalvageRows(on: boolean) {
+  const [cars, setCars] = useState<SalvageCar[]>([]);
+  useEffect(() => {
+    if (!on) { setCars([]); return; }
+    Promise.all([supabase.from('salvage_cars').select('*'), supabase.from('salvage_logs').select('*')]).then(([c, g]) => {
+      const logs = (g.data ?? []) as (SalvageCar['logs'][number] & { car_id: string })[];
+      setCars(((c.data ?? []) as Omit<SalvageCar, 'logs'>[]).map((x) => ({ ...x, logs: logs.filter((y) => y.car_id === x.id) })));
+    });
+  }, [on]);
+  return cars;
+}
+
 // Dados da casa atual, partilhados por todos os ecrãs (um só canal de tempo real por tabela).
 function useHouseData() {
-  const { house, me } = useSession();
+  const { house, me, appAdmin } = useSession();
   const h = house?.id;
   const modules = useLive<ModuleRow>('household_modules', h, 'module, enabled_at, enabled_by', { column: 'enabled_at' });
   // Módulos ligados. Enquanto carregam, usa os da última vez (guardados no aparelho) ou, na primeira vez, os de origem.
@@ -160,6 +174,7 @@ function useHouseData() {
     carLogs: useLive<CarLog>('car_logs', gh, 'id, car_id, logged_on, odometer, litres, full_tank, kind, expense_id, amount, note, estimated, created_at', { column: 'logged_on' }),
   };
   const monthTotals = useMonthTotals(ph ?? null, d.expenses.rows);
+  const salvage = useSalvageRows(!!ph && appAdmin);
   const gym = useGym(on('ginasio') ? me?.id : undefined);
   const busy = useBusy(h, d.events.rows);
   // Voltar a ler tudo (puxar para atualizar).
@@ -170,7 +185,7 @@ function useHouseData() {
   const inRows = d.incomeEntries.rows;
   const spendRows = useMemo<ExpenseRow[]>(() => [...d.expenses.rows, ...inRows.filter((x) => abates(x.kind, x.category)).map(asRow)], [d.expenses.rows, inRows]);
   const pairRows = useMemo<ExpenseRow[]>(() => [...d.expenses.rows, ...inRows.filter((x) => x.split !== 'mine').map(asRow)], [d.expenses.rows, inRows]);
-  return { ...d, busy, monthTotals, gym, on, reloadAll, spendRows, pairRows };
+  return { ...d, busy, monthTotals, gym, on, reloadAll, spendRows, pairRows, salvage };
 }
 
 const Ctx = createContext<ReturnType<typeof useHouseData> | null>(null);

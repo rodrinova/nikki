@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { countdown, sortOccasions } from '@/lib/occasions';
+import { sortOccasions } from '@/lib/occasions';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { store } from '@/lib/store';
 import { useSession } from '@/data/session';
@@ -27,6 +27,7 @@ import { useAgendaItems } from '@/data/agenda';
 import { AgendaPane } from './Agenda';
 import { warrantyState } from '@/lib/chores';
 import { CountUp } from '@/ui/CountUp';
+import { totals as salvageTotals } from '@/lib/salvage';
 import { useWealth } from '@/data/wealth';
 
 export function Top({ title, right }: { title: string; right?: ReactNode }) {
@@ -308,50 +309,59 @@ function MonthClose() {
   );
 }
 
-function Space({ to, ic, n, d, more }: { to: string; ic: string; n: string; d: string; more?: boolean }) {
+/** Um espaço: o ícone num círculo de vidro e o nome em cima; em baixo, um número grande e o que ele quer dizer. */
+function Space({ to, ic, n, v, u, more }: { to: string; ic: string; n: string; v: string; u?: string; more?: boolean }) {
   return (
-    <Link className={`tile press sp${more ? ' more' : ''}`} to={to} aria-label={`${n}: ${d}`}>
-      <span className="ic"><Icon n={ic} s={24} /></span>
-      <span className="sp-t"><span className="sp-n">{n}</span><span className="s sp-d">{d}</span></span>
+    <Link className={`tile press sp${more ? ' more' : ''}`} to={to} aria-label={`${n}: ${v}${u ? ` ${u}` : ''}`}>
+      <span className="sp-head"><span className="sp-ic"><Icon n={ic} s={18} /></span><span className="sp-n">{n}</span></span>
+      <span className="sp-v"><span className="sp-num">{v}</span>{u && <span className="s sp-u">{u}</span>}</span>
     </Link>
   );
 }
 
 /**
- * Espaços: Dinheiro, os módulos ligados nesta casa e Pessoas, cada um com uma linha do que lá está agora.
- * No fim, o caminho para ligar mais módulos.
+ * Espaços: Dinheiro, os módulos ligados nesta casa e Pessoas, cada um com o número que importa. Os que não estão em
+ * uso ficam no fim, mais discretos: abrir é ligar.
  */
 export function Spaces() {
-  const { me, members, partner } = useSession();
-  const { on, modules, shop, events, busy, deadlines, cars, goals, hk, gym, occasions } = useHouse();
+  const { members, appAdmin } = useSession();
+  const { on, modules, shop, events, busy, deadlines, cars, goals, hk, gym, occasions, salvage } = useHouse();
   const hkc = hk.rows.find((r) => !r.archived);
-  const m = useMonth(), L = useLedger(), w = useWealth('casa'), casaV = useCasa();
+  const m = useMonth(), w = useWealth('casa'), casaV = useCasa();
   const today = todayStr();
   const left = shop.rows.filter((i) => !i.done).length;
   const todayN = [...events.rows, ...busy.rows].filter((e) => toDateStr(new Date(e.starts_at)) === today).length;
   const due = deadlines.rows.filter((x) => !x.paid_at && x.due_on <= addDays(today, 7)).length;
-  const detail: Record<string, string> = {
-    compras: left ? `${left} por comprar` : 'lista vazia',
-    agenda: todayN ? `${todayN} hoje` : 'nada hoje',
-    casa: casaV.pending.length ? `${casaV.pending.length} por confirmar` : due ? `${due} ${due === 1 ? 'aviso' : 'avisos'}` : casaV.active.length ? `${eur(casaV.total, 0)} € por mês` : 'tudo em dia',
-    housekeeping: hkc ? (isVisitDay(hkc.weekdays, today) && hkc.weekdays.length ? `${hkc.name} vem hoje` : `${hkc.name} · ${dayLabel(nextVisit(hkc.weekdays, today))}`) : 'por arrancar',
-    garagem: ((n) => (n ? `${n} ${n === 1 ? 'carro' : 'carros'}` : 'sem carros'))(cars.rows.filter((c) => !c.archived).length),
-    patrimonio: w.ready ? `${w.score.total} · ${w.score.level.toLowerCase()}` : '…',
-    ginasio: ((x) => (x ? `${fmt(x.s.last, x.f.unit)} · ${x.f.label.toLowerCase()}` : gym.prefs ? 'sem avaliações' : 'por começar'))((() => { const f = gym.fields.find((y) => y.key === gym.prefs?.fields[0]); const s = f ? summary(gym.rows, f.key) : null; return f && s ? { f, s } : null; })()),
-    eventos: ((o) => (o ? `${o.name}${o.on_date ? ` · ${countdown(Math.round((Date.parse(o.on_date + 'T12:00:00') - Date.parse(today + 'T12:00:00')) / 86_400_000))}` : ''}` : 'nenhum a decorrer'))(sortOccasions(occasions.rows.filter((o) => !o.purchase)).active[0]),
-    objetivos: ((n) => (n ? `${n} ${n === 1 ? 'objetivo' : 'objetivos'}` : 'nenhum ainda'))(goals.rows.filter((g) => g.status === 'active').length),
+  const nCars = cars.rows.filter((c) => !c.archived).length, nGoals = goals.rows.filter((g) => g.status === 'active').length;
+  const occ = sortOccasions(occasions.rows.filter((o) => !o.purchase)).active[0];
+  const gymX = (() => { const f = gym.fields.find((y) => y.key === gym.prefs?.fields[0]); const x = f ? summary(gym.rows, f.key) : null; return f && x ? { f, x } : null; })();
+  const sv = appAdmin && salvage.length ? salvageTotals(salvage, today) : null;
+  const val: Record<string, [string, string?]> = {
+    compras: [String(left), left === 1 ? 'por comprar' : left ? 'por comprar' : 'lista vazia'],
+    agenda: [String(todayN), 'hoje'],
+    casa: casaV.pending.length ? [String(casaV.pending.length), 'por confirmar'] : due ? [String(due), due === 1 ? 'aviso' : 'avisos'] : casaV.active.length ? [`${eur(casaV.total, 0)} €`, 'por mês'] : ['✓', 'em dia'],
+    housekeeping: hkc ? [isVisitDay(hkc.weekdays, today) && hkc.weekdays.length ? 'hoje' : dayLabel(nextVisit(hkc.weekdays, today)), hkc.name] : ['—', 'por arrancar'],
+    garagem: [String(nCars), nCars === 1 ? 'carro' : 'carros'],
+    patrimonio: w.ready ? [String(w.score.total), w.score.level.toLowerCase()] : ['…'],
+    ginasio: gymX ? [fmt(gymX.x.last, gymX.f.unit), gymX.f.label.toLowerCase()] : ['—', gym.prefs ? 'sem avaliações' : 'por começar'],
+    eventos: occ ? ((d) => (d === null ? ['—', occ.name] : d === 0 ? ['hoje', occ.name] : [String(Math.abs(d)), `${Math.abs(d) === 1 ? 'dia' : 'dias'}${d < 0 ? ' depois' : ''} · ${occ.name}`]))(occ.on_date ? Math.round((Date.parse(occ.on_date + 'T12:00:00') - Date.parse(today + 'T12:00:00')) / 86_400_000) : null) as [string, string] : ['—', 'nenhum'],
+    objetivos: [String(nGoals), nGoals === 1 ? 'objetivo' : 'objetivos'],
   };
   const lit = MODULES.filter((x) => on(x.k));
+  const off = MODULES.filter((x) => !on(x.k));
   return (
     <>
       <Top title="Espaços" />
       <div className="lib">
-        <Space to="/dinheiro" ic="coins" n="Dinheiro" d={`${eur(m.total, 0)} € em ${monthName(m.key).slice(0, 3)}${partner && L ? (L.even ? ' · quites' : ` · ${L.v > 0 ? 'adiantaste' : `${partner.name} adiantou`} ${eur(Math.abs(L.v), 0)} €`) : ''}`} />
-        {/* Todos à vista: os que estão em uso com o que lá está; os outros começam com um toque (abrir é ligar). */}
-        {lit.map((x) => <Space key={x.k} to={x.to} ic={x.ic} n={x.name} d={detail[x.k] ?? 'em breve'} />)}
-        <Space to="/pessoas" ic="people" n="Pessoas" d={members.length === 1 ? `só ${me?.name ?? 'tu'}` : `${members.length} pessoas`} />
-        {!modules.loading && MODULES.filter((x) => !on(x.k)).map((x) => <Space key={x.k} to={x.to} ic={x.ic} n={x.name} d="toca para começar" more />)}
+        <Space to="/dinheiro" ic="coins" n="Dinheiro" v={`${eur(m.total, 0)} €`} u={monthName(m.key)} />
+        {lit.map((x) => <Space key={x.k} to={x.to} ic={x.ic} n={x.name} v={val[x.k]?.[0] ?? '—'} u={val[x.k]?.[1]} />)}
+        {appAdmin && <Space to="/salvados" ic="wrench" n="Salvados" v={sv ? `${eur(sv.myProfit, 0)} €` : '—'} u={sv ? 'lucro, a tua metade' : 'por começar'} />}
+        <Space to="/pessoas" ic="people" n="Pessoas" v={String(members.length)} u={members.length === 1 ? 'pessoa' : 'pessoas'} />
       </div>
+      {!modules.loading && off.length > 0 && <>
+        <p className="s">Por ligar</p>
+        <div className="lib lib-off">{off.map((x) => <Link key={x.k} className="tile press sp-off" to={x.to}><span className="sp-ic"><Icon n={x.ic} s={18} /></span><span>{x.name}</span></Link>)}</div>
+      </>}
     </>
   );
 }

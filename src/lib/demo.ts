@@ -67,8 +67,22 @@ function seed() {
     share_ratios: [{ household_id: H, profile_a: R, profile_b: I, ratio_a: 0.5 }],
     invites: [], tickets: [], goals: [], assets: [], asset_snapshots: [], incomes: [], cars: [], car_logs: [], homes: [], bills: [], bill_payments: [], chores: [], chore_logs: [], todos: [], warranties: [], calendar_links: [], housekeeping: [], hk_tasks: [], hk_log: [], hk_messages: [], hk_paid: [], gym_fields: [], gym_prefs: [], gym_assessments: [],
     expenses: [], transfers: [], deadlines: [], shopping_items: [], events: [],
+    salvage_cars: [], salvage_logs: [], salvage_links: [],
   };
   others(db);
+  // Salvados (só do Rodrigo): um vendido, um em reparação; a ligação do Pedro já criada.
+  {
+    const c1 = uid(), c2 = uid();
+    db.salvage_cars.push(
+      { id: c1, owner_id: R, name: 'Golf VI 2012', bought_on: addDays(today, -150), price: '2200.00', price_paid_by: 'me', hour_rate: '40', status: 'sold', sold_on: addDays(today, -70), sold_for: '4100.00', sale_to: 'me', created_at: `${addDays(today, -150)}T10:00:00Z` },
+      { id: c2, owner_id: R, name: 'Clio IV 2017', bought_on: addDays(today, -25), price: '3100.00', price_paid_by: 'me', hour_rate: '40', status: 'repair', sold_on: null, sold_for: null, sale_to: 'me', created_at: `${addDays(today, -25)}T10:00:00Z` },
+    );
+    const lg = (car: string, kind: string, d: number, amount: string | null, hours: string | null, note: string, paid_by = 'partner') =>
+      db.salvage_logs.push({ id: uid(), car_id: car, kind, on_date: addDays(today, -d), amount, hours, note, paid_by, by_link: paid_by === 'partner', created_at: `${addDays(today, -d)}T18:00:00Z` });
+    lg(c1, 'part', 140, '380.00', null, 'Farol e para-choques'); lg(c1, 'hours', 138, null, '6', 'Chapa'); lg(c1, 'part', 130, '210.00', null, 'Pneus', 'me'); lg(c1, 'hours', 120, null, '8', 'Pintura');
+    lg(c2, 'part', 20, '450.00', null, 'Capô'); lg(c2, 'hours', 18, null, '5', 'Desmontar'); lg(c2, 'hours', 6, null, '3', 'Alinhar');
+    db.salvage_links.push({ token: 'demo-pedro', owner_id: R, partner_name: 'Pedro', created_at: ago(20), revoked_at: null });
+  }
   // Património de exemplo: fundos (um deles num ETF, que não conta como maneio), investimentos e a casa própria.
   const asset = (name: string, kind: string, owner: string | null, value: number, ret: number, role: string | null = null) => {
     const id = uid();
@@ -358,6 +372,8 @@ export function createDemoClient() {
     if (t === 'expenses') return houses.includes(r.household_id) && (r.paid_by === me || r.created_by === me || r.other_id === me);
     if (t === 'transfers') return houses.includes(r.household_id) && (r.from_id === me || r.to_id === me);
     if (t === 'events') return houses.includes(r.household_id) && (!r.private || r.owner_id === me || r.created_by === me);
+    if (t === 'salvage_cars' || t === 'salvage_links') return r.owner_id === me;
+    if (t === 'salvage_logs') return db.salvage_cars.some((c) => c.id === r.car_id && c.owner_id === me);
     return houses.includes(r.household_id);
   };
   const embed = (t: string, r: Row, sel: string) => {
@@ -384,6 +400,8 @@ export function createDemoClient() {
     delete() { this.op = 'delete'; return this; }
     eq(c: string, v: any) { this.filters.push((r) => r[c] === v); return this; }
     in(c: string, vs: any[]) { this.filters.push((r) => vs.includes(r[c])); return this; }
+    is(c: string, v: any) { this.filters.push((r) => (r[c] ?? null) === v); return this; }
+    limit(n: number) { this.rng = [0, n - 1]; return this; }
     order(c: string, o?: { ascending?: boolean }) { this.ord = { c, asc: o?.ascending ?? true }; return this; }
     range(a: number, b: number) { this.rng = [a, b]; return this; }
     single() { this.one = 'single'; return this; }
@@ -588,6 +606,24 @@ export function createDemoClient() {
         for (const e of db.expenses) if (e.household_id === args.h && e.spent_on >= args.since && e.category !== 'Future Me' && !e.occasion_id) by.set(e.spent_on.slice(0, 7), (by.get(e.spent_on.slice(0, 7)) ?? 0) + Number(e.amount));
         for (const x of db.income_entries) if (x.household_id === args.h && x.received_on >= args.since && ['reembolso', 'acerto'].includes(x.kind) && !['Future Me', 'Prendas'].includes(x.category) && !x.occasion_id) by.set(x.received_on.slice(0, 7), (by.get(x.received_on.slice(0, 7)) ?? 0) - Number(x.amount));
         return { data: [...by].sort().map(([month, total]) => ({ month, total: total.toFixed(2) })), error: null };
+      }
+      if (name === 'salvage_link_view' || name === 'salvage_link_add' || name === 'salvage_link_remove') {
+        // Como as funções da base: pela ligação, sem conta.
+        const l = db.salvage_links.find((x) => x.token === args.t && !x.revoked_at);
+        if (name === 'salvage_link_view') {
+          if (!l) return { data: null, error: null };
+          const cars = db.salvage_cars.filter((c) => c.owner_id === l.owner_id).sort((a, b) => (a.bought_on < b.bought_on ? 1 : -1))
+            .map((c) => ({ ...c, logs: db.salvage_logs.filter((g) => g.car_id === c.id).sort((a, b) => (a.on_date < b.on_date ? 1 : -1)) }));
+          return { data: { partner: l.partner_name, cars }, error: null };
+        }
+        if (!l) return err('ligação inválida');
+        if (name === 'salvage_link_add') {
+          const id = uid();
+          db.salvage_logs.push({ id, car_id: args.car, kind: args.k, amount: args.k === 'part' ? String(args.amt) : null, hours: args.k === 'hours' ? String(args.hrs) : null, note: args.nt || null, paid_by: 'partner', by_link: true, on_date: args.d ?? todayStr(), created_at: new Date().toISOString() });
+          return { data: id, error: null };
+        }
+        db.salvage_logs = db.salvage_logs.filter((g) => !(g.id === args.log && g.by_link));
+        return { data: null, error: null };
       }
       if (name === 'occasion_totals') {
         // Só os totais de cada evento, com as «só minhas» de cada um (como a função da base).

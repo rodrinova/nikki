@@ -1,4 +1,5 @@
-import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
+import { Fragment, useEffect, useState, type FormEvent, type ReactNode } from 'react';
+import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { store } from '@/lib/store';
 import { useSession } from '@/data/session';
@@ -13,7 +14,7 @@ import { monthKey, monthName, parseDate, toDateStr, todayStr } from '@/lib/dates
 import { useZoom } from '@/ui/zoom';
 import { ZoomHint } from '@/ui/ZoomHint';
 import { shortDate } from '@/lib/admin';
-import { KINDS, LEVELS, MILESTONES, WHERE, celebrate, entriesByMonth, fundCheck, liqOf, nextBadge, sourceMonthly, vacationUntil, type AssetKind, type FundRole } from '@/lib/wealth';
+import { KINDS, MILESTONES, WHERE, celebrate, entriesByMonth, fundCheck, liqOf, nextBadge, sourceMonthly, vacationUntil, type AssetKind, type FundRole } from '@/lib/wealth';
 import { Top, Hint } from './Home';
 import { Arc } from '@/ui/Arc';
 
@@ -31,39 +32,118 @@ function useOwner() {
   return (id: string | null) => (id === null ? (partner ? 'dos dois' : 'da casa') : id === me?.id ? 'teu' : id === partner?.id ? `de ${partner.name}` : '—');
 }
 
+/** A vista (casal ou eu) fica lembrada entre o ecrã principal e as páginas do Património. */
+function useView(): [WealthView, (v: WealthView) => void] {
+  const [v, setV] = useState<WealthView>(() => (store.get('nikki_wealth_view') === 'eu' ? 'eu' : 'casa'));
+  return [v, (x) => { setV(x); store.set('nikki_wealth_view', x); }];
+}
+function ViewSeg({ view, setView }: { view: WealthView; setView: (v: WealthView) => void }) {
+  const { partner } = useSession();
+  if (!partner) return null;
+  return (
+    <div className="seg sm" role="group" aria-label="Vista">
+      <button className="press" aria-pressed={view === 'casa'} onClick={() => setView('casa')}>Casal</button>
+      <button className="press" aria-pressed={view === 'eu'} onClick={() => setView('eu')}>Eu</button>
+    </div>
+  );
+}
+
+/**
+ * Património, em três coisas: o score, os copos (emergência → maneio → investir, cada um transborda para o seguinte)
+ * e a evolução. O resto (ativos, rendimentos, plano do mês, conquistas) tem página própria.
+ */
 export function Wealth() {
-  const { partner, house } = useSession();
-  const [view, setView] = useState<WealthView>('casa');
+  const { house } = useSession();
+  const [view, setView] = useView();
   const w = useWealth(view);
-  const { open } = useOverlays();
   const [cheer, setCheer] = useState<{ k: string; label: string } | null>(null);
+  const invested = w.mine.filter((a) => !a.role && a.liq !== 'out').reduce((t, a) => t + a.mine, 0);
   return (
     <>
-      <Top title="Património" right={partner ? (
-        <div className="seg sm" role="group" aria-label="Vista">
-          <button className="press" aria-pressed={view === 'casa'} onClick={() => { setView('casa'); setCheer(null); }}>Casal</button>
-          <button className="press" aria-pressed={view === 'eu'} onClick={() => { setView('eu'); setCheer(null); }}>Eu</button>
-        </div>
-      ) : null} />
+      <Top title="Património" right={<ViewSeg view={view} setView={(v) => { setView(v); setCheer(null); }} />} />
       {house && w.ready && <Celebrations w={w} k={`nikki_cheer_${house.id}_${w.casa ? 'casa' : 'eu'}`} onCheer={setCheer} />}
-      <NetWorth w={w} />
       <Score w={w} cheer={cheer} />
-      <Free w={w} />
-      <Steps w={w} />
-      <Funds w={w} />
-      <Plan w={w} />
-      <Goals w={w} />
-      <section className="stack" aria-label="Investimentos e contas">
-        <div className="wbar"><span className="s">Investimentos e contas</span><button className="tb press" onClick={() => open(<AssetSheet />)}>Juntar</button></div>
-        <Assets w={w} />
-      </section>
-      <section className="stack" aria-label="Rendimentos">
-        <div className="wbar"><span className="s">Rendimentos {w.casa ? 'da casa' : 'teus'}</span><button className="tb press" onClick={() => open(<IncomeSheet />)}>Juntar</button></div>
-        <Incomes w={w} />
-      </section>
-      <Hint>Os valores e os retornos são os que indicam. A NIKKI faz contas simples; não é o vosso gestor de conta (nem cobra comissões).</Hint>
+      <Cups w={w} />
+      <NetWorth w={w} />
+      <nav className="tile card rows w-nav" aria-label="Mais do Património">
+        <Link className="press" to="/patrimonio/ativos"><span className="k">Ativos e investimentos</span><span className="v">{money(invested)}<Icon n="chev" s={16} /></span></Link>
+        <Link className="press" to="/patrimonio/rendimentos"><span className="k">Rendimentos</span><span className="v">{w.income ? `${money(w.income)}/mês` : 'por indicar'}<Icon n="chev" s={16} /></span></Link>
+        <Link className="press" to="/patrimonio/plano"><span className="k">Plano do mês</span><span className="v">{w.sv ? (w.sv.surplus > 0 ? `${money(w.sv.surplus)} a distribuir` : 'sem sobra') : '—'}<Icon n="chev" s={16} /></span></Link>
+        <Link className="press" to="/patrimonio/conquistas"><span className="k">Conquistas e meses livres</span><span className="v">{fm1(w.fm)} {w.fm === 1 ? 'mês' : 'meses'}<Icon n="chev" s={16} /></span></Link>
+      </nav>
     </>
   );
+}
+
+const PARTS: Record<string, string> = { ativos: 'Ativos e investimentos', rendimentos: 'Rendimentos', plano: 'Plano do mês', conquistas: 'Conquistas' };
+
+/** As páginas do Património: cada uma com uma só coisa. */
+export function WealthPart() {
+  const { part = '' } = useParams();
+  const [view, setView] = useView();
+  const w = useWealth(view);
+  const { open } = useOverlays();
+  const title = PARTS[part];
+  if (!title) return <Navigate to="/patrimonio" replace />;
+  return (
+    <>
+      <Top title={title} right={<ViewSeg view={view} setView={setView} />} />
+      {part === 'ativos' && <>
+        <Funds w={w} />
+        <div className="wbar"><span className="s">Investimentos e contas</span><button className="tb press" onClick={() => open(<AssetSheet />)}>Juntar</button></div>
+        <Assets w={w} />
+        <Hint>Os valores e os retornos são os que indicam. A NIKKI faz contas simples; não é o vosso gestor de conta (nem cobra comissões).</Hint>
+      </>}
+      {part === 'rendimentos' && <>
+        <div className="wbar"><span className="s">Rendimentos {w.casa ? 'da casa' : 'teus'}</span><button className="tb press" onClick={() => open(<IncomeSheet />)}>Juntar</button></div>
+        <Incomes w={w} />
+      </>}
+      {part === 'plano' && <><Plan w={w} /><Steps w={w} /><Goals w={w} /></>}
+      {part === 'conquistas' && <><section className="tile pane" style={{ minHeight: 0 }}><Awards w={w} cheer={null} /></section><Free w={w} /></>}
+    </>
+  );
+}
+
+/**
+ * Os copos: o fundo de emergência enche primeiro; cheio, transborda para o maneio (os imprevistos); cheio também,
+ * o que sobra vai para os investimentos. Cada copo mostra quanto tem e quanto falta; um toque abre o que lá está.
+ */
+function Cups({ w }: { w: W }) {
+  const { open } = useOverlays();
+  const nav = useNavigate();
+  const inv = w.mine.filter((a) => !a.role && a.liq !== 'out').reduce((t, a) => t + a.mine, 0);
+  const em = w.emergency.value, emT = w.emergencyTarget, cu = w.cushion.value, cuT = w.cushionTarget;
+  const pE = emT ? Math.min(1, em / emT) : 0, pC = cuT ? Math.min(1, cu / cuT) : 0;
+  const pI = inv > 0 ? Math.min(1, 0.25 + inv / Math.max(inv, (emT ?? 0) + cuT) * 0.75) : 0;
+  const cups = [
+    { k: 'emergency' as const, n: 'Emergência', v: em, t: emT, p: pE, go: () => open(<FundSheet w={w} role="emergency" />) },
+    { k: 'cushion' as const, n: 'Maneio', v: cu, t: cuT, p: pC, go: () => open(<FundSheet w={w} role="cushion" />) },
+    { k: 'invest' as const, n: 'Investir', v: inv, t: null, p: pI, go: () => nav('/patrimonio/ativos') },
+  ];
+  const full = [pE >= 1, pC >= 1];
+  return (
+    <section className="cups" aria-label="Os copos: emergência, maneio, investir">
+      <div className="wbar"><span className="s">Os copos</span><Hint>Primeiro enche-se o fundo de emergência ({emT ? `12 meses × ${money(w.spend!.avg)}` : '12 meses de despesa'}). Cheio, o que sobra transborda para o maneio ({money(cuT)}, para os imprevistos). Com os dois cheios, investe-se.</Hint></div>
+      <div className="cups-row">
+        {cups.map((c, j) => (
+          <Fragment key={c.k}>
+            <button type="button" className={`cup press${c.p >= 1 ? ' full' : ''}${c.k === 'invest' ? ' inv' : ''}`} onClick={c.go} aria-label={`${c.n}: ${money(c.v)}${c.t ? ` de ${money(c.t)}` : ''}`}>
+              <span className="cup-glass"><span className="cup-liq" style={{ height: `${Math.round(c.p * 100)}%` }}><i className="cup-wave" /></span>{c.t ? <b>{Math.round(c.p * 100)}%</b> : null}</span>
+              <span className="cup-n">{c.n}</span>
+              <span className="cup-v">{money(c.v)}</span>
+              <span className="s cup-t">{c.t ? (c.p >= 1 ? 'cheio' : `faltam ${money(c.t - c.v)}`) : c.v ? 'a render' : 'por começar'}</span>
+            </button>
+            {j < 2 && <span className={`cup-flow${full[j] ? ' on' : ''}`} aria-hidden="true"><i /><i /><i /></span>}
+          </Fragment>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/** Um copo aberto: o cartão do fundo (contas, meta, onde guardar). */
+function FundSheet({ w, role }: { w: W; role: FundRole }) {
+  return <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}><FundCard w={w} role={role} /></div>;
 }
 
 // O que se diz em voz alta (o cartaz dos fechos) quando se ganha uma conquista inteira.
@@ -105,14 +185,8 @@ function Score({ w, cheer }: { w: W; cheer: { k: string; label: string } | null 
     <section className="tile pane hs" aria-label="Saúde financeira">
       <div className="pane-top"><span className="s">Saúde financeira{w.casa ? '' : ' · tu'}</span><span className="lvl">{s.level}</span></div>
       <Arc value={s.total} label={`Saúde financeira: ${s.total} de 100, ${s.level}`} />
-      <div className="ladder" role="img" aria-label={`${s.total} pontos de 100: ${s.level}`}>
-        {LEVELS.map(([min, name], j) => {
-          const max = LEVELS[j + 1]?.[0] ?? 100, f = Math.max(0, Math.min(1, (s.total - min) / (max - min)));
-          return <span key={name} style={{ flexGrow: max - min }}><i style={{ width: `${f * 100}%` }} /><b className={j === s.levelIndex ? 'on' : ''}>{name}</b></span>;
-        })}
-      </div>
       <p className="s">{s.next ? `Faltam ${s.next.need} ${s.next.need === 1 ? 'ponto' : 'pontos'} para ${s.next.name}.` : 'O nível mais alto. Agora é só manter (e não contar a ninguém).'}</p>
-      <Awards w={w} cheer={cheer} />
+      {cheer && <p className="s why"><span className="dot" aria-hidden="true" /><span>{cheer.label}</span></p>}
       <How>
         {s.parts.map((p) => <p key={p.k} className="s">{p.label}: {p.pts} de {p.max}{p.known ? '' : ' (por indicar)'}</p>)}
         <p className="s">Quatro coisas, de 0 a 100. Emergência: o fundo face a 12 meses de despesa. Imprevistos: face a {money(w.cushionTarget)}. Poupança: cheia aos 20% do que entra. Meses livres: o primeiro conta mais, porque é o que custa.</p>
@@ -417,12 +491,13 @@ function NetChart({ points }: { points: { on: string; v: number }[] }) {
 }
 
 function Assets({ w }: { w: W }) {
+  const nav = useNavigate();
   const { open } = useOverlays();
   const owner = useOwner();
   if (!w.shown.length) return <p className="s">{w.casa || !w.items.length ? 'Ainda nada por aqui. Junta as contas, os depósitos e os investimentos. A casa própria também, só para a fotografia.' : 'Ainda nada teu. Junta as tuas contas, depósitos e investimentos.'}</p>;
   return (
     <div className="tile card rows">{w.shown.map((a) => (
-      <button key={a.id} className="press" onClick={() => open(<AssetSheet asset={a} />)} style={a.part === 0 ? { opacity: 0.5 } : undefined}>
+      <button key={a.id} className="press" onClick={() => (a.id === 'salvados' ? nav('/salvados') : open(<AssetSheet asset={a} />))} style={a.part === 0 ? { opacity: 0.5 } : undefined}>
         <span className="st2"><span>{a.name}</span><span className="s">{KINDS[a.kind as AssetKind]?.name ?? a.kind} · {owner(a.owner_id)}{a.liq !== 'out' ? ` · ${String(a.expected_return).replace('.', ',')}%/ano` : ' · fora das contas'}{a.role ? ` · ${ROLE[a.role].toLowerCase()}` : ''}</span></span>
         <span className="v">{w.casa ? money(a.value) : money(a.mine)}{w.casa && a.part > 0 && a.part < 1 ? <span className="s"> · tua parte {money(a.mine)}</span> : null}{!w.casa && a.part < 1 ? <span className="s"> de {money(a.value)}</span> : null}</span>
       </button>

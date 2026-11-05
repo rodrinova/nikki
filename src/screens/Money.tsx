@@ -7,7 +7,7 @@ import { KINDS, type Occasion, type OccasionKind } from '@/lib/occasions';
 import { useOverlays } from '@/ui/overlays';
 import { Icon } from '@/ui/Icon';
 import { Whiskers } from '@/ui/Whiskers';
-import { GIFTS, abates, abatingKind, eur, monthSpend, monthlySeries, normalMonth, openingOf, pace, pairBalance, parseAmount, toU, type EntryKind, type Split, whiskerLean } from '@/lib/money';
+import { GIFTS, abates, partOf, abatingKind, eur, monthSpend, monthlySeries, normalMonth, openingOf, pace, pairBalance, parseAmount, toU, type EntryKind, type Split, whiskerLean } from '@/lib/money';
 import { addDays, dayLabel, monthKey, monthName, nextMonth, prevMonth, todayStr } from '@/lib/dates';
 import { store } from '@/lib/store';
 import { useZoom } from '@/ui/zoom';
@@ -16,6 +16,7 @@ import { KIND_ASK, carKindOf, guess, parseQuick, splitOf, type Past } from '@/li
 import { pairEntries, pairFilter, type PairPeriod, type PairSort, type PairWho } from '@/lib/pairlog';
 import { Hint, Top, heat, useSeen } from './Home';
 import { CountUp } from '@/ui/CountUp';
+import { Arc } from '@/ui/Arc';
 import { BillFields, billEntry, useBillChoice, useSaveBill, type BillEntry } from './Casa';
 import { CarEntryFields, carEntry, checkEntry, entryWhy, lastOdometer, useLearnFromPayment, useSaveCarLog, type CarEntry } from './Garage';
 
@@ -94,7 +95,6 @@ function Spend() {
   const [key, setKey] = useMonthParam();
   const m = useMonth(key);
   const p = m.pace;
-  const seen = useSeen('money');
   const spendRows = useMemo(() => expRows.filter((e) => e.category !== INVEST && !e.occasion_id), [expRows]);
   // Para o gráfico: desde o primeiro registo (até 10 anos), com pelo menos 12 meses.
   const hist = useMemo(() => {
@@ -106,6 +106,12 @@ function Spend() {
     return { months: s.months.slice(Math.min(i, s.months.length - 12)).map((x) => ({ ...x, events: evBy.get(x.key) ?? 0 })) };
   }, [spendRows, expRows, me?.id]);
   const vsAvg = !m.current && m.normal && m.everyday > 0 ? Math.round((m.everyday / m.normal - 1) * 100) : null;
+  // Score do mês face ao teu normal: 100 no normal ou abaixo, menos um ponto por cada 1% acima. No mês a decorrer, pelo
+  // ritmo (o mês projetado); nos fechados, pelo que se gastou no dia a dia.
+  // (nos primeiros 10 dias, só o que já se gastou face ao normal do mês: a renda do dia 1 não estraga o score.)
+  const ratio = !m.normal ? null : m.current ? (p.fresh ? null : p.day < 10 ? m.everyday / m.normal : 1 + p.pct / 100) : m.everyday / m.normal;
+  const score = ratio === null ? null : Math.max(0, Math.min(100, Math.round(100 - Math.max(0, ratio - 1) * 100)));
+  const catN = useMemo(() => catNormals(spendRows, me?.id ?? '', todayStr()), [spendRows, me?.id]);
   return (
     <>
       <div className="mnav">
@@ -113,8 +119,12 @@ function Spend() {
         <span className="mnav-t">{monthTitle(key)}{!m.current && <button type="button" className="mnav-now press" onClick={() => setKey(monthKey(todayStr()))}>Este mês</button>}</span>
         <button type="button" className="tb press" aria-label="Mês seguinte" disabled={m.current} onClick={() => setKey(nextMonth(key))}><Icon n="arrow" s={16} /></button>
       </div>
-      <div className="swap" key={key} style={{ ['--heat' as any]: m.current ? heat(p) : 0.5 }}><p className="xl"><CountUp to={m.total} fmt={(v) => eur(v, 0)} /><small>€</small></p><div className="with-hint" style={{ marginTop: 8 }}><p className="s">{partner ? `A tua parte em ${monthName(m.key)}` : monthTitle(m.key)}{vsAvg !== null ? ` · ${vsAvg === 0 ? 'no teu normal' : `${Math.abs(vsAvg)}% ${vsAvg > 0 ? 'acima' : 'abaixo'} do teu normal`}` : ''}</p>
-        <Hint>{partner ? 'A tua parte: o que é só teu mais a tua fatia das partilhadas, pague quem pagar. ' : ''}Eventos e compras extraordinárias contam no mês, mas à parte: ficam fora do ritmo e do teu normal.</Hint></div></div>
+      <div className="money-hero">
+        <div className="swap" key={key} style={{ ['--heat' as any]: m.current ? heat(p) : 0.5 }}><p className="xl"><CountUp to={m.total} fmt={(v) => eur(v, 0)} /><small>€</small></p><div className="with-hint" style={{ marginTop: 8 }}><p className="s">{partner ? `A tua parte em ${monthName(m.key)}` : monthTitle(m.key)}{vsAvg !== null ? ` · ${vsAvg === 0 ? 'no teu normal' : `${Math.abs(vsAvg)}% ${vsAvg > 0 ? 'acima' : 'abaixo'}`}` : ''}</p>
+          <Hint>{partner ? 'A tua parte: o que é só teu mais a tua fatia das partilhadas, pague quem pagar. ' : ''}Eventos e compras extraordinárias contam no mês, mas à parte: ficam fora do ritmo e do teu normal. O score do mês: 100 no teu normal ou abaixo; desce um ponto por cada 1% acima.</Hint></div></div>
+        {score !== null && <div className="month-score"><Arc value={score} label={`Score do mês: ${score} de 100`} unit="" /><span className="s">score do mês</span></div>}
+      </div>
+      <CatRank byCat={m.byCat} normal={catN} monthKey={key} current={m.current} />
       {m.current && (p.fresh
         ? <p className="s why"><span className="dot" aria-hidden="true" /><span>O ritmo aparece ao fim do primeiro mês completo.</span></p>
         : <>
@@ -127,14 +137,44 @@ function Spend() {
           </div>
         </>)}
       <YearBars months={hist.months} normal={m.normal} sel={key} onPick={setKey} />
-      <div className="tile card rows">
-        {m.current && !p.fresh && <div><span className="k">Fecho previsto{seen < 3 && <span className="s" style={{ display: 'block' }}>se o resto do mês for normal</span>}</span><span className="v">{eur(p.forecast, 0)} €</span></div>}
-        {m.byCat.length > 0 && <Link className="press" to={m.current ? '/dinheiro/categorias' : `/dinheiro/categorias?mes=${key}`}><span className="k">Categorias</span><span className="v">{m.byCat.length}<Icon n="arrow" s={16} /></span></Link>}
-        <ExpenseButton />
-      </div>
       <Purchases />
       <Movements monthKey={key} />
+      <div className="tile card rows"><ExpenseButton /></div>
     </>
+  );
+}
+
+/** O normal de cada categoria: a média dos últimos meses completos (até 12, desde o primeiro registo). */
+function catNormals(rows: ExpenseRow[], who: string, today: string): Record<string, number> {
+  const mine = rows.filter((e) => partOf(e, who) !== 0);
+  if (!mine.length) return {};
+  const first = monthKey(mine.reduce((a, e) => (e.spent_on < a ? e.spent_on : a), mine[0].spent_on));
+  const ks: string[] = [];
+  for (let k = prevMonth(monthKey(today)); k >= first && ks.length < 12; k = prevMonth(k)) ks.push(k);
+  if (!ks.length) return {};
+  const sum: Record<string, number> = {};
+  for (const e of mine) if (ks.includes(monthKey(e.spent_on))) sum[e.category] = (sum[e.category] ?? 0) + partOf(e, who);
+  return Object.fromEntries(Object.entries(sum).map(([c, v]) => [c, Math.round(v / ks.length)]));
+}
+
+/** Onde se gasta mais: as categorias do mês da maior para a menor, com a diferença face ao normal de cada uma. */
+function CatRank({ byCat, normal, monthKey: key, current }: { byCat: [string, number][]; normal: Record<string, number>; monthKey: string; current: boolean }) {
+  const list = byCat.filter(([, v]) => v > 0);
+  if (!list.length) return null;
+  const top = list.slice(0, 5), mx = top[0][1];
+  return (
+    <section className="cat-rank" aria-label="Onde gastas mais">
+      <div className="wbar"><span className="s">Onde gastas mais</span>{list.length > 5 && <Link className="s press" to={current ? '/dinheiro/categorias' : `/dinheiro/categorias?mes=${key}`}>Todas ({list.length})</Link>}</div>
+      {top.map(([c, v]) => {
+        const n = normal[c] ?? 0, d = n > 0 ? Math.round((v / n - 1) * 100) : null;
+        return (
+          <div key={c} className="cr-row">
+            <span className="cr-top"><span>{catLabel(c)}</span><span className="cr-v">{eur(v, 0)} €{d !== null && !current && Math.abs(d) >= 5 && <span className={`s cr-d${d > 0 ? ' up' : ''}`}>{d > 0 ? '+' : '−'}{Math.abs(d)}%</span>}</span></span>
+            <span className="cr-bar"><i style={{ width: `${((v / mx) * 100).toFixed(1)}%` }} />{n > 0 && <b style={{ left: `${Math.min(100, (n / mx) * 100).toFixed(1)}%` }} title="o teu normal" />}</span>
+          </div>
+        );
+      })}
+    </section>
   );
 }
 
@@ -214,8 +254,6 @@ function Movements({ monthKey: key }: { monthKey: string }) {
   const setWho = (w: MoveWho) => { setWhoS(w); store.set('nikki_moves_who', w); };
   const [n, setN] = useState(MOVES);
   useEffect(() => setN(MOVES), [key, who]);
-  const mineAll = useMemo(() => expenses.rows.filter((e) => e.paid_by === me?.id), [expenses.rows, me?.id]);
-  const last = useMemo(() => mineAll.reduce<ExpenseRow | null>((b, e) => (!b || e.spent_on > b.spent_on ? e : b), null), [mineAll]);
   const month = expenses.rows.filter((e) => monthKey(e.spent_on) === key);
   const list = (who === 'me' && partner ? month.filter((e) => e.paid_by === me?.id) : month)
     .sort((a, b) => (a.spent_on !== b.spent_on ? (a.spent_on < b.spent_on ? 1 : -1) : a.created_at < b.created_at ? 1 : -1));
@@ -232,7 +270,6 @@ function Movements({ monthKey: key }: { monthKey: string }) {
         <button className="press" aria-pressed={who === 'me'} onClick={() => setWho('me')}>Pagaste tu ({paidMe})</button>
         <button className="press" aria-pressed={who === 'all'} onClick={() => setWho('all')}>Tudo ({month.length})</button>
       </div>}
-      {last && <p className="s why"><span className="dot" aria-hidden="true" /><span>Registaste até {dayLabel(last.spent_on)}{last.spent_on.slice(0, 4) !== todayStr().slice(0, 4) ? ` ${last.spent_on.slice(0, 4)}` : ''}: a mais recente que pagaste foi {last.note || catLabel(last.category)} ({eur(toU(last.amount))} €).</span></p>}
       {!list.length
         ? <p className="s">{who === 'me' && month.length ? `Em ${monthName(key)} não pagaste nada. Alguém pagou por ti.` : `Nada em ${monthName(key)}. Ou foi um mês muito zen.`}</p>
         : <div className="tile card rows">{list.slice(0, n).map((e) => (
