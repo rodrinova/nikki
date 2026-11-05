@@ -1364,3 +1364,15 @@ details.hint > p{margin-top:8px;animation:in 260ms var(--ease-out) both}
 .salv-date{display:flex;flex-direction:column;gap:6px}
 .salv-strip > *{padding:10px 10px 10px 12px}
 .salv-strip b{font-size:15px;text-overflow:clip}
+.salv-plate{align-self:flex-start;font:500 13px/1 var(--mono,ui-monospace,monospace);letter-spacing:.08em;padding:6px 10px;border-radius:6px;border:1px solid var(--glass-line);background:var(--glass);color:var(--sub);margin-top:-6px}
+.salv-sum{display:flex;padding:0;overflow:hidden}
+.salv-sum > span{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;padding:16px 14px;border-right:1px solid var(--glass-line)}
+.salv-sum > span:last-child{border-right:0}
+.salv-sum b{font-weight:300;font-size:22px;letter-spacing:-0.02em;white-space:nowrap}
+.salv-metrics{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:var(--t-s);color:var(--sub);margin-top:-4px}
+.salv-metrics b{font-weight:500;color:var(--ink)}
+.salv-sum .pos b,.salv-metrics .pos b{color:#7fd6a0}
+.salv-sum .neg b,.salv-metrics .neg b{color:#ff7a6b}
+.salv-strip > * > .s:last-child:not(:first-child){font-size:11px}
+.salv-two{display:grid;grid-template-columns:2fr 3fr;gap:10px}
+.salv-two .field{min-width:0}
