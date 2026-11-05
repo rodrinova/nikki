@@ -1379,3 +1379,9 @@ details.hint > p{margin-top:8px;animation:in 260ms var(--ease-out) both}
 .salv-quip{margin:-6px 0 0;font-size:var(--t-s);color:var(--sub);font-style:italic}
 .salv-acc .s + .l + .s{margin-top:4px}
 .salv-url{font:500 14px/1.3 var(--mono,ui-monospace,monospace);color:var(--ink);word-break:break-all;margin:-4px 0 2px}
+
+/* O topo deixa de ser vidro fixo: o Safari continuava a desfocar o avatar e a marca. Agora a barra desce com a página,
+   sem desfoque nenhum, e só a faixa do relógio do iPhone fica tapada, com a cor do fundo (sem desfoque). */
+.status{position:relative;top:auto;-webkit-backdrop-filter:none;backdrop-filter:none;background:transparent;isolation:auto;margin-top:6px}
+.status::before{content:none;display:none}
+body::before{content:"";position:fixed;left:0;right:0;top:0;height:env(safe-area-inset-top,0px);background:var(--ground);z-index:20;pointer-events:none}
