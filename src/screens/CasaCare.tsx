@@ -146,7 +146,7 @@ function SuggestSheet({ home }: { home: string | null }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       <p className="l">Manutenção da casa</p>
-      <p className="s">Escolhe as que se aplicam. Podes mudar as datas e a frequência depois.</p>
+      <p className="s">Escolhe as que se aplicam.</p>
       <div className="tile card setup">{MAINTENANCE.map((s) => {
         const done = have.has(s.title), on = pick.has(s.key);
         return (

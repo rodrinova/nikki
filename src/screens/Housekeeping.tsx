@@ -129,7 +129,7 @@ export function Thread({ rows, reload, names, house: hid }: { rows: HkMessageRow
   }
   return (
     <div className="hk-thread">
-      {shown.length === 0 && <p className="s">Ainda sem mensagens. Um recado para a próxima visita, «falta detergente», uma fotografia do que ficou lindo…</p>}
+      {shown.length === 0 && <p className="s">Ainda sem mensagens. Um recado ou uma fotografia.</p>}
       {shown.map((m, k) => {
         const mine = m.author_id === me?.id, day = m.created_at.slice(0, 10), prev = shown[k - 1];
         return (

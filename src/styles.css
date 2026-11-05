@@ -1120,3 +1120,10 @@ details.hint > p{margin-top:8px;animation:in 260ms var(--ease-out) both}
 @media (min-width:760px){.titlebar h1{font-size:34px;letter-spacing:-0.03em}}
 /* No computador, a barra lateral já leva a todo o lado: o «Voltar» dos ecrãs principais fica discreto. */
 @media (min-width:1024px){.back{opacity:.55}.back:hover{opacity:1}}
+
+/* ═════════════════ Marca: os olhos em traço de luz ═════════════════ */
+.word .eyes{fill:url(#nk-eyes);filter:drop-shadow(0 0 1.5px rgba(255,122,31,.95)) drop-shadow(0 0 5px rgba(255,122,31,.55))}
+@media (prefers-color-scheme: light){:root:not([data-theme="dark"]) .word .eyes{fill:url(#nk-eyes-l);filter:none}}
+:root[data-theme="light"] .word .eyes{fill:url(#nk-eyes-l);filter:none}
+/* Na abertura e nos sítios com fundo laranja, os olhos ficam brancos. */
+.money-line.hero .word .eyes{fill:#fff;filter:none}

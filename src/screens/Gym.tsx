@@ -24,7 +24,7 @@ export function Gym() {
   const today = todayStr();
   if (gym.loading) return null;
   const chosen = gym.prefs?.fields ?? [];
-  if (!gym.prefs || !chosen.length) return <><Top title="Ginásio" /><p className="s" style={{ fontSize: 'var(--t-m)' }}>As tuas avaliações, com as medidas que escolheres. Só tu vês: nem a outra pessoa da casa.</p><FieldsForm first /></>;
+  if (!gym.prefs || !chosen.length) return <><Top title="Ginásio" /><p className="s" style={{ fontSize: 'var(--t-m)' }}>As tuas avaliações. Só tu vês.</p><FieldsForm first /></>;
   const fields = gym.fields.filter((f) => chosen.includes(f.key));
   const next = nextCheck(gym.rows, gym.prefs.every_weeks, today);
   const hist = [...gym.rows].sort((a, b) => b.measured_on.localeCompare(a.measured_on));

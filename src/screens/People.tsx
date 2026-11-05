@@ -52,7 +52,7 @@ export function InviteForm({ householdId, onDone }: { householdId: string; onDon
       {made.length > 0 && <div className="tile card rows">{made.map((i) => (
         <button key={i.token} className="press" onClick={() => shareInvite(i, house?.name ?? 'NIKKI', toast)}><span>{i.email}<span className="s" style={{ display: 'block' }}>código {i.code} · expira em 7 dias</span></span><span className="v s">Partilhar<Icon n="arrow" s={16} /></span></button>
       ))}</div>}
-      <p className="s">Abre-se pela ligação ou com o código. Um ou outro, como der mais jeito.</p>
+      <p className="s">Pela ligação ou com o código.</p>
     </div>
   );
 }
@@ -79,7 +79,7 @@ export function People() {
       return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <p className="l">Partilha das despesas</p>
-          <p className="s" style={{ fontSize: 'var(--t-m)' }}>Como dividem as partilhadas. Muda daqui para a frente: o passado fica como foi combinado.</p>
+          <p className="s" style={{ fontSize: 'var(--t-m)' }}>Como dividem as partilhadas, daqui para a frente.</p>
           <div className="chips" role="group" aria-label="Predefinições">{[50, 60, 70, 40, 30].map((r) => <button key={r} type="button" className="press" aria-pressed={mine === r} onClick={() => setMine(r)}>{r}/{100 - r}</button>)}</div>
           <label className="knob"><span className="row1"><span>{me!.name} {mine}%</span><span>{partner!.name} {100 - mine}%</span></span><input type="range" min={10} max={90} step={5} value={mine} onChange={(e) => setMine(+e.target.value)} /></label>
           <p className="s">Numa partilhada de 100 €: {me!.name} {mine} €, {partner!.name} {100 - mine} €.</p>

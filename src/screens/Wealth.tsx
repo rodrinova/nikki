@@ -211,7 +211,7 @@ function Free({ w }: { w: W }) {
   if (!w.spend) return (
     <section className="tile pane" aria-label="Meses livres" style={{ minHeight: 0 }}>
       <span className="s">Meses do ano que os investimentos pagam</span>
-      <p className="s" style={{ fontSize: 'var(--t-m)' }}>Conta-se ao primeiro mês completo de despesas. Spoiler: é a parte mais gira.</p>
+      <p className="s" style={{ fontSize: 'var(--t-m)' }}>Aparece ao primeiro mês completo de despesas.</p>
     </section>
   );
   const today = todayStr(), v = vacationUntil(w.fm, Number(today.slice(0, 4)));
@@ -306,7 +306,7 @@ function Plan({ w }: { w: W }) {
       <div><span className="k">Sai, em média</span><span className="v">− {money(w.spend.avg)}</span></div>
       <div><span>Sobra</span><span className="v">{money(Math.max(0, sv.surplus))}</span></div>
       {sv.surplus <= 0
-        ? <div><span className="s">Por agora não sobra: sai, em média, mais do que entra. O primeiro passo está na despesa, não no banco.</span></div>
+        ? <div><span className="s">Por agora sai mais do que entra. O primeiro passo está na despesa.</span></div>
         : rows.map(([l, v, role]) => (
           <div key={l} className={v > 0 ? 'go' : 'idle'}>
             <span className="k">{l}</span>

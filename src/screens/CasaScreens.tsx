@@ -104,7 +104,7 @@ export function CasaPart() {
         {chips}
         {c.pending.length > 0 && <Pending items={c.pending} />}
         {c.active.length ? <div className="bills">{c.active.map((b) => <BillCard key={b.id} b={b} s={c.stats.get(b.id)!} next={c.dues.find((d) => d.b.id === b.id)} place={many && sel === 'all' ? c.places.find((h) => h.id === c.homeOf(b))?.name : undefined} />)}</div>
-          : <button className="tile hint-card press" onClick={() => open(<BillSheet home={here ?? c.first} />)}><span className="st2"><span>Juntar a primeira conta</span><span className="s">Luz, água, internet, renda… A NIKKI liga-lhe as despesas sozinha. Tu só pagas (isso, infelizmente, continua contigo).</span></span><Icon n="arrow" s={16} /></button>}
+          : <button className="tile hint-card press" onClick={() => open(<BillSheet home={here ?? c.first} />)}><span className="st2"><span>Juntar a primeira conta</span><span className="s">Luz, água, internet, renda. A NIKKI liga as despesas sozinha.</span></span><Icon n="arrow" s={16} /></button>}
         <How>
           <Hint>€ por mês: cada fatura reparte-se pelos meses que cobre, à proporção dos dias (uma de 2 meses vale metade em cada; um acerto entra nos meses que corrige). Média dos meses com faturas nos últimos 12, sem o mês a decorrer.</Hint>
           <Hint>Que conta é: pelo fornecedor ou pelas palavras na nota, pelo valor (que pode variar até ±35% do normal) e pelo dia. Se houver dúvida, por exemplo duas contas do mesmo fornecedor, a NIKKI pergunta.</Hint>
@@ -192,7 +192,7 @@ function Deadlines({ list }: { list: DeadlineRow[] }) {
           <span className="st2"><span>{d.title}</span><span className="s">{d.kind === 'insurance' ? 'renova ' : d.kind === 'contract' ? 'acaba ' : 'até '}{when(d.due_on)}{d.amount ? ` · ${eur(toU(d.amount))} €` : ''}{d.kind === 'insurance' || d.kind === 'contract' ? ' · um mês antes: pedir propostas e renegociar' : d.recurrence === 'yearly' ? ' · todos os anos' : ''}</span></span>
           {d.kind === 'contract' ? <button className="tb press" onClick={() => open(<ContractSheet d={d} />)}>Tratado</button> : <button className="tb press" onClick={() => open(<PaidSheet d={d} />)}>Paguei</button>}
         </div>
-      ))}</div> : <p className="s">Sem prazos. Junta o IMI, o seguro da casa ou o fim de uma fidelização: a NIKKI avisa um mês antes e tu poupas o susto.</p>}
+      ))}</div> : <p className="s">Sem prazos. Junta o IMI, o seguro ou uma fidelização: avisamos um mês antes.</p>}
     </section>
   );
 }
@@ -233,7 +233,7 @@ export function BillScreen() {
           <button key={x.month} type="button" className={`press${j === sel ? ' on' : ''}`} aria-label={`${monthName(x.month)}: ${x.amount !== null ? `${eur(x.amount, 0)} €` : 'sem fatura'}`} onClick={() => setSel(j)}><i style={{ height: x.amount ? `${Math.max(6, (Math.abs(x.amount) / max) * 100)}%` : 2 }} className={x.amount ? '' : 'zero'} /></button>
         ))}</div>
         <div className="wk-axis s"><span>{monthName(s.series[0].month).slice(0, 3)}</span><span>{monthName(s.series[11].month).slice(0, 3)}</span></div>
-        <p className="s">Faturas de vários meses e acertos repartidos pelos meses que cobrem.</p>
+        <p className="s">Faturas repartidas pelos meses que cobrem.</p>
       </section>}
       <div className="actions"><button className="btn quiet press" onClick={() => open(<PaySheet bill={b} />)}>Juntar um pagamento</button></div>
       <section className="stack" aria-label="Faturas">
@@ -378,7 +378,7 @@ export function CasaSetup() {
         <button className="btn wide press">Feito <Icon n="check" s={20} /></button>
       </form>
       {home && <button className="back press" onClick={() => open(<ArchiveHome home={home} />)}>Arquivar esta casa (mudámos ou vendemos)</button>}
-      {isNew && homes.rows.some((h) => h.archived) && <p className="s">Voltaram a uma casa que tinham? Está em Arquivadas, no fim do ecrã da Casa.</p>}
+      {isNew && homes.rows.some((h) => h.archived) && <p className="s">Voltaram a uma casa antiga? Está em Arquivadas.</p>}
     </>
   );
 }
@@ -401,7 +401,7 @@ function ArchiveHome({ home }: { home: HomeRow }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <p className="l">Arquivar {home.name}?</p>
       <p className="s">As {mine.length} {mine.length === 1 ? 'conta' : 'contas'} e as faturas ficam guardadas, mas deixam de contar nos custos por mês e por ano, e as despesas novas já não se ligam a elas.{open.length ? ` ${open.length === 1 ? 'Sai o prazo' : `Saem os ${open.length} prazos`} por pagar desta casa (${open.map((d) => d.title).join(', ')}).` : ''}</p>
-      <p className="s">Se voltarem a esta casa, está em Arquivadas, à espera.</p>
+      <p className="s">Fica em Arquivadas.</p>
       <button className="btn wide press" onClick={go}>Arquivar <Icon n="check" s={20} /></button>
       <button className="btn quiet wide press" onClick={close}>Cancelar</button>
     </div>

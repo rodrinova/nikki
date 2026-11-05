@@ -217,10 +217,26 @@ function UpdateReady() {
   return <button type="button" className="update-pill press" onClick={() => location.reload()}>Versão nova da NIKKI · <b>Atualizar</b></button>;
 }
 
+/**
+ * Os olhos da marca são um traço de luz: do branco ao laranja, com brilho no escuro (no claro, do preto ao laranja,
+ * sem brilho). Os gradientes vivem aqui, uma vez, e o CSS usa-os em todas as caras e no nome.
+ */
+function BrandDefs() {
+  return (
+    <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true" focusable="false">
+      <defs>
+        <linearGradient id="nk-eyes" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#FFFFFF" /><stop offset=".55" stopColor="#FFD2AE" /><stop offset="1" stopColor="#FF7A1F" /></linearGradient>
+        <linearGradient id="nk-eyes-l" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#0B0B0B" /><stop offset=".45" stopColor="#3A2210" /><stop offset="1" stopColor="#E8600A" /></linearGradient>
+      </defs>
+    </svg>
+  );
+}
+
 export default function App() {
   const [intro, endIntro] = useIntro();
   return (
     <Router basename={DEMO ? undefined : import.meta.env.BASE_URL.replace(/\/$/, '') || undefined}>
+      <BrandDefs />
       {intro && <Intro onDone={endIntro} />}
       <OverlayProvider>
         <SessionProvider><Shell /></SessionProvider>

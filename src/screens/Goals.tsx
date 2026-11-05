@@ -106,7 +106,7 @@ export function Goals() {
           <span className="goal-row"><Bar p={p} /><span className="s">{p.label}</span></span>
           <span className="s">{[p.detail, `até ${shortDate(g.due_on)}`, g.owner_id ? 'só teu' : 'da casa'].filter(Boolean).join(' · ')}</span>
         </button>
-      ); })}</div> : <p className="s" style={{ fontSize: 'var(--t-m)' }}>Poucos de cada vez, com prazo, medidos com os vossos números. Comecem por uma sugestão: é meio caminho andado.</p>}
+      ); })}</div> : <p className="s" style={{ fontSize: 'var(--t-m)' }}>Poucos, com prazo, medidos sozinhos. Comecem por uma sugestão.</p>}
       {sug.length > 0 && <section className="stack" aria-label="A NIKKI sugere">
         <span className="s">A NIKKI sugere</span>
         <div className="tile card rows">{sug.map((s) => (
@@ -225,7 +225,7 @@ function GoalSheet({ g }: { g?: GoalRow }) {
           </button>
         ))}</div>}
         {kind === 'home' && <>
-          {!meters.length && !fleet.length && <p className="s">Ainda não há com que medir: liga os consumos de água, luz e gás numa casa, ou regista abastecimentos com km na Garagem.</p>}
+          {!meters.length && !fleet.length && <p className="s">Ainda sem dados: liga os consumos da casa ou regista abastecimentos.</p>}
           {(meters.length > 0 || fleet.length > 0) && <div className="chips wrap" role="group" aria-label="O quê">
             {meters.map((b) => <button key={b.id} type="button" className="press" aria-pressed={pick === `usage:${b.id}`} onClick={() => { setPick(`usage:${b.id}`); setVal('10'); }}>{b.name}</button>)}
             {fleet.map((c) => <button key={c.id} type="button" className="press" aria-pressed={pick === `car_l100:${c.id}`} onClick={() => { setPick(`car_l100:${c.id}`); setVal(''); }}>{c.name}</button>)}
@@ -236,7 +236,7 @@ function GoalSheet({ g }: { g?: GoalRow }) {
         {kind === 'body' && <>
           <div className="chips wrap" role="group" aria-label="Medida">{body.map((f) => <button key={f.key} type="button" className="press" aria-pressed={pick === `gym:${f.key}`} onClick={() => { setPick(`gym:${f.key}`); setVal(''); }}>{f.label}</button>)}</div>
           {pick.startsWith('gym:') && (() => { const f = body.find((x) => `gym:${x.key}` === pick)!; const now = summary(gym.rows, f.key); return <label>Chegar a{f.unit ? ` (${f.unit})` : ''}{now ? `; agora ${fmt(now.last, f.unit)}` : ''}<input inputMode="decimal" value={val} onChange={(e) => setVal(e.target.value)} placeholder={f.lower_is_better ? 'ex.: 18' : 'ex.: 35'} /></label>; })()}
-          <p className="s">Só tu vês este objetivo. Fica entre ti e a balança.</p>
+          <p className="s">Só tu vês este objetivo.</p>
         </>}
         <label>Até<input type="date" value={due} min={today} onChange={(e) => setDue(e.target.value)} /></label>
         {err && <p className="err">{err}</p>}

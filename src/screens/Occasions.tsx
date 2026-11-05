@@ -58,7 +58,7 @@ export function Occasions() {
           {s.budget ? <span className="occ-bar" aria-hidden="true"><span style={{ width: `${Math.min(100, (s.spent / s.budget) * 100).toFixed(1)}%` }} className={s.spent > s.budget ? 'over' : ''} /></span> : null}
           <span className="s">{[s.invited ? `${s.people} de ${s.invited} pessoas confirmadas` : '', s.todo ? `${s.todo} por fazer${s.late ? ` (${s.late} ${s.late === 1 ? 'atrasada' : 'atrasadas'})` : ''}` : '', s.committed ? `${euro(s.committed)} por pagar` : ''].filter(Boolean).join(' · ') || 'Toca para juntar convidados, compras e fornecedores.'}</span>
         </Link>
-      ); })}</div> : <p className="s" style={{ fontSize: 'var(--t-m)' }}>Ainda sem eventos. Um casamento, um batizado, a passagem de ano: carrega em «Novo evento» e a festa organiza-se.</p>}
+      ); })}</div> : <p className="s" style={{ fontSize: 'var(--t-m)' }}>Ainda sem eventos. Carrega em «Novo evento».</p>}
       {archived.length > 0 && <section className="stack">
         <button className="back press" aria-expanded={showOld} onClick={() => setShowOld(!showOld)}>{showOld ? 'Esconder' : 'Ver'} os arquivados ({archived.length})</button>
         {showOld && <div className="tile card rows">{archived.map((o) => { const s = stats(o); return (

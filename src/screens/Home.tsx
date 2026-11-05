@@ -301,7 +301,7 @@ function MonthClose() {
       foot={`${partner ? 'A tua parte' : 'Total'} em ${name} · ${eur(c.total, 0)} €`}
       how={c.normal
         ? <How><p className="s">{eur(c.total)} € em {name} ÷ {eur(c.normal)} € do teu normal = {(c.total / c.normal).toFixed(2).replace('.', ',')}.</p><p className="s">O teu normal é a média do dia a dia nos 12 meses completos antes de {name}. Os eventos ficam de fora.</p></How>
-        : <p className="s">A partir de agora, cada mês mede-se contra o teu normal. Sem sermões.</p>}
+        : <p className="s">Daqui para a frente, cada mês compara-se com o teu normal.</p>}
       share={`${cap(name)} fechou: ${band.toLowerCase()}. Contas feitas na NIKKI.`}
       onClose={done}
     />

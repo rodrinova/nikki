@@ -116,7 +116,7 @@ function Spend() {
       <div className="swap" key={key} style={{ ['--heat' as any]: m.current ? heat(p) : 0.5 }}><p className="xl"><CountUp to={m.total} fmt={(v) => eur(v, 0)} /><small>€</small></p><div className="with-hint" style={{ marginTop: 8 }}><p className="s">{partner ? `A tua parte em ${monthName(m.key)}` : monthTitle(m.key)}{vsAvg !== null ? ` · ${vsAvg === 0 ? 'no teu normal' : `${Math.abs(vsAvg)}% ${vsAvg > 0 ? 'acima' : 'abaixo'} do teu normal`}` : ''}</p>
         <Hint>{partner ? 'A tua parte: o que é só teu mais a tua fatia das partilhadas, pague quem pagar. ' : ''}Eventos e compras extraordinárias contam no mês, mas à parte: ficam fora do ritmo e do teu normal.</Hint></div></div>
       {m.current && (p.fresh
-        ? <p className="s why"><span className="dot" aria-hidden="true" /><span>Ritmo: ao fim do primeiro mês completo a NIKKI conhece o teu normal. Depois, compara sem julgar.</span></p>
+        ? <p className="s why"><span className="dot" aria-hidden="true" /><span>O ritmo aparece ao fim do primeiro mês completo.</span></p>
         : <>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <div className="bar31" style={{ gridTemplateColumns: `repeat(${p.days},minmax(0,1fr))` }} role="img" aria-label={`Ritmo ${p.pct}%`}>
@@ -586,7 +586,7 @@ function NewOccasion({ onMade }: { onMade: (id: string) => void }) {
   }
   return (
     <div className="tile card" style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: 14 }}>
-      <span className="s">Evento: conta no mês, mas à parte (fora do ritmo e do teu normal).</span>
+      <span className="s">Conta no mês, mas fora do teu normal.</span>
       <input className="field" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex.: Casamento, Batizado da Matilde" maxLength={60} aria-label="Nome do evento" />
       <div className="chips wrap" role="group" aria-label="Tipo de evento">{KINDS.map((k) => <button type="button" key={k.k} className="press" aria-pressed={kind === k.k} onClick={() => setKind(k.k)}>{k.name}</button>)}</div>
       <button type="button" className="btn quiet press" disabled={busy} onClick={make}>Criar e juntar</button>
@@ -724,7 +724,7 @@ export function Ledger({ embedded }: { embedded?: boolean }) {
   const L = useLedger();
   const seen = useSeen('ledger');
   if (!me || !partner || !L) return (
-    <>{!embedded && <Top title="Entre nós" />}<p className="l">Isto é para dois.</p><p className="s" style={{ fontSize: 'var(--t-m)' }}>Quando alguém se juntar à casa, aqui fica quem adiantou mais. Sem contas de cabeça às duas da manhã.</p><Link className="btn quiet wide press" to="/pessoas">Convidar <Icon n="arrow" s={20} /></Link></>
+    <>{!embedded && <Top title="Entre nós" />}<p className="l">Isto é para dois.</p><p className="s" style={{ fontSize: 'var(--t-m)' }}>Quando alguém se juntar à casa, aqui fica quem adiantou mais.</p><Link className="btn quiet wide press" to="/pessoas">Convidar <Icon n="arrow" s={20} /></Link></>
   );
   // Esforço: quanto cada um pagou do que é partilhado ou do outro.
   const pair = expenses.rows.filter((e) => e.split !== 'mine' && [e.paid_by, e.other_id].includes(me.id) && [e.paid_by, e.other_id].includes(partner.id));

@@ -108,7 +108,7 @@ function GarageSetup() {
         <p className="l">Que carros moram cá em casa?</p>
         <p className="s" style={{ fontSize: 'var(--t-m)' }}>Com a data da matrícula, a NIKKI avisa do IUC um mês antes; com a renovação do seguro, lembra que é altura de renegociar. O depósito ajuda a apanhar abastecimentos esquecidos. Tudo opcional: o que faltar, a NIKKI aprende com os pagamentos.</p>
       </div>
-      {!admin ? <p className="s">Quem administra a casa junta os carros. Pede com jeitinho.</p>
+      {!admin ? <p className="s">Só quem administra a casa junta carros.</p>
         : adding ? <div className="tile" style={{ padding: 16 }}><CarForm onDone={() => setAdding(false)} /></div>
           : <div className="actions">
             <button className="btn quiet press" onClick={() => setAdding(true)}>Juntar outro carro</button>
@@ -310,7 +310,7 @@ export function CarScreen() {
               <span className="mv-v"><span>{a !== null ? `${eur(a)} €` : '—'}</span></span>
             </div>
           );
-        })}</div> : <p className="s">Ainda sem registos. Abastece com os km e os litros: ao segundo depósito cheio, a NIKKI já sabe quanto o carro bebe.</p>}
+        })}</div> : <p className="s">Ainda sem registos. Abastece com km e litros: ao segundo depósito, já sabemos o consumo.</p>}
       </section>
     </>
   );
