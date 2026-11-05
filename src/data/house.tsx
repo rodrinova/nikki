@@ -113,7 +113,7 @@ function useSalvageRows(on: boolean) {
   const [cars, setCars] = useState<SalvageCar[]>([]);
   useEffect(() => {
     if (!on) { setCars([]); return; }
-    Promise.all([supabase.from('salvage_cars').select('*'), supabase.from('salvage_logs').select('*')]).then(([c, g]) => {
+    Promise.all([supabase.from('salvage_cars').select('*'), supabase.from('salvage_logs').select('*').is('removed_at', null)]).then(([c, g]) => {
       const logs = (g.data ?? []) as (SalvageCar['logs'][number] & { car_id: string })[];
       setCars(((c.data ?? []) as Omit<SalvageCar, 'logs'>[]).map((x) => ({ ...x, logs: logs.filter((y) => y.car_id === x.id) })));
     });

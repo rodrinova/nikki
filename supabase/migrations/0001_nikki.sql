@@ -1789,3 +1789,83 @@ language sql stable security definer set search_path = '' as $$
       from nikki.salvage_cars c where c.owner_id = l.owner_id), '[]'::jsonb))
   from nikki.salvage_links l where l.token = t and l.revoked_at is null;
 $$;
+
+-- ───────────────────────── salvados: sócios iguais ─────────────────────────
+-- O registo do carro (pago na compra): a meias por omissão. Os registos apagados ficam marcados (removed_at), para
+-- os dois lados poderem desfazer enganos sem apagar nada às escuras.
+alter table nikki.salvage_cars add column if not exists reg_cost numeric(10, 2) check (reg_cost >= 0);
+alter table nikki.salvage_cars add column if not exists reg_paid_by text not null default 'half' check (reg_paid_by in ('half', 'me', 'partner'));
+alter table nikki.salvage_logs add column if not exists removed_at timestamptz;
+-- Ligações curtas: 6 letras e números sem os que se confundem (0/o, 1/l/i).
+create or replace function nikki.short_code(n int) returns text
+language sql volatile set search_path = '' as $$
+  select string_agg(substr('23456789abcdefghjkmnpqrstuvwxyz', 1 + (get_byte(b, i) % 31), 1), '' order by i)
+  from (select uuid_send(gen_random_uuid()) as b) r, generate_series(0, least(n, 16) - 1) as i;
+$$;
+alter table nikki.salvage_links alter column token set default nikki.short_code(6);
+-- A página do sócio vê tudo o que o dono vê: os carros, os registos, o valor/hora e o nome do dono.
+create or replace function nikki.salvage_link_view(t text) returns jsonb
+language sql stable security definer set search_path = '' as $$
+  select jsonb_build_object(
+    'partner', l.partner_name,
+    'owner', (select p.name from nikki.profiles p where p.id = l.owner_id),
+    'rate', coalesce((select s.hour_rate from nikki.salvage_settings s where s.owner_id = l.owner_id), 40),
+    'cars', coalesce((select jsonb_agg((to_jsonb(c) - 'owner_id') || jsonb_build_object(
+        'logs', coalesce((select jsonb_agg(to_jsonb(g) - 'car_id' order by g.on_date desc, g.created_at desc)
+                  from nikki.salvage_logs g where g.car_id = c.id and g.removed_at is null), '[]'::jsonb)) order by c.bought_on desc)
+      from nikki.salvage_cars c where c.owner_id = l.owner_id), '[]'::jsonb))
+  from nikki.salvage_links l where l.token = t and l.revoked_at is null;
+$$;
+-- E faz o mesmo que o dono: carros novos, mudar um carro (datas, estado, venda, divisão), registos e o valor/hora.
+-- Os dados chegam já do lado do dono («me» = o dono); a página do sócio é que os troca.
+create or replace function nikki.salvage_link_do(t text, op text, a jsonb) returns uuid
+language plpgsql security definer set search_path = '' as $$
+declare o uuid; i uuid;
+begin
+  select owner_id into o from nikki.salvage_links where token = t and revoked_at is null;
+  if o is null then raise exception 'ligação inválida'; end if;
+  if op = 'car_add' then
+    insert into nikki.salvage_cars (owner_id, name, brand, plate, bought_on, price, price_me, price_paid_by, hour_rate, reg_cost, reg_paid_by)
+    values (o, trim(a->>'name'), nullif(trim(a->>'brand'), ''), nullif(trim(a->>'plate'), ''), coalesce((a->>'bought_on')::date, current_date),
+      (a->>'price')::numeric, (a->>'price_me')::numeric, coalesce(a->>'price_paid_by', 'me'),
+      coalesce((a->>'hour_rate')::numeric, (select s.hour_rate from nikki.salvage_settings s where s.owner_id = o), 40),
+      (a->>'reg_cost')::numeric, coalesce(a->>'reg_paid_by', 'half'))
+    returning id into i;
+  elsif op = 'car_set' then
+    update nikki.salvage_cars c set
+      name = case when a ? 'name' then trim(a->>'name') else c.name end,
+      brand = case when a ? 'brand' then nullif(trim(a->>'brand'), '') else c.brand end,
+      plate = case when a ? 'plate' then nullif(trim(a->>'plate'), '') else c.plate end,
+      bought_on = case when a ? 'bought_on' then (a->>'bought_on')::date else c.bought_on end,
+      price = case when a ? 'price' then (a->>'price')::numeric else c.price end,
+      price_me = case when a ? 'price_me' then (a->>'price_me')::numeric else c.price_me end,
+      price_paid_by = case when a ? 'price_paid_by' then a->>'price_paid_by' else c.price_paid_by end,
+      reg_cost = case when a ? 'reg_cost' then (a->>'reg_cost')::numeric else c.reg_cost end,
+      reg_paid_by = case when a ? 'reg_paid_by' then a->>'reg_paid_by' else c.reg_paid_by end,
+      status = case when a ? 'status' then a->>'status' else c.status end,
+      sold_on = case when a ? 'sold_on' then (a->>'sold_on')::date else c.sold_on end,
+      sold_for = case when a ? 'sold_for' then (a->>'sold_for')::numeric else c.sold_for end,
+      sale_to = case when a ? 'sale_to' then a->>'sale_to' else c.sale_to end
+    where c.id = (a->>'id')::uuid and c.owner_id = o
+    returning c.id into i;
+  elsif op = 'log_add' then
+    if not exists (select 1 from nikki.salvage_cars where id = (a->>'car_id')::uuid and owner_id = o) then raise exception 'carro não encontrado'; end if;
+    insert into nikki.salvage_logs (car_id, kind, on_date, amount, hours, note, paid_by, by_link)
+    values ((a->>'car_id')::uuid, a->>'kind', coalesce((a->>'on_date')::date, current_date), (a->>'amount')::numeric, (a->>'hours')::numeric,
+      nullif(trim(a->>'note'), ''), coalesce(a->>'paid_by', 'partner'), true)
+    returning id into i;
+  elsif op = 'log_remove' then
+    update nikki.salvage_logs g set removed_at = now()
+    from nikki.salvage_cars c where g.id = (a->>'id')::uuid and c.id = g.car_id and c.owner_id = o
+    returning g.id into i;
+  elsif op = 'rate_set' then
+    insert into nikki.salvage_settings (owner_id, hour_rate) values (o, (a->>'hour_rate')::numeric)
+      on conflict (owner_id) do update set hour_rate = excluded.hour_rate, updated_at = now();
+    update nikki.salvage_cars set hour_rate = (a->>'hour_rate')::numeric where owner_id = o and status <> 'sold';
+    i := o;
+  else raise exception 'operação desconhecida';
+  end if;
+  if i is null then raise exception 'não encontrado'; end if;
+  return i;
+end $$;
+grant execute on function nikki.short_code(int), nikki.salvage_link_do(text, text, jsonb) to anon, authenticated;
