@@ -270,7 +270,7 @@ export function Hub() {
       <p className="l hello" style={{ paddingTop: 8 }}>{hello()}, {me?.name}.</p>
       {/* Em ecrãs largos, uma grelha: a agenda ao lado do dinheiro e dos avisos. */}
       <div className="hub">
-        <div className="hub-a"><AgendaPane /></div>
+        <div className="hub-a"><AgendaPane defaultOpen /></div>
         <div className="hub-b"><MoneyLine /><Now /><GoalLine /></div>
       </div>
       <MonthClose />
