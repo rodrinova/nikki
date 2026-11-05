@@ -1353,3 +1353,14 @@ details.hint > p{margin-top:8px;animation:in 260ms var(--ease-out) both}
   .ag.open .ag-d .mt{display:block}
   .ag.open .ag-d .dots{display:none}
 }
+/* Salvados: o resumo numa linha e as datas */
+.salv-strip{display:flex;gap:0;border-radius:var(--r-card);background:var(--glass);border:1px solid var(--glass-line);overflow:hidden}
+.salv-strip > *{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;padding:12px 14px;border:0;border-right:1px solid var(--glass-line);background:transparent;color:inherit;text-align:left}
+.salv-strip > *:last-child{border-right:0}
+.salv-strip b{font-weight:400;font-size:var(--t-m);letter-spacing:-0.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.salv-dates{display:flex;align-items:center;gap:8px;border:0;background:transparent;color:var(--sub);padding:0;font-size:var(--t-s);text-align:left}
+.salv-dates > span:first-of-type{flex:1}
+.salv-dates .s{color:var(--accent)}
+.salv-date{display:flex;flex-direction:column;gap:6px}
+.salv-strip > *{padding:10px 10px 10px 12px}
+.salv-strip b{font-size:15px;text-overflow:clip}

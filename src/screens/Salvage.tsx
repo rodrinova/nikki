@@ -9,12 +9,14 @@ import { eur, parseAmount, toU } from '@/lib/money';
 import { addDays, dayLabel, todayStr } from '@/lib/dates';
 import { carNumbers, totals, type SalvageCar, type SalvageLog, type SalvageStatus, type Who } from '@/lib/salvage';
 import { Top } from './Home';
+import { shortDate } from '@/lib/admin';
 
 // Salvados: só para a administração da app (o Rodrigo). O mecânico regista peças e horas por uma ligação secreta.
 
 const STATUS: Record<SalvageStatus, string> = { repair: 'Em reparação', selling: 'À venda', sold: 'Vendido' };
 const pct = (v: number | null) => (v === null ? '—' : `${v >= 0 ? '+' : '−'}${Math.abs(v * 100).toFixed(0)}%`);
 const money = (u: number) => `${eur(u, 0)} €`;
+const dt = (d: string) => shortDate(`${d}T12:00:00`);
 const sign = (u: number) => `${u >= 0 ? '+' : '−'}${eur(Math.abs(u), 0)} €`;
 
 /** Os carros e a ligação do mecânico (do dono). */
@@ -130,13 +132,17 @@ export function SalvageCarScreen() {
           ? <><p className="xl"><CountUp to={x.profit} fmt={(v) => sign(v).replace(' €', '')} /><small>€</small></p><p className="s" style={{ marginTop: 8 }}>Lucro · {pct(x.roi)} · {pct(x.annual)} por ano · {x.days} dias</p></>
           : <><p className="xl"><CountUp to={x.cost} fmt={(v) => eur(v, 0)} /><small>€</small></p><p className="s" style={{ marginTop: 8 }}>Custo até agora · há {x.days} dias</p></>}
       </div>
-      <div className="salv-grid">
-        <button type="button" className="tile press" onClick={() => open(<PriceSheet car={c} partner={partner} onDone={reload} />)}><span className="s">Compra</span><b>{money(x.price)}</b><span className="s">tu {money(x.priceMe)} · {partner} {money(x.price - x.priceMe)}</span></button>
-        <span className="tile"><span className="s">Peças</span><b>{money(x.partsMe + x.partsPartner)}</b><span className="s">{money(x.partsPartner)} do {partner}</span></span>
-        <span className="tile"><span className="s">Horas</span><b>{x.hours.toLocaleString('pt-PT')} h</b><span className="s">{money(x.labor)} a {eur(toU(c.hour_rate), 0)} €/h</span></span>
-        {x.sale !== null && <span className="tile"><span className="s">Venda</span><b>{money(x.sale)}</b><span className="s">{dayLabel(c.sold_on!)}</span></span>}
-      </div>
       <Account owe={x.owe} partner={partner} big />
+      {/* Numa linha: compra, peças, horas (e a venda); tocar na compra divide-a, tocar nas datas muda-as. */}
+      <div className="salv-strip" role="group" aria-label="Resumo">
+        <button type="button" className="press" onClick={() => open(<PriceSheet car={c} partner={partner} onDone={reload} />)}><span className="s">Compra</span><b>{money(x.price)}</b></button>
+        <span><span className="s">Peças</span><b>{money(x.partsMe + x.partsPartner)}</b></span>
+        <span><span className="s">Horas</span><b>{x.hours.toLocaleString('pt-PT')} h</b></span>
+        {x.sale !== null && <span><span className="s">Venda</span><b>{money(x.sale)}</b></span>}
+      </div>
+      <button type="button" className="salv-dates press" onClick={() => open(<DatesSheet car={c} onDone={reload} />)}>
+        <Icon n="cal" s={14} /><span>Comprado a {dt(c.bought_on)}{c.sold_on ? ` · vendido a ${dt(c.sold_on)}` : ''} · {x.days} {x.days === 1 ? 'dia' : 'dias'}</span><span className="s">Mudar</span>
+      </button>
       <div className="tile card rows salv-break" aria-label="De onde vem">
         {row('Compra', x.parts.fromPrice, 'metade cada um')}
         {row('Peças', x.parts.fromParts, `metade de ${money(x.partsPartner)} que pagou o ${partner}${x.partsMe ? ` e de ${money(x.partsMe)} teus` : ''}`)}
@@ -213,6 +219,7 @@ function CarSheet({ onDone, rate, partner }: { onDone: () => void; rate: number 
   const [name, setName] = useState('');
   const [price, setPrice] = useState('');
   const [split, setSplit] = useState<'half' | 'me' | 'partner'>('half');
+  const [on, setOn] = useState(todayStr());
   const [err, setErr] = useState('');
   async function save(e: FormEvent) {
     e.preventDefault();
@@ -220,7 +227,7 @@ function CarSheet({ onDone, rate, partner }: { onDone: () => void; rate: number 
     if (!name.trim()) return setErr('Que carro é? (ex.: Golf VI 2012)');
     if (!p) return setErr('Por quanto foi comprado?');
     const me = split === 'half' ? null : split === 'me' ? p : '0';
-    const { error } = await supabase.from('salvage_cars').insert({ name: name.trim().slice(0, 60), price: p, price_me: me, price_paid_by: split === 'partner' ? 'partner' : 'me', hour_rate: rate, bought_on: todayStr() });
+    const { error } = await supabase.from('salvage_cars').insert({ name: name.trim().slice(0, 60), price: p, price_me: me, price_paid_by: split === 'partner' ? 'partner' : 'me', hour_rate: rate, bought_on: on });
     if (error) return setErr(error.message);
     onDone(); close(); toast(`${name.trim()}: na oficina.`, { ok: true });
   }
@@ -230,8 +237,31 @@ function CarSheet({ onDone, rate, partner }: { onDone: () => void; rate: number 
       <p className="l">Carro novo</p>
       <input className="field" autoFocus placeholder="Golf VI 2012" value={name} onChange={(e) => setName(e.target.value)} aria-label="Carro" />
       <input className="field quick" inputMode="decimal" placeholder="Compra · 0 €" value={price} onChange={(e) => setPrice(e.target.value)} aria-label="Preço de compra" />
+      <label className="s salv-date">Comprado a <input className="field" type="date" max={todayStr()} value={on} onChange={(e) => setOn(e.target.value || todayStr())} /></label>
       <div className="seg" role="group" aria-label="Quem pagou">{chip(split === 'half', 'A meias', () => setSplit('half'))}{chip(split === 'me', 'Paguei eu', () => setSplit('me'))}{chip(split === 'partner', `Pagou o ${partner}`, () => setSplit('partner'))}</div>
       {err && <p className="s" style={{ color: 'var(--accent)' }}>{err}</p>}
+      <button className="btn wide press">Guardar <Icon n="arrow" s={20} /></button>
+    </form>
+  );
+}
+
+/** As datas de compra e de venda (contam para os dias e para o retorno anualizado). */
+function DatesSheet({ car, onDone }: { car: SalvageCar; onDone: () => void }) {
+  const { close, toast } = useOverlays();
+  const [b, setB] = useState(car.bought_on);
+  const [sv, setSv] = useState(car.sold_on ?? '');
+  async function save(e: FormEvent) {
+    e.preventDefault();
+    if (sv && sv < b) return toast('A venda não pode ser antes da compra.');
+    const { error } = await supabase.from('salvage_cars').update(car.status === 'sold' ? { bought_on: b, sold_on: sv || car.sold_on } : { bought_on: b }).eq('id', car.id);
+    if (error) return toast(error.message);
+    onDone(); close(); toast('Datas guardadas.', { ok: true });
+  }
+  return (
+    <form onSubmit={save} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <p className="l">Datas</p>
+      <label className="s salv-date">Comprado a <input className="field" type="date" max={todayStr()} value={b} onChange={(e) => setB(e.target.value || b)} /></label>
+      {car.status === 'sold' && <label className="s salv-date">Vendido a <input className="field" type="date" min={b} max={todayStr()} value={sv} onChange={(e) => setSv(e.target.value)} /></label>}
       <button className="btn wide press">Guardar <Icon n="arrow" s={20} /></button>
     </form>
   );
@@ -295,12 +325,13 @@ function SellSheet({ car, onDone }: { car: SalvageCar; onDone: () => void }) {
   const { close, toast } = useOverlays();
   const [v, setV] = useState('');
   const [to, setTo] = useState<Who>('me');
+  const [on, setOn] = useState(todayStr());
   const [err, setErr] = useState('');
   async function save(e: FormEvent) {
     e.preventDefault();
     const a = parseAmount(v);
     if (!a) return setErr('Por quanto foi vendido?');
-    const { error } = await supabase.from('salvage_cars').update({ status: 'sold', sold_for: a, sold_on: todayStr(), sale_to: to }).eq('id', car.id);
+    const { error } = await supabase.from('salvage_cars').update({ status: 'sold', sold_for: a, sold_on: on < car.bought_on ? car.bought_on : on, sale_to: to }).eq('id', car.id);
     if (error) return setErr(error.message);
     onDone(); close(); toast(`${car.name}: vendido.`, { ok: true });
   }
@@ -308,6 +339,7 @@ function SellSheet({ car, onDone }: { car: SalvageCar; onDone: () => void }) {
     <form onSubmit={save} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <p className="l">Vendido</p>
       <input className="field quick" inputMode="decimal" autoFocus placeholder="Venda · 0 €" value={v} onChange={(e) => setV(e.target.value)} aria-label="Valor da venda" />
+      <label className="s salv-date">Vendido a <input className="field" type="date" min={car.bought_on} max={todayStr()} value={on} onChange={(e) => setOn(e.target.value || todayStr())} /></label>
       <div className="seg" role="group" aria-label="Quem recebeu"><button type="button" className="press" aria-pressed={to === 'me'} onClick={() => setTo('me')}>Recebi eu</button><button type="button" className="press" aria-pressed={to === 'partner'} onClick={() => setTo('partner')}>Recebeu o sócio</button></div>
       {err && <p className="s" style={{ color: 'var(--accent)' }}>{err}</p>}
       <button className="btn wide press">Guardar <Icon n="arrow" s={20} /></button>
