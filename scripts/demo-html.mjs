@@ -12,7 +12,7 @@ const icon = readFileSync(join(dir, 'icons/icon.svg'), 'utf8');
 const page = `<!DOCTYPE html>
 <meta charset="utf-8">
 <title>NIKKI app</title>
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, viewport-fit=cover">
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="icon" href="data:image/svg+xml,${encodeURIComponent(icon)}">
 <link rel="preconnect" href="https://fonts.googleapis.com">

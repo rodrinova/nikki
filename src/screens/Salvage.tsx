@@ -257,14 +257,17 @@ export function SalvageCarScreen() {
       <button type="button" className="salv-dates press" onClick={() => open(<CarInfoSheet car={c} onDone={reload} />)}>
         <Icon n="cal" s={14} /><span>Comprado a {dt(c.bought_on)}{c.sold_on ? ` · vendido a ${dt(c.sold_on)}` : ''}</span><span className="s">Mudar</span>
       </button>
-      <div className="tile card rows salv-break" aria-label="De onde vem">
+      <details className="salv-why">
+        <summary className="press">De onde vem a conta corrente</summary>
+        <div className="tile card rows salv-break" aria-label="De onde vem">
         {row('Compra', x.parts.fromPrice, x.priceMe * 2 === x.price ? 'metade cada um' : `pagaste ${money(x.priceMe)} de ${money(x.price)}`)}
         {x.reg > 0 && row('Registo', x.parts.fromReg, regWho(c.reg_paid_by, partner))}
         {row('Peças', x.parts.fromParts, x.partsMe || x.partsPartner ? `metade de ${[x.partsPartner ? `${money(x.partsPartner)} do ${partner}` : '', x.partsMe ? `${money(x.partsMe)} teus` : ''].filter(Boolean).join(' e ')}` : 'ainda nenhuma')}
         {row('Horas', x.parts.fromHours, `metade de ${x.hours.toLocaleString('pt-PT')} h × ${eur(toU(c.hour_rate), 0)} €/h`)}
         {row('Transferências', x.parts.fromTransfers, x.sentMe || x.sentPartner ? `${money(x.sentMe)} tuas${x.sentPartner ? ` · ${money(x.sentPartner)} do ${partner}` : ''}` : 'ainda nenhuma')}
         {x.sale !== null && row('Venda', x.parts.fromSale, `metade de ${money(x.sale)}, que recebeu ${c.sale_to === 'me' ? 'tu' : `o ${partner}`}`)}
-      </div>
+        </div>
+      </details>
       {c.status !== 'sold' && <div className="salv-add">
         <button className="btn quiet press" onClick={() => add('part')}>+ Peça</button>
         <button className="btn quiet press" onClick={() => add('hours')}>+ Horas</button>
@@ -276,16 +279,27 @@ export function SalvageCarScreen() {
   );
 }
 
+/** Os registos, cada tipo na sua lista: peças (o que se comprou), horas e transferências entre os dois. */
 function Logs({ logs, partner, onDelete }: { logs: SalvageLog[]; partner: string; onDelete?: (l: SalvageLog) => void }) {
   if (!logs.length) return <p className="s">Ainda sem peças nem horas. Está tudo a beber café.</p>;
-  return (
-    <div className="tile card rows">{logs.map((l) => (
-      <div key={l.id}>
-        <span className="st2"><span>{l.kind === 'hours' ? `${Number(l.hours).toLocaleString('pt-PT')} h${l.note ? ` · ${l.note}` : ''}` : l.kind === 'transfer' ? 'Transferência' : l.note || 'Peça'}</span><span className="s">{l.kind === 'part' ? '' : `${dayLabel(l.on_date)} · `}{l.kind === 'hours' ? (l.paid_by === 'me' ? 'tu' : partner) : l.kind === 'transfer' ? (l.paid_by === 'me' ? `tu → ${partner}` : `${partner} → tu`) : l.paid_by === 'me' ? 'pagaste tu' : `pagou o ${partner}`}</span></span>
-        <span className="v">{l.kind !== 'hours' ? money(toU(l.amount ?? 0)) : ''}{onDelete && <button type="button" className="x-btn press" aria-label="Apagar" onClick={() => onDelete(l)}><Icon n="close" s={16} /></button>}</span>
-      </div>
-    ))}</div>
+  const of = (k: SalvageLog['kind']) => logs.filter((l) => l.kind === k);
+  const parts = of('part'), hours = of('hours'), sent = of('transfer');
+  const x = (l: SalvageLog) => onDelete && <button type="button" className="x-btn press" aria-label="Tirar" onClick={() => onDelete(l)}><Icon n="close" s={14} /></button>;
+  const sum = (ls: SalvageLog[]) => ls.reduce((t, l) => t + toU(l.amount ?? 0), 0);
+  const list = (title: string, total: string, ls: SalvageLog[], line: (l: SalvageLog) => [string, string, string]) => ls.length > 0 && (
+    <section className="salv-log" aria-label={title}>
+      <p className="salv-log-h"><span>{title}</span><span>{total}</span></p>
+      <div className="tile card">{ls.map((l) => { const [a, sub, v] = line(l); return (
+        <div key={l.id} className="salv-log-r"><span className="st2"><span>{a}</span>{sub && <span className="s">{sub}</span>}</span><span className="v">{v}{x(l)}</span></div>
+      ); })}</div>
+    </section>
   );
+  const who = (w: Who) => (w === 'me' ? 'tu' : partner);
+  return <>
+    {list('Peças', money(sum(parts)), parts, (l) => [l.note || 'Peça', l.paid_by === 'me' ? 'pagaste tu' : `pagou o ${partner}`, money(toU(l.amount ?? 0))])}
+    {list('Horas', `${hours.reduce((t, l) => t + Number(l.hours ?? 0), 0).toLocaleString('pt-PT')} h`, hours, (l) => [l.note || 'Trabalho', `${dayLabel(l.on_date)} · ${who(l.paid_by)}`, `${Number(l.hours).toLocaleString('pt-PT')} h`])}
+    {list('Transferências', money(sum(sent)), sent, (l) => [l.paid_by === 'me' ? `Tu → ${partner}` : `${partner} → tu`, dayLabel(l.on_date), money(toU(l.amount ?? 0))])}
+  </>;
 }
 
 /** Registar uma peça ou horas: botões grandes, quase sem escrever. */
