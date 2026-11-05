@@ -10,7 +10,7 @@
 - Escritas otimistas onde há lista (compras); erros com aviso.
 - Migrações: `supabase/migrations/`, idempotentes, testadas com `supabase/tests/*` numa base local antes de ir para o Supabase.
 - Nunca mexer nas tabelas `public.*` (app antiga).
-- Preferência do Rodrigo: sempre que houver mudanças visíveis, publicar o HTML para ele ver (`npm run demo` → artefacto «NIKKI app»; o protótipo em thenikki/prototypes/nikki-hub.html → artefacto «NIKKI»).
+- Demonstrações: o Rodrigo não quer mais artefactos de demonstração (os «NIKKI app» e «NIKKI» foram apagados a 5 nov 2026). Não publicar `npm run demo`; mostrar mudanças visíveis com capturas (Playwright sobre o demo local) e na app publicada.
 - Marca: depois da abertura (`src/brand/Intro.tsx`, primeira abertura de cada dia) usa-se só a cara (`Face`), não a palavra; `Wordmark` fica para a entrada e para a história. Setas com o ângulo dos bigodes (`Icon`: back, arrow, chev). Avisos de algo gravado: `toast(msg, { ok: true })` (a cara pisca o olho).
 - Modo de demonstração: `src/lib/demo.ts` imita o supabase-js em memória; manter em dia quando a app usar novas tabelas ou funções.
 - Contas por aprovação: `profiles.status` (pending · active · paused · declined). Sem conta ativa, as regras de acesso não deixam ver nada; a app mostra o pedido (`Onboarding`), a espera (`Waiting`) ou `NoAccess`. A segunda pessoa entra com convite e fica ativa; cada casa tem no máximo 2 pessoas.
