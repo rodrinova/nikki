@@ -1028,7 +1028,9 @@ body::before{background:color-mix(in srgb,var(--ground) 70%,transparent);-webkit
 
 /* ═════════════════ Ecrãs grandes: iPad e computador ═════════════════ */
 .side{display:none}
-.hub,.hub-a,.hub-b{display:contents}
+/* No telemóvel, as colunas do Início são caixas normais em coluna (sem display: contents, que o Safari às vezes
+   desfaz e deixa os cartões encolhidos ao centro). */
+.hub,.hub-a,.hub-b{display:flex;flex-direction:column;gap:20px;min-width:0}
 
 /* iPad ao alto (e janelas médias): mais largo, o Início em duas colunas. */
 @media (min-width:760px){
@@ -1321,3 +1323,7 @@ details.hint > p{margin-top:8px;animation:in 260ms var(--ease-out) both}
 .gym-d.t-worse{color:var(--sub)}
 @media (min-width:760px){.gym-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media (prefers-reduced-motion: reduce){.gs-line,.gr-fill{animation:none}}
+
+/* Todos os blocos de um ecrã ocupam a largura toda (a não ser os que pedem o contrário: o «?» e a pílula das sugestões). */
+.screen > *,.hub > *,.hub-a > *,.hub-b > *{align-self:stretch;min-width:0;max-width:100%}
+.screen > details.hint,.screen > .sug-pill,.screen > .with-hint > details.hint{align-self:flex-start}
