@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { store } from '@/lib/store';
@@ -10,13 +10,12 @@ import { Icon } from '@/ui/Icon';
 import { Poster } from '@/ui/Poster';
 import { How, Year } from '@/ui/Year';
 import { U, eur, parseAmount, toU } from '@/lib/money';
-import { monthKey, monthName, parseDate, toDateStr, todayStr } from '@/lib/dates';
-import { useZoom } from '@/ui/zoom';
-import { ZoomHint } from '@/ui/ZoomHint';
+import { monthKey, monthName, todayStr } from '@/lib/dates';
 import { shortDate } from '@/lib/admin';
-import { KINDS, MILESTONES, WHERE, celebrate, entriesByMonth, fundCheck, liqOf, nextBadge, sourceMonthly, vacationUntil, type AssetKind, type FundRole } from '@/lib/wealth';
+import { KINDS, MILESTONES, netSeries, WHERE, celebrate, entriesByMonth, fundCheck, liqOf, nextBadge, sourceMonthly, vacationUntil, type AssetKind, type FundRole } from '@/lib/wealth';
 import { Top, Hint } from './Home';
 import { Arc } from '@/ui/Arc';
+import { TimeChart } from '@/ui/TimeChart';
 
 // Património: a saúde financeira da família e quantos meses vive do que tem. Regras em docs/CALCULOS.md, secção 6.
 
@@ -63,7 +62,7 @@ export function Wealth() {
       <Top title="Património" right={<ViewSeg view={view} setView={(v) => { setView(v); setCheer(null); }} />} />
       {house && w.ready && <Celebrations w={w} k={`nikki_cheer_${house.id}_${w.casa ? 'casa' : 'eu'}`} onCheer={setCheer} />}
       <Score w={w} cheer={cheer} />
-      <Cups w={w} />
+      <Levels w={w} />
       <NetWorth w={w} />
       <nav className="tile card rows w-nav" aria-label="Mais do Património">
         <Link className="press" to="/patrimonio/ativos"><span className="k">Ativos e investimentos</span><span className="v">{money(invested)}<Icon n="chev" s={16} /></span></Link>
@@ -105,37 +104,44 @@ export function WealthPart() {
 }
 
 /**
- * Os copos: o fundo de emergência enche primeiro; cheio, transborda para o maneio (os imprevistos); cheio também,
- * o que sobra vai para os investimentos. Cada copo mostra quanto tem e quanto falta; um toque abre o que lá está.
+ * Os três níveis: o dinheiro que trabalha (tudo menos a casa e os carros) ao longo do tempo, pintado por níveis. Até à
+ * primeira linha é o fundo de emergência (laranja-avermelhado); até à segunda, o maneio (laranja); acima, investir.
  */
-function Cups({ w }: { w: W }) {
+const LV = { emergency: '#E2532F', cushion: '#FF7A1F', invest: '#FFB27A' };
+function Levels({ w }: { w: W }) {
   const { open } = useOverlays();
   const nav = useNavigate();
+  const { snapshots } = useHouse();
+  // As três camadas reais (o que está em cada fundo e o resto a render), somadas de baixo para cima, nas mesmas datas.
+  const { total, layers } = useMemo(() => {
+    const snaps = snapshots.rows.map((s) => ({ asset_id: s.asset_id, on_date: s.on_date, value: toU(s.value) }));
+    const pick = (f: (a: W['mine'][number]) => boolean) => netSeries(w.mine.filter((a) => a.liq !== 'out' && a.id !== 'salvados' && f(a)).map((a) => ({ id: a.id, part: a.part, archived: a.archived })), snaps);
+    const sE = pick((a) => a.role === 'emergency'), sC = pick((a) => a.role === 'cushion'), sI = pick((a) => !a.role);
+    const days = [...new Set([...sE, ...sC, ...sI].map((p) => p.on))].sort();
+    const val = (s: { on: string; v: number }[], d: string) => { let v = 0; for (const p of s) { if (p.on > d) break; v = p.v; } return v; };
+    const e = days.map((d) => ({ on: d, v: val(sE, d) }));
+    const c = days.map((d, n) => ({ on: d, v: e[n].v + val(sC, d) }));
+    const t = days.map((d, n) => ({ on: d, v: c[n].v + val(sI, d) }));
+    return { total: t, layers: [{ points: e, color: LV.emergency }, { points: c, color: LV.cushion }, { points: t, color: LV.invest }] };
+  }, [w.mine, snapshots.rows]);
   const inv = w.mine.filter((a) => !a.role && a.liq !== 'out').reduce((t, a) => t + a.mine, 0);
-  const em = w.emergency.value, emT = w.emergencyTarget, cu = w.cushion.value, cuT = w.cushionTarget;
-  const pE = emT ? Math.min(1, em / emT) : 0, pC = cuT ? Math.min(1, cu / cuT) : 0;
-  const pI = inv > 0 ? Math.min(1, 0.25 + inv / Math.max(inv, (emT ?? 0) + cuT) * 0.75) : 0;
-  const cups = [
-    { k: 'emergency' as const, n: 'Emergência', v: em, t: emT, p: pE, go: () => open(<FundSheet w={w} role="emergency" />) },
-    { k: 'cushion' as const, n: 'Maneio', v: cu, t: cuT, p: pC, go: () => open(<FundSheet w={w} role="cushion" />) },
-    { k: 'invest' as const, n: 'Investir', v: inv, t: null, p: pI, go: () => nav('/patrimonio/ativos') },
-  ];
-  const full = [pE >= 1, pC >= 1];
+  const emT = w.emergencyTarget, cuT = w.cushionTarget;
+  const levels = emT ? [{ v: emT, color: LV.emergency }, { v: emT + cuT, color: LV.cushion }] : [];
+  const em = w.emergency.value, cu = w.cushion.value;
+  const row = (k: string, c: string, n: string, v: number, t: number | null, go: () => void) => (
+    <button key={k} type="button" className="lv-row press" onClick={go}>
+      <i style={{ background: c }} /><span className="st2"><span>{n}</span><span className="s">{t ? (v >= t ? 'cheio' : `faltam ${money(t - v)}`) : v ? 'a render' : 'por começar'}</span></span>
+      <span className="v">{money(v)}{t ? <span className="s"> de {money(t)}</span> : null}</span>
+    </button>
+  );
   return (
-    <section className="cups" aria-label="Os copos: emergência, maneio, investir">
-      <div className="wbar"><span className="s">Os copos</span><Hint>Primeiro enche-se o fundo de emergência ({emT ? `12 meses × ${money(w.spend!.avg)}` : '12 meses de despesa'}). Cheio, o que sobra transborda para o maneio ({money(cuT)}, para os imprevistos). Com os dois cheios, investe-se.</Hint></div>
-      <div className="cups-row">
-        {cups.map((c, j) => (
-          <Fragment key={c.k}>
-            <button type="button" className={`cup press${c.p >= 1 ? ' full' : ''}${c.k === 'invest' ? ' inv' : ''}`} onClick={c.go} aria-label={`${c.n}: ${money(c.v)}${c.t ? ` de ${money(c.t)}` : ''}`}>
-              <span className="cup-glass"><span className="cup-liq" style={{ height: `${Math.round(c.p * 100)}%` }}><i className="cup-wave" /></span>{c.t ? <b>{Math.round(c.p * 100)}%</b> : null}</span>
-              <span className="cup-n">{c.n}</span>
-              <span className="cup-v">{money(c.v)}</span>
-              <span className="s cup-t">{c.t ? (c.p >= 1 ? 'cheio' : `faltam ${money(c.t - c.v)}`) : c.v ? 'a render' : 'por começar'}</span>
-            </button>
-            {j < 2 && <span className={`cup-flow${full[j] ? ' on' : ''}`} aria-hidden="true"><i /><i /><i /></span>}
-          </Fragment>
-        ))}
+    <section className="tile pane levels" aria-label="Os três níveis" style={{ minHeight: 0 }}>
+      <div className="with-hint"><span className="s">Os três níveis</span><Hint>As camadas são o que está em cada fundo; as linhas tracejadas, as metas. Primeiro enche-se o fundo de emergência ({emT ? `12 meses × ${money(w.spend!.avg)}` : '12 meses de despesa'}). Cheio, o resto vai para o maneio ({money(cuT)}, os imprevistos). Com os dois cheios, investe-se. A casa e os carros não entram.</Hint></div>
+      {total.length > 1 && <TimeChart points={total} fmt={money} layers={layers} levels={levels} label="Os três níveis ao longo do tempo" />}
+      <div className="lv-rows">
+        {row('emergency', LV.emergency, 'Emergência', em, emT, () => open(<FundSheet w={w} role="emergency" />))}
+        {row('cushion', LV.cushion, 'Maneio', cu, cuT, () => open(<FundSheet w={w} role="cushion" />))}
+        {row('invest', LV.invest, 'Investir', inv, null, () => nav('/patrimonio/ativos'))}
       </div>
     </section>
   );
@@ -431,64 +437,13 @@ function NetWorth({ w }: { w: W }) {
       <span className="s">{w.casa ? (partner ? 'Património do casal' : 'Património') : 'O teu património'}</span>
       <p className="xl">{eur(n.total, 0)}<small>€</small></p>
       <p className="s">{parts.filter(Boolean).join(' · ')}</p>
-      {w.history.length > 1 && <NetChart points={w.history} />}
+      {w.history.length > 1 && <TimeChart points={w.history} fmt={money} label="Evolução do património" restValue={false} />}
     </section>
   );
 }
 
 // Um dia «AAAA-MM-DD» (hora local) em texto curto.
 const day = (d: string) => shortDate(`${d}T12:00:00`);
-
-/** Evolução do património: os valores registados ao longo do tempo (o eixo é o tempo real); a escala muda com dois dedos. */
-function NetChart({ points }: { points: { on: string; v: number }[] }) {
-  const [sel, setSel] = useState<string | null>(null);
-  const W = 340, H = 150, T = 12, B = 22;
-  const DAY = 86_400_000, t0 = parseDate(points[0].on).getTime();
-  const at = (d: string) => Math.round((parseDate(d).getTime() - t0) / DAY);
-  const end = at(points[points.length - 1].on);
-  const z = useZoom(0, end, Math.min(end, 14));
-  const [a, b] = z.win;
-  // O que se vê, mais um ponto de cada lado, para a linha continuar até à margem.
-  const iA = Math.max(0, points.findIndex((p) => at(p.on) >= a) - 1);
-  let iB = points.length - 1;
-  for (let i = points.length - 1; i >= 0; i--) if (at(points[i].on) <= b) { iB = Math.min(points.length - 1, i + 1); break; }
-  const seen = points.slice(iA, iB + 1), inside = seen.filter((p) => at(p.on) >= a - 1e-9 && at(p.on) <= b + 1e-9);
-  const vs = (inside.length ? inside : seen).map((p) => p.v);
-  let lo = Math.min(...vs), hi = Math.max(...vs);
-  if (hi - lo < U) { lo -= U; hi += U; }
-  const pad = (hi - lo) * 0.12; lo -= pad; hi += pad;
-  const x = (d: string) => (b > a ? ((at(d) - a) / (b - a)) * W : W / 2);
-  const y = (v: number) => T + (1 - (v - lo) / (hi - lo)) * (H - T - B);
-  const pick = inside.length ? inside : seen;
-  const p = pick.find((q) => q.on === sel) ?? pick[pick.length - 1], first = pick[0];
-  const diff = p.v - first.v;
-  // Uma linha suave (Catmull-Rom em curvas de Bézier), como no carrossel; com dois pontos, uma reta.
-  const P = seen.map((q) => [x(q.on), y(q.v)] as const);
-  const line = P.map(([px, py], n) => {
-    if (!n) return `M${px.toFixed(1)},${py.toFixed(1)}`;
-    const p0 = P[n - 2] ?? P[n - 1], p1 = P[n - 1], p3 = P[n + 1] ?? [px, py];
-    const c1x = p1[0] + (px - p0[0]) / 6, c1y = p1[1] + (py - p0[1]) / 6, c2x = px - (p3[0] - p1[0]) / 6, c2y = py - (p3[1] - p1[1]) / 6;
-    return `C${c1x.toFixed(1)},${c1y.toFixed(1)} ${c2x.toFixed(1)},${c2y.toFixed(1)} ${px.toFixed(1)},${py.toFixed(1)}`;
-  }).join(' ');
-  const dayAt = (n: number) => toDateStr(new Date(t0 + Math.round(n) * DAY + DAY / 2));
-  return (
-    <figure className="net-chart" aria-label="Evolução do património">
-      <svg viewBox={`0 0 ${W} ${H}`} role="img" {...z.bind}
-        onPointerMove={(e) => { z.bind.onPointerMove(e); const r = (e.currentTarget as SVGSVGElement).getBoundingClientRect(); const px = ((e.clientX - r.left) / r.width) * W; let best = pick[0]; for (const q of pick) if (Math.abs(x(q.on) - px) < Math.abs(x(best.on) - px)) best = q; setSel(best.on); }}
-        onPointerLeave={() => setSel(null)}>
-        <path d={`${line} L${x(seen[seen.length - 1].on).toFixed(1)},${H - B} L${x(seen[0].on).toFixed(1)},${H - B} Z`} className="net-area" />
-        <path d={line} className="gc-line net-line" />
-        <line x1={x(p.on)} x2={x(p.on)} y1={T} y2={H - B} className="gc-cross" />
-        <circle cx={x(p.on)} cy={y(p.v)} r={14} className="net-halo" />
-        <circle cx={x(p.on)} cy={y(p.v)} r={4.5} className="gc-dot net-dot" />
-        <text x={2} y={H - 6} className="gc-ax" textAnchor="start">{day(dayAt(a))}</text>
-        <text x={W - 2} y={H - 6} className="gc-ax" textAnchor="end">{day(dayAt(b))}</text>
-      </svg>
-      <figcaption className="s">{day(p.on)}: {money(p.v)}{p.on !== first.on ? ` · ${diff >= 0 ? '+' : '−'}${money(Math.abs(diff))} desde ${day(first.on)}` : ''}</figcaption>
-      <ZoomHint z={z} />
-    </figure>
-  );
-}
 
 function Assets({ w }: { w: W }) {
   const nav = useNavigate();

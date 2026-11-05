@@ -1246,3 +1246,31 @@ details.hint > p{margin-top:8px;animation:in 260ms var(--ease-out) both}
 .cup.inv.full .cup-glass{border-color:var(--glass-line);box-shadow:var(--glass-hi)}
 @media (prefers-color-scheme: light){:root:not([data-theme="dark"]) .cup.inv .cup-liq{background:linear-gradient(180deg,rgba(11,11,11,.28),rgba(11,11,11,.06))}}
 :root[data-theme="light"] .cup.inv .cup-liq{background:linear-gradient(180deg,rgba(11,11,11,.28),rgba(11,11,11,.06))}
+
+/* ═════════════════ O gráfico no tempo (régua, meses, níveis) ═════════════════ */
+.tchart{margin:4px 0 0;display:flex;flex-direction:column;gap:8px}
+.tchart > svg:first-of-type{width:100%;height:auto;display:block;touch-action:pan-y;cursor:crosshair;overflow:visible;user-select:none;-webkit-user-select:none}
+.tc-read{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;min-height:26px}
+.tc-v{font-size:var(--t-l);letter-spacing:-0.02em;font-variant-numeric:tabular-nums}
+.tc-month{stroke:var(--line);stroke-width:1}
+.tc-month.y{stroke:var(--sub);stroke-opacity:.5}
+.tc-ax{font-size:9.5px;fill:var(--sub)}
+.tc-line{fill:none;stroke:var(--ink);stroke-width:2;stroke-linejoin:round;stroke-linecap:round;filter:drop-shadow(0 0 4px rgba(var(--glow),.5))}
+.tc-level{stroke-width:1;stroke-dasharray:4 4;opacity:.9}
+.tc-lab{font-size:9.5px}
+.tc-rule{stroke:var(--ink);stroke-width:1;opacity:.7;transition:opacity 200ms ease}
+.tc-rule.rest{opacity:0}
+.tc-dot{fill:var(--ink);stroke:var(--ground);stroke-width:2}
+.tc-mini{width:100%;height:auto;display:block;touch-action:none;cursor:grab}
+.tc-mline{fill:none;stroke:var(--sub);stroke-width:1.2;opacity:.8}
+.tc-win{fill:rgba(var(--glow),.14);stroke:rgba(var(--glow),.6);stroke-width:1}
+.tc-ranges{display:flex;gap:6px}
+.tc-ranges button{min-height:30px;padding:0 12px;border-radius:var(--r-pill);border:1px solid var(--glass-line);background:transparent;color:var(--sub);font-size:var(--t-s)}
+.tc-ranges button[aria-pressed="true"]{background:var(--ink);color:var(--ground);border-color:var(--ink)}
+/* Os três níveis */
+.levels{gap:14px}
+.lv-rows{display:flex;flex-direction:column}
+.lv-row{display:flex;align-items:center;gap:12px;min-height:54px;border:0;border-top:1px solid var(--line);background:transparent;text-align:left;color:inherit;padding:0}
+.lv-row i{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.lv-row .st2{flex:1}
+.lv-row .v{text-align:right}
