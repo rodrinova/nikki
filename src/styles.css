@@ -1285,3 +1285,7 @@ details.hint > p{margin-top:8px;animation:in 260ms var(--ease-out) both}
 @keyframes page-fwd{from{opacity:0;transform:translateX(32px)}}
 @keyframes page-back{from{opacity:0;transform:translateX(-32px)}}
 @media (prefers-reduced-motion: reduce){.screen.enter,.screen.enter.fwd,.screen.enter.back{animation:page-fade 1ms both}}
+
+/* O cabeçalho do Início fica no topo (top: 0) e é ele que reserva a zona do relógio/notch: assim, com o scroll todo
+   para cima, nada da página fica escondido por baixo dele (com top = a altura do notch, a 1.ª linha ficava tapada). */
+.status{top:0;padding-top:env(safe-area-inset-top,0px);height:calc(52px + env(safe-area-inset-top,0px))}
