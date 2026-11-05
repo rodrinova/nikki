@@ -190,9 +190,11 @@ function MoneyLine() {
   const pace = m.pace.fresh ? '' : `, ${Math.abs(m.pace.pct)}% ${m.pace.pct >= 0 ? 'acima' : 'abaixo'} do habitual`;
   const us = partner && L ? (L.even ? 'Entre nós: estão quites.' : L.v > 0 ? `Entre nós: adiantaste ${eur(Math.abs(L.v))} € a mais.` : `Entre nós: ${partner.name} adiantou ${eur(Math.abs(L.v))} € a mais.`) : '';
   return (
-    <Link className="tile money-line press" to="/dinheiro">
-      <span className="st2"><span>{cap1(monthName(m.key))}{partner ? ', a tua parte' : ''}: {eur(m.total, 0)} €{pace}.</span>{us && <span className="s">{us}</span>}</span>
-      <Icon n="chev" s={16} />
+    <Link className="tile money-line hero press" to="/dinheiro" aria-label={`${cap1(monthName(m.key))}${partner ? ', a tua parte' : ''}: ${eur(m.total, 0)} €${pace}. ${us}`}>
+      <span className="hero-top"><span className="s">{cap1(monthName(m.key))}{partner ? ' · a tua parte' : ''}</span><span className="ic" aria-hidden="true"><Icon n="chev" s={16} /></span></span>
+      <span className="hero-n">{eur(m.total, 0)}<small>€</small></span>
+      {!m.pace.fresh && <span className="pill">{m.pace.pct >= 0 ? '↗' : '↘'} {m.pace.pct === 0 ? 'no ritmo habitual' : `${Math.abs(m.pace.pct)}% ${m.pace.pct > 0 ? 'acima' : 'abaixo'} do habitual`}</span>}
+      {us && <span className="s">{us}</span>}
     </Link>
   );
 }

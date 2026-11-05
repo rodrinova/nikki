@@ -126,7 +126,7 @@ function Spend() {
             </div>
             <span className="s">Ritmo · {p.pct === 0 ? 'no ritmo habitual' : `${Math.abs(p.pct)}% ${p.pct > 0 ? 'acima' : 'abaixo'} do ritmo habitual`}</span>
           </div>
-          <Hint show={seen < 3}>Cada bloco é um dia de um mês normal. Os cheios já foram. Os laranja são dias que ainda não chegaram, mas já foram gastos.</Hint>
+          <Hint show={seen < 3}>Cada traço é um dia de um mês normal. Os brancos já foram. Os laranja são dias que ainda não chegaram, mas já foram gastos.</Hint>
         </>)}
       <YearBars months={hist.months} normal={m.normal} sel={key} onPick={setKey} />
       <div className="tile card rows">

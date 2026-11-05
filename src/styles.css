@@ -30,7 +30,7 @@
   color-scheme:light}
 
 *{box-sizing:border-box}
-html,body{height:100%}
+html,body{height:100%;margin:0}
 body{background:var(--ground);color:var(--ink);font-family:var(--font);font-weight:400;font-size:var(--t-m);line-height:1.4;letter-spacing:-0.01em;font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased;overflow-x:hidden}
 ::selection{background:var(--accent);color:var(--on-accent)}
 button,input{font:inherit;color:inherit;letter-spacing:inherit}
@@ -950,3 +950,78 @@ button.ctile{border:0;text-align:left;align-items:flex-start;width:100%;font:inh
 @keyframes pillIn{from{opacity:0;transform:translateY(12px)}}
 .update-pill b{font-weight:500;color:var(--accent)}
 .device-code{letter-spacing:.08em;text-align:center;margin:6px 0}
+
+/* ═════════════════ Nova geração (nov 2026) ═════════════════
+   O mesmo Polestar (preto, um laranja, letra fina) com a linguagem de agora: um brilho laranja difuso por trás do que
+   importa, cartões de vidro com cantos largos, números grandes com a unidade pequena e esbatida, pílulas, réguas finas
+   e uma barra de navegação flutuante. Tudo em variáveis: o tema claro segue com os seus valores. */
+:root{
+  --r-card:26px; --r-pill:999px;
+  --glass:linear-gradient(180deg,rgba(255,255,255,.065),rgba(255,255,255,.025));
+  --glass-line:rgba(255,255,255,.075); --glass-hi:inset 0 1px 0 rgba(255,255,255,.07);
+  --glow:255,122,31; --aura:rgba(var(--glow),.20);
+  --t-xl:60px;
+}
+@media (prefers-color-scheme: light){:root:not([data-theme="dark"]){
+  --glass:linear-gradient(180deg,rgba(255,255,255,.92),rgba(255,255,255,.72));
+  --glass-line:rgba(0,0,0,.06); --glass-hi:inset 0 1px 0 rgba(255,255,255,.9),0 8px 24px rgba(0,0,0,.05);
+  --glow:232,96,10; --aura:rgba(var(--glow),.16)}}
+:root[data-theme="light"]{
+  --glass:linear-gradient(180deg,rgba(255,255,255,.92),rgba(255,255,255,.72));
+  --glass-line:rgba(0,0,0,.06); --glass-hi:inset 0 1px 0 rgba(255,255,255,.9),0 8px 24px rgba(0,0,0,.05);
+  --glow:232,96,10; --aura:rgba(var(--glow),.16)}
+
+/* O fundo: um brilho laranja no alto, que fica parado quando se desliza. */
+body{background:radial-gradient(90% 42% at 50% -8%,var(--aura),transparent 70%) fixed,radial-gradient(60% 30% at 100% 0%,rgba(var(--glow),.07),transparent 70%) fixed,var(--ground)}
+
+/* Vidro: os cartões. */
+.tile{background:var(--glass);border:1px solid var(--glass-line);border-radius:var(--r-card);box-shadow:var(--glass-hi);-webkit-backdrop-filter:blur(22px) saturate(140%);backdrop-filter:blur(22px) saturate(140%)}
+.tile .tile,.tile.card .tile{border-radius:18px}
+
+/* Números: grandes, finos e com a unidade pequena e esbatida (como «84/100»). */
+.xl{letter-spacing:-0.055em}
+.xl small{color:var(--sub);font-size:calc(var(--t-xl) * .42);letter-spacing:-0.02em;margin-left:4px}
+
+/* O número principal de um ecrã ganha o brilho por trás. */
+.swap{position:relative;isolation:isolate}
+.swap::before{content:"";position:absolute;z-index:-1;left:-40px;right:-40px;top:-50px;bottom:-40px;background:radial-gradient(55% 60% at 30% 50%,rgba(var(--glow),.24),transparent 72%);filter:blur(6px);pointer-events:none}
+
+/* Pílulas em tudo o que se toca. */
+.btn{border-radius:var(--r-pill)}
+.btn.wide{border-radius:var(--r-pill)}
+.tb{border-radius:var(--r-pill);background:var(--glass);border:1px solid var(--glass-line)}
+.chips button{border-radius:var(--r-pill);border-color:var(--glass-line);background:var(--glass)}
+.seg{border-radius:var(--r-pill);background:var(--glass);border:1px solid var(--glass-line);padding:3px}
+.seg button{border-radius:var(--r-pill)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--ground)}
+.field{border-radius:18px}
+.pill{display:inline-flex;align-items:center;gap:6px;align-self:flex-start;padding:4px 10px;border-radius:var(--r-pill);background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.14);font-size:var(--t-s);color:inherit;white-space:nowrap}
+
+/* O ritmo do mês como régua: um traço fino por dia; os já gastos crescem, o de hoje brilha. */
+.bar31{height:36px;align-items:end;gap:0}
+.bar31 i{justify-self:center;width:2px;height:34%;border-radius:2px;background:var(--line)}
+.bar31 i.f{height:62%;background:var(--ink)}
+.bar31 i.a{height:62%;background:var(--accent)}
+.bar31 i.today{height:100%;width:3px;box-shadow:0 0 12px rgba(var(--glow),.9)}
+
+/* Dinheiro no Início: o cartão-herói, um gradiente laranja como o «Not very active today!». */
+.money-line.hero{position:relative;overflow:hidden;display:flex;flex-direction:column;align-items:stretch;gap:10px;padding:22px 22px 20px;color:#fff;border:0;
+  background:radial-gradient(120% 120% at 0% 100%,rgba(255,170,90,.95),transparent 60%),radial-gradient(120% 140% at 100% 0%,rgba(214,70,60,.85),transparent 60%),linear-gradient(135deg,#F28A3A,#C9503F)}
+.money-line.hero .s{color:rgba(255,255,255,.78)}
+.money-line.hero .hero-n{font-size:var(--t-xl);line-height:1;letter-spacing:-0.055em}
+.money-line.hero .hero-n small{font-size:calc(var(--t-xl) * .42);color:rgba(255,255,255,.7);margin-left:4px;letter-spacing:-0.02em}
+.money-line.hero .hero-top{display:flex;justify-content:space-between;align-items:center}
+.money-line.hero .ic{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.22)}
+
+/* A barra de baixo: uma cápsula flutuante; o ecrã em que se está fica num círculo cheio, o + em laranja. */
+.bottom{background:transparent;border-top:0;pointer-events:none;padding-bottom:calc(env(safe-area-inset-bottom,0px) + 10px)}
+.bottom .in{pointer-events:auto;width:max-content;max-width:none;height:auto;gap:8px;padding:6px;border-radius:var(--r-pill);background:var(--glass),var(--tile);border:1px solid var(--glass-line);box-shadow:var(--glass-hi),0 12px 40px rgba(0,0,0,.45);-webkit-backdrop-filter:blur(22px) saturate(140%);backdrop-filter:blur(22px) saturate(140%);grid-template-columns:repeat(3,56px)}
+.bottom .in > a,.bottom button{width:56px;height:56px;border-radius:50%;background:transparent;border:1px solid var(--glass-line)}
+.bottom .in > a[aria-current="page"]{background:var(--ink);color:var(--ground);border-color:var(--ink)}
+.bottom .add{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+body.near .bottom .in > a,body.near .bottom button{transform:scale(1.04)}
+body.near .bottom .in > a[aria-current="page"]{color:var(--ground)}
+
+/* O cabeçalho em vidro (deixa ver o brilho e o que passa por baixo, sem cortar a cor). */
+body::before{background:color-mix(in srgb,var(--ground) 70%,transparent);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px)}
+.status{background:color-mix(in srgb,var(--ground) 70%,transparent);-webkit-backdrop-filter:blur(18px) saturate(140%);backdrop-filter:blur(18px) saturate(140%);max-width:none;padding-left:max(16px,calc((100% - 520px) / 2 + 16px),env(safe-area-inset-left,0px));padding-right:max(16px,calc((100% - 520px) / 2 + 16px),env(safe-area-inset-right,0px))}
