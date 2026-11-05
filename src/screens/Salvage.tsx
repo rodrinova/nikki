@@ -21,32 +21,35 @@ const sign = (u: number) => `${u >= 0 ? '+' : '−'}${eur(Math.abs(u), 0)} €`;
 function useSalvage() {
   const [cars, setCars] = useState<SalvageCar[] | null>(null);
   const [link, setLink] = useState<{ token: string; partner_name: string } | null>(null);
+  const [cfg, setCfg] = useState<{ partner_name: string; hour_rate: number | string }>({ partner_name: 'Pedro', hour_rate: 40 });
   const load = useCallback(async () => {
-    const [c, g, l] = await Promise.all([
+    const [c, g, l, st] = await Promise.all([
       supabase.from('salvage_cars').select('*').order('bought_on', { ascending: false }),
       supabase.from('salvage_logs').select('*').order('on_date', { ascending: false }),
       supabase.from('salvage_links').select('token, partner_name, revoked_at').is('revoked_at', null).limit(1).maybeSingle(),
+      supabase.from('salvage_settings').select('partner_name, hour_rate').maybeSingle(),
     ]);
+    if (st.data) setCfg(st.data as { partner_name: string; hour_rate: number | string });
     const logs = (g.data ?? []) as (SalvageLog & { car_id: string })[];
     setCars(((c.data ?? []) as Omit<SalvageCar, 'logs'>[]).map((x) => ({ ...x, logs: logs.filter((y) => y.car_id === x.id) })));
     setLink((l.data as { token: string; partner_name: string } | null) ?? null);
   }, []);
   useEffect(() => { load(); }, [load]);
-  return { cars, link, reload: load };
+  return { cars, link, cfg, reload: load };
 }
 
 const linkUrl = (t: string) => `${location.origin}${(import.meta.env.BASE_URL ?? '/').replace(/\/?$/, '/')}s/${t}`;
 
 export function Salvage() {
-  const { cars, link, reload } = useSalvage();
+  const { cars, link, cfg, reload } = useSalvage();
   const { open } = useOverlays();
   const today = todayStr();
   const t = useMemo(() => (cars ? totals(cars, today) : null), [cars, today]);
-  const partner = link?.partner_name ?? 'Pedro';
+  const partner = cfg.partner_name;
   if (!cars || !t) return <><Top title="Salvados" /><p className="s">A abrir…</p></>;
   return (
     <>
-      <Top title="Salvados" right={<button className="tb press" onClick={() => open(<CarSheet onDone={reload} />)}>+ Carro</button>} />
+      <Top title="Salvados" right={<button className="tb press" onClick={() => open(<CarSheet rate={cfg.hour_rate} partner={partner} onDone={reload} />)}>+ Carro</button>} />
       <section className="tile salv-hero" aria-label="Rentabilidade">
         <span className="s">Lucro dos vendidos · a tua metade</span>
         <span className="hero-n"><CountUp to={t.myProfit} fmt={(v) => eur(v, 0)} /><small>€</small></span>
@@ -57,6 +60,7 @@ export function Salvage() {
         </div>
         {t.open > 0 && <span className="pill">{money(t.invested)} teus em {t.open} {t.open === 1 ? 'carro' : 'carros'} por vender</span>}
       </section>
+      <Account owe={t.owe} partner={partner} />
       {!cars.length ? <p className="s">Ainda sem carros. Carrega em «+ Carro».</p> : (
         <div className="salv-list">{cars.map((c) => {
           const x = carNumbers(c, today);
@@ -75,19 +79,37 @@ export function Salvage() {
         <span className="st2"><span>{link ? `Ligação do ${partner}` : 'Criar ligação para o mecânico'}</span><span className="s">{link ? 'Peças e horas, sem conta' : 'Ele regista peças e horas, sem conta'}</span></span>
         <Icon n="chev" s={16} />
       </button>
+      <button className="tile salv-link press" onClick={() => open(<SettingsSheet cfg={cfg} onDone={reload} />)}>
+        <span className="ic"><Icon n="wrench" s={18} /></span>
+        <span className="st2"><span>Definições</span><span className="s">{partner} · {eur(toU(cfg.hour_rate), 0)} €/h</span></span>
+        <Icon n="chev" s={16} />
+      </button>
     </>
+  );
+}
+
+/** A conta corrente com o mecânico, numa linha grande: quem deve a quem. */
+function Account({ owe, partner, big }: { owe: number; partner: string; big?: boolean }) {
+  const even = Math.abs(owe) < 500;
+  return (
+    <section className={`tile salv-acc${big ? ' big' : ''}`} aria-label="Conta corrente">
+      <span className="s">Conta corrente com o {partner}</span>
+      <p className="l">{even ? 'Estão quites.' : owe > 0 ? `Deves ${money(owe)} ao ${partner}` : `O ${partner} deve-te ${money(-owe)}`}</p>
+    </section>
   );
 }
 
 export function SalvageCarScreen() {
   const { id = '' } = useParams();
-  const { cars, link, reload } = useSalvage();
+  const { cars, cfg, reload } = useSalvage();
   const { open, toast } = useOverlays();
   const c = cars?.find((x) => x.id === id);
   if (!cars) return <><Top title="Salvados" /><p className="s">A abrir…</p></>;
   if (!c) return <><Top title="Salvados" /><p className="s">Este carro já não existe.</p></>;
   const x = carNumbers(c, todayStr());
-  const partner = link?.partner_name ?? 'Pedro';
+  const partner = cfg.partner_name;
+  const add = (kind: 'part' | 'hours' | 'transfer') => open(<LogSheet onSave={async (l) => { const { error } = await supabase.from('salvage_logs').insert({ car_id: c.id, ...l }); if (error) return error.message; reload(); return null; }} ownerSide partner={partner} kind={kind} />);
+  const row = (k: string, v: number, d: string) => <div key={k}><span className="st2"><span>{k}</span><span className="s">{d}</span></span><span className="v">{v === 0 ? '—' : `${v > 0 ? '+' : '−'}${money(Math.abs(v))}`}</span></div>;
   const setStatus = async (s: SalvageStatus) => {
     if (s === 'sold') return open(<SellSheet car={c} onDone={reload} />);
     const { error } = await supabase.from('salvage_cars').update({ status: s, sold_on: null, sold_for: null }).eq('id', c.id);
@@ -109,22 +131,25 @@ export function SalvageCarScreen() {
           : <><p className="xl"><CountUp to={x.cost} fmt={(v) => eur(v, 0)} /><small>€</small></p><p className="s" style={{ marginTop: 8 }}>Custo até agora · há {x.days} dias</p></>}
       </div>
       <div className="salv-grid">
-        <span className="tile"><span className="s">Compra</span><b>{money(x.price)}</b><span className="s">{c.price_paid_by === 'me' ? 'pagaste tu' : `pagou o ${partner}`}</span></span>
+        <button type="button" className="tile press" onClick={() => open(<PriceSheet car={c} partner={partner} onDone={reload} />)}><span className="s">Compra</span><b>{money(x.price)}</b><span className="s">tu {money(x.priceMe)} · {partner} {money(x.price - x.priceMe)}</span></button>
         <span className="tile"><span className="s">Peças</span><b>{money(x.partsMe + x.partsPartner)}</b><span className="s">{money(x.partsPartner)} do {partner}</span></span>
         <span className="tile"><span className="s">Horas</span><b>{x.hours.toLocaleString('pt-PT')} h</b><span className="s">{money(x.labor)} a {eur(toU(c.hour_rate), 0)} €/h</span></span>
         {x.sale !== null && <span className="tile"><span className="s">Venda</span><b>{money(x.sale)}</b><span className="s">{dayLabel(c.sold_on!)}</span></span>}
       </div>
-      {x.settle ? (
-        <section className="tile salv-settle" aria-label="Acerto">
-          <span className="s">Acerto</span>
-          <p className="l">{x.settle.from === 'me' ? `Pagas ao ${partner} ${money(x.settle.amount)}` : `O ${partner} paga-te ${money(x.settle.amount)}`}</p>
-          <p className="s">{partner}: {money(x.moneyPartner)} que meteu + {money(x.labor)} das horas ({money(x.halfLabor)} são a tua metade) + {money(Math.round(x.profit! / 2))} de lucro. Tu: {money(x.moneyMe)} que meteste + {money(Math.round(x.profit! / 2))} de lucro.</p>
-        </section>
-      ) : x.hours > 0 && <p className="s why"><span className="dot" aria-hidden="true" /><span>Das horas, a tua metade: {money(x.halfLabor)} (entra no acerto, com a venda).</span></p>}
-      {c.status !== 'sold' && <div className="save-two">
-        <button className="btn quiet press" onClick={() => open(<LogSheet onSave={async (l) => { const { error } = await supabase.from('salvage_logs').insert({ car_id: c.id, ...l }); if (error) return error.message; reload(); return null; }} ownerSide partner={partner} kind="part" />)}>+ Peça</button>
-        <button className="btn press" onClick={() => open(<LogSheet onSave={async (l) => { const { error } = await supabase.from('salvage_logs').insert({ car_id: c.id, ...l }); if (error) return error.message; reload(); return null; }} ownerSide partner={partner} kind="hours" />)}>+ Horas</button>
+      <Account owe={x.owe} partner={partner} big />
+      <div className="tile card rows salv-break" aria-label="De onde vem">
+        {row('Compra', x.parts.fromPrice, 'metade cada um')}
+        {row('Peças', x.parts.fromParts, `metade de ${money(x.partsPartner)} que pagou o ${partner}${x.partsMe ? ` e de ${money(x.partsMe)} teus` : ''}`)}
+        {row('Horas', x.parts.fromHours, `${x.hours.toLocaleString('pt-PT')} h × ${eur(toU(c.hour_rate) / 2, 0)} € (a tua metade)`)}
+        {row('Transferências', x.parts.fromTransfers, x.sentMe || x.sentPartner ? `${money(x.sentMe)} tuas${x.sentPartner ? ` · ${money(x.sentPartner)} do ${partner}` : ''}` : 'ainda nenhuma')}
+        {x.sale !== null && row('Venda', x.parts.fromSale, `metade de ${money(x.sale)}, que recebeu ${c.sale_to === 'me' ? 'tu' : `o ${partner}`}`)}
+      </div>
+      {c.status !== 'sold' && <div className="salv-add">
+        <button className="btn quiet press" onClick={() => add('part')}>+ Peça</button>
+        <button className="btn quiet press" onClick={() => add('hours')}>+ Horas</button>
+        <button className="btn press" onClick={() => add('transfer')}>+ Transferência</button>
       </div>}
+      {c.status === 'sold' && Math.abs(x.owe) >= 500 && <button className="btn wide press" onClick={() => add('transfer')}>Registar o acerto <Icon n="arrow" s={20} /></button>}
       <Logs logs={c.logs} partner={partner} onDelete={c.status === 'sold' ? undefined : del} />
     </>
   );
@@ -135,17 +160,17 @@ function Logs({ logs, partner, onDelete }: { logs: SalvageLog[]; partner: string
   return (
     <div className="tile card rows">{logs.map((l) => (
       <div key={l.id}>
-        <span className="st2"><span>{l.kind === 'hours' ? `${Number(l.hours).toLocaleString('pt-PT')} h${l.note ? ` · ${l.note}` : ''}` : l.note || 'Peça'}</span><span className="s">{dayLabel(l.on_date)} · {l.kind === 'hours' ? partner : l.paid_by === 'me' ? 'pagaste tu' : `pagou o ${partner}`}</span></span>
-        <span className="v">{l.kind === 'part' ? money(toU(l.amount ?? 0)) : ''}{onDelete && <button type="button" className="x-btn press" aria-label="Apagar" onClick={() => onDelete(l)}><Icon n="close" s={16} /></button>}</span>
+        <span className="st2"><span>{l.kind === 'hours' ? `${Number(l.hours).toLocaleString('pt-PT')} h${l.note ? ` · ${l.note}` : ''}` : l.kind === 'transfer' ? 'Transferência' : l.note || 'Peça'}</span><span className="s">{dayLabel(l.on_date)} · {l.kind === 'hours' ? partner : l.kind === 'transfer' ? (l.paid_by === 'me' ? `tu → ${partner}` : `${partner} → tu`) : l.paid_by === 'me' ? 'pagaste tu' : `pagou o ${partner}`}</span></span>
+        <span className="v">{l.kind !== 'hours' ? money(toU(l.amount ?? 0)) : ''}{onDelete && <button type="button" className="x-btn press" aria-label="Apagar" onClick={() => onDelete(l)}><Icon n="close" s={16} /></button>}</span>
       </div>
     ))}</div>
   );
 }
 
-type NewLog = { kind: 'part' | 'hours'; amount: string | null; hours: number | null; note: string | null; paid_by: Who; on_date: string };
+type NewLog = { kind: 'part' | 'hours' | 'transfer'; amount: string | null; hours: number | null; note: string | null; paid_by: Who; on_date: string };
 
 /** Registar uma peça ou horas: botões grandes, quase sem escrever. */
-function LogSheet({ onSave, ownerSide, partner, kind: k0 }: { onSave: (l: NewLog) => Promise<string | null>; ownerSide?: boolean; partner: string; kind: 'part' | 'hours' }) {
+function LogSheet({ onSave, ownerSide, partner, kind: k0 }: { onSave: (l: NewLog) => Promise<string | null>; ownerSide?: boolean; partner: string; kind: NewLog['kind'] }) {
   const { close, toast } = useOverlays();
   const [kind, setKind] = useState(k0);
   const [amt, setAmt] = useState('');
@@ -156,24 +181,25 @@ function LogSheet({ onSave, ownerSide, partner, kind: k0 }: { onSave: (l: NewLog
   const [err, setErr] = useState('');
   async function save(e: FormEvent) {
     e.preventDefault();
-    const a = kind === 'part' ? parseAmount(amt) : null;
-    if (kind === 'part' && !a) return setErr('Quanto custou?');
+    const a = kind !== 'hours' ? parseAmount(amt) : null;
+    if (kind !== 'hours' && !a) return setErr(kind === 'part' ? 'Quanto custou?' : 'Quanto foi?');
     if (kind === 'hours' && !hrs) return setErr('Quantas horas?');
     const d = day === 'hoje' ? todayStr() : addDays(todayStr(), -1);
     const r = await onSave({ kind, amount: a, hours: kind === 'hours' ? hrs : null, note: note.trim() || null, paid_by: kind === 'hours' ? 'partner' : paid, on_date: d });
     if (r) return setErr(r);
-    close(); toast(kind === 'part' ? `Peça: ${eur(toU(a!))} €` : `${hrs} h registadas`, { ok: true });
+    close(); toast(kind === 'part' ? `Peça: ${eur(toU(a!))} €` : kind === 'transfer' ? `Transferência: ${eur(toU(a!))} €` : `${hrs} h registadas`, { ok: true });
   }
   const chip = (on: boolean, t: string, f: () => void) => <button type="button" key={t} className="press" aria-pressed={on} onClick={f}>{t}</button>;
   return (
     <form onSubmit={save} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div className="seg" role="group" aria-label="O quê">{chip(kind === 'part', 'Peça', () => setKind('part'))}{chip(kind === 'hours', 'Horas', () => setKind('hours'))}</div>
-      {kind === 'part'
-        ? <input className="field quick" inputMode="decimal" autoFocus placeholder="0,00 €" value={amt} onChange={(e) => { setAmt(e.target.value); setErr(''); }} aria-label="Valor da peça" />
+      <div className="seg" role="group" aria-label="O quê">{chip(kind === 'part', 'Peça', () => setKind('part'))}{chip(kind === 'hours', 'Horas', () => setKind('hours'))}{ownerSide && chip(kind === 'transfer', 'Transferência', () => { setKind('transfer'); setPaid('me'); })}</div>
+      {kind !== 'hours'
+        ? <input className="field quick" inputMode="decimal" autoFocus placeholder="0,00 €" value={amt} onChange={(e) => { setAmt(e.target.value); setErr(''); }} aria-label={kind === 'part' ? 'Valor da peça' : 'Valor da transferência'} />
         : <div className="salv-hours" role="group" aria-label="Horas">{[1, 2, 3, 4, 6, 8].map((h) => chip(hrs === h, `${h} h`, () => { setHrs(h); setErr(''); }))}</div>}
-      <div className="chips wrap" role="group" aria-label="Sugestões">
+      {kind !== 'transfer' && <div className="chips wrap" role="group" aria-label="Sugestões">
         {(kind === 'part' ? ['Chapa', 'Pintura', 'Farol', 'Pneus', 'Óleo', 'Para-choques'] : ['Chapa', 'Pintura', 'Mecânica', 'Montagem', 'Limpeza']).map((n) => chip(note === n, n, () => setNote(note === n ? '' : n)))}
-      </div>
+      </div>}
+      {kind === 'transfer' && <div className="seg" role="group" aria-label="Quem transferiu">{chip(paid === 'me', `Transferi ao ${partner}`, () => setPaid('me'))}{chip(paid === 'partner', `O ${partner} transferiu-me`, () => setPaid('partner'))}</div>}
       {kind === 'part' && ownerSide && <div className="seg" role="group" aria-label="Quem pagou">{chip(paid === 'me', 'Paguei eu', () => setPaid('me'))}{chip(paid === 'partner', `Pagou o ${partner}`, () => setPaid('partner'))}</div>}
       <div className="chips" role="group" aria-label="Dia">{chip(day === 'hoje', 'Hoje', () => setDay('hoje'))}{chip(day === 'ontem', 'Ontem', () => setDay('ontem'))}</div>
       {err && <p className="s" style={{ color: 'var(--accent)' }}>{err}</p>}
@@ -182,28 +208,84 @@ function LogSheet({ onSave, ownerSide, partner, kind: k0 }: { onSave: (l: NewLog
   );
 }
 
-function CarSheet({ onDone }: { onDone: () => void }) {
+function CarSheet({ onDone, rate, partner }: { onDone: () => void; rate: number | string; partner: string }) {
   const { close, toast } = useOverlays();
   const [name, setName] = useState('');
   const [price, setPrice] = useState('');
-  const [paid, setPaid] = useState<Who>('me');
+  const [split, setSplit] = useState<'half' | 'me' | 'partner'>('half');
   const [err, setErr] = useState('');
   async function save(e: FormEvent) {
     e.preventDefault();
     const p = parseAmount(price);
     if (!name.trim()) return setErr('Que carro é? (ex.: Golf VI 2012)');
     if (!p) return setErr('Por quanto foi comprado?');
-    const { error } = await supabase.from('salvage_cars').insert({ name: name.trim().slice(0, 60), price: p, price_paid_by: paid, bought_on: todayStr() });
+    const me = split === 'half' ? null : split === 'me' ? p : '0';
+    const { error } = await supabase.from('salvage_cars').insert({ name: name.trim().slice(0, 60), price: p, price_me: me, price_paid_by: split === 'partner' ? 'partner' : 'me', hour_rate: rate, bought_on: todayStr() });
     if (error) return setErr(error.message);
     onDone(); close(); toast(`${name.trim()}: na oficina.`, { ok: true });
   }
+  const chip = (on: boolean, t: string, f: () => void) => <button type="button" key={t} className="press" aria-pressed={on} onClick={f}>{t}</button>;
   return (
     <form onSubmit={save} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <p className="l">Carro novo</p>
       <input className="field" autoFocus placeholder="Golf VI 2012" value={name} onChange={(e) => setName(e.target.value)} aria-label="Carro" />
       <input className="field quick" inputMode="decimal" placeholder="Compra · 0 €" value={price} onChange={(e) => setPrice(e.target.value)} aria-label="Preço de compra" />
-      <div className="seg" role="group" aria-label="Quem pagou"><button type="button" className="press" aria-pressed={paid === 'me'} onClick={() => setPaid('me')}>Paguei eu</button><button type="button" className="press" aria-pressed={paid === 'partner'} onClick={() => setPaid('partner')}>Pagou o sócio</button></div>
+      <div className="seg" role="group" aria-label="Quem pagou">{chip(split === 'half', 'A meias', () => setSplit('half'))}{chip(split === 'me', 'Paguei eu', () => setSplit('me'))}{chip(split === 'partner', `Pagou o ${partner}`, () => setSplit('partner'))}</div>
       {err && <p className="s" style={{ color: 'var(--accent)' }}>{err}</p>}
+      <button className="btn wide press">Guardar <Icon n="arrow" s={20} /></button>
+    </form>
+  );
+}
+
+/** Quanto pagou cada um da compra (por omissão, metade). */
+function PriceSheet({ car, partner, onDone }: { car: SalvageCar; partner: string; onDone: () => void }) {
+  const { close, toast } = useOverlays();
+  const x = carNumbers(car, todayStr());
+  const [mine, setMine] = useState(String((x.priceMe / 100_000).toFixed(2)).replace('.', ','));
+  async function save(e: FormEvent) {
+    e.preventDefault();
+    const a = mine.trim() === '0' || mine.trim() === '0,00' ? '0' : parseAmount(mine);
+    if (a === null || toU(a) > x.price) return toast(`Entre 0 e ${money(x.price)}.`);
+    const { error } = await supabase.from('salvage_cars').update({ price_me: a }).eq('id', car.id);
+    if (error) return toast(error.message);
+    onDone(); close(); toast('Guardado.', { ok: true });
+  }
+  return (
+    <form onSubmit={save} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <p className="l">Compra · {money(x.price)}</p>
+      <span className="s">Quanto pagaste tu (o resto foi do {partner})</span>
+      <input className="field quick" inputMode="decimal" autoFocus value={mine} onChange={(e) => setMine(e.target.value)} aria-label="Quanto pagaste" />
+      <div className="chips" role="group" aria-label="Atalhos">
+        {[['Metade', x.price / 2], ['Tudo', x.price], ['Nada', 0]].map(([l, v]) => <button key={l as string} type="button" className="press" onClick={() => setMine(((v as number) / 100_000).toFixed(2).replace('.', ','))}>{l as string}</button>)}
+      </div>
+      <button className="btn wide press">Guardar <Icon n="arrow" s={20} /></button>
+    </form>
+  );
+}
+
+/** Definições dos salvados: o nome do sócio e o valor/hora (vale para os carros ainda por vender). */
+function SettingsSheet({ cfg, onDone }: { cfg: { partner_name: string; hour_rate: number | string }; onDone: () => void }) {
+  const { close, toast } = useOverlays();
+  const [name, setName] = useState(cfg.partner_name);
+  const [rate, setRate] = useState(String(cfg.hour_rate).replace('.', ','));
+  async function save(e: FormEvent) {
+    e.preventDefault();
+    const r = parseAmount(rate);
+    if (!name.trim() || !r) return toast('Falta o nome ou o valor por hora.');
+    const a = await supabase.from('salvage_settings').upsert({ partner_name: name.trim().slice(0, 40), hour_rate: r, updated_at: new Date().toISOString() });
+    if (a.error) return toast(a.error.message);
+    await supabase.from('salvage_cars').update({ hour_rate: r }).neq('status', 'sold');
+    await supabase.from('salvage_links').update({ partner_name: name.trim().slice(0, 40) }).is('revoked_at', null);
+    onDone(); close(); toast('Guardado. Os carros por vender passam a contar com este valor.', { ok: true });
+  }
+  return (
+    <form onSubmit={save} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <p className="l">Definições</p>
+      <span className="s">O sócio</span>
+      <input className="field" value={name} onChange={(e) => setName(e.target.value)} aria-label="Nome do sócio" />
+      <span className="s">Valor por hora (metade é tua, metade é o trabalho dele)</span>
+      <input className="field quick" inputMode="decimal" value={rate} onChange={(e) => setRate(e.target.value)} aria-label="Valor por hora" />
+      <div className="chips" role="group" aria-label="Atalhos">{[30, 35, 40, 45, 50].map((v) => <button key={v} type="button" className="press" aria-pressed={rate === String(v)} onClick={() => setRate(String(v))}>{v} €</button>)}</div>
       <button className="btn wide press">Guardar <Icon n="arrow" s={20} /></button>
     </form>
   );
