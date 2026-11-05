@@ -1274,3 +1274,14 @@ details.hint > p{margin-top:8px;animation:in 260ms var(--ease-out) both}
 .lv-row i{width:10px;height:10px;border-radius:50%;flex-shrink:0}
 .lv-row .st2{flex:1}
 .lv-row .v{text-align:right}
+
+/* ═════════════════ Transições entre páginas (leves: só transform e opacity) ═════════════════ */
+.screen.enter{animation:page-fade 260ms var(--ease-out) backwards}
+.screen.enter.fwd{animation:page-fwd 340ms var(--ease-drawer) backwards}
+.screen.enter.back{animation:page-back 300ms var(--ease-drawer) backwards}
+/* Ao entrar de lado, a página move-se inteira (sem a cascata dos filhos, para não somar movimentos). */
+.screen.enter.fwd > *,.screen.enter.back > *,.screen.enter.fwd .hub-a > *,.screen.enter.fwd .hub-b > *,.screen.enter.back .hub-a > *,.screen.enter.back .hub-b > *{animation:none}
+@keyframes page-fade{from{opacity:0;transform:translateY(6px)}}
+@keyframes page-fwd{from{opacity:0;transform:translateX(32px)}}
+@keyframes page-back{from{opacity:0;transform:translateX(-32px)}}
+@media (prefers-reduced-motion: reduce){.screen.enter,.screen.enter.fwd,.screen.enter.back{animation:page-fade 1ms both}}

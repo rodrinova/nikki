@@ -1,5 +1,5 @@
-import { Suspense, useCallback, useEffect, useState } from 'react';
-import { BrowserRouter, Link, MemoryRouter, Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom';
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { BrowserRouter, Link, MemoryRouter, Navigate, Route, Routes, useLocation, useNavigationType, useParams } from 'react-router-dom';
 import { DEMO } from '@/lib/supabase';
 import { SessionProvider, useSession } from '@/data/session';
 import { HouseProvider, useHouse } from '@/data/house';
@@ -111,9 +111,27 @@ function SoonRoute() {
 
 function HousePull() { const { reloadAll } = useHouse(); return <Pull onRefresh={reloadAll} />; }
 
+/**
+ * O sentido da transição entre páginas: para dentro (um nível abaixo, ou ir para a frente) entra da direita; voltar
+ * (o «Voltar» do sistema ou subir de nível) entra da esquerda; ao mesmo nível, um fade curto.
+ */
+function usePageDir(pathname: string): 'fwd' | 'back' | 'fade' {
+  const nav = useNavigationType();
+  const prev = useRef(pathname), dir = useRef<'fwd' | 'back' | 'fade'>('fade');
+  if (prev.current !== pathname) {
+    // O Início e os Espaços são o nível de cima (os separadores da barra); cada espaço é um nível abaixo.
+    const depth = (p: string) => (p === '/' || p === '/espacos' ? 0 : p.split('/').filter(Boolean).length);
+    const a = depth(prev.current), b = depth(pathname);
+    dir.current = nav === 'POP' ? 'back' : b > a ? 'fwd' : b < a ? 'back' : 'fade';
+    prev.current = pathname;
+  }
+  return dir.current;
+}
+
 function Shell() {
   const { ready, session, house, me, appAdmin } = useSession();
   const { pathname } = useLocation();
+  const dir = usePageDir(pathname);
   usePendingInvite();
   const onHub = !!house && house.role !== 'staff' && pathname === '/';
   useEffect(() => { document.body.classList.toggle('nobar', !onHub); }, [onHub]);
@@ -150,7 +168,7 @@ function Shell() {
     <HouseProvider>
       <HousePull />
       {onHub && <TopBar />}
-      <div className={`app${pathname === '/' ? ' is-hub' : ''}`}><main className="screen" key={pathname}>
+      <div className={`app${pathname === '/' ? ' is-hub' : ''}`}><main className={`screen enter ${dir}`} key={pathname}>
         <Suspense fallback={<Loading label="A abrir" />}>
         <Routes>
           <Route path="/" element={<Hub />} />
