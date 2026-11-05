@@ -1127,3 +1127,21 @@ details.hint > p{margin-top:8px;animation:in 260ms var(--ease-out) both}
 :root[data-theme="light"] .word .eyes{fill:url(#nk-eyes-l);filter:none}
 /* Na abertura e nos sítios com fundo laranja, os olhos ficam brancos. */
 .money-line.hero .word .eyes{fill:#fff;filter:none}
+
+/* ═════════════════ O arco e a linha com luz ═════════════════ */
+.arc{position:relative;display:grid;place-items:center;max-width:320px;width:100%;margin:4px auto 0}
+.arc svg{width:100%;height:auto;display:block;overflow:visible}
+.arc-track{fill:none;stroke:var(--line);stroke-width:14;stroke-linecap:round}
+.arc-fill{fill:none;stroke:url(#arc-g);stroke-width:14;stroke-linecap:round;stroke-dashoffset:var(--off);animation:arcIn 1100ms var(--ease-out) both}
+@keyframes arcIn{from{stroke-dashoffset:var(--len)}}
+.arc-knob{fill:var(--accent);stroke:var(--ground);stroke-width:3;filter:drop-shadow(0 0 8px rgba(var(--glow),.9));animation:fadeIn 400ms ease-out 900ms both}
+.arc-n{position:absolute;left:0;right:0;bottom:4px;text-align:center;font-size:var(--t-xl);line-height:1;letter-spacing:-0.055em}
+.arc-n small{font-size:calc(var(--t-xl) * .4);color:var(--sub);margin-left:2px;letter-spacing:-0.02em}
+/* A linha do património: um traço de luz que acaba num ponto a brilhar. */
+.net-line{stroke:var(--ink);filter:drop-shadow(0 0 4px rgba(var(--glow),.55))}
+.net-area{fill:url(#nk-eyes);opacity:.08}
+.net-dot{fill:var(--ink)}
+.net-halo{fill:rgba(var(--glow),.18);stroke:rgba(var(--glow),.45);stroke-width:1;animation:halo 2.8s ease-in-out infinite;transform-box:fill-box;transform-origin:center}
+@keyframes halo{0%,100%{transform:scale(.8);opacity:.7}50%{transform:scale(1.15);opacity:1}}
+@media (prefers-reduced-motion: reduce){.arc-fill,.arc-knob,.net-halo{animation:none}}
+.net-chart svg{overflow:visible}
