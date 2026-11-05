@@ -1289,3 +1289,35 @@ details.hint > p{margin-top:8px;animation:in 260ms var(--ease-out) both}
 /* O cabeçalho do Início fica no topo (top: 0) e é ele que reserva a zona do relógio/notch: assim, com o scroll todo
    para cima, nada da página fica escondido por baixo dele (com top = a altura do notch, a 1.ª linha ficava tapada). */
 .status{top:0;padding-top:env(safe-area-inset-top,0px);height:calc(52px + env(safe-area-inset-top,0px))}
+
+/* ═════════════════ Ginásio: herói, anéis da composição e linhas pequenas ═════════════════ */
+.gym-hero{position:relative;overflow:hidden;display:flex;flex-direction:column;gap:10px;padding:22px;border:0;color:#fff;text-decoration:none;
+  background:radial-gradient(120% 120% at 0% 100%,rgba(255,170,90,.95),transparent 60%),radial-gradient(120% 140% at 100% 0%,rgba(214,70,60,.85),transparent 60%),linear-gradient(135deg,#F28A3A,#C9503F)}
+.gym-hero .s{color:rgba(255,255,255,.8)}
+.gym-hero .hero-top{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.gym-hero .hero-n{font-size:var(--t-xl);line-height:1;letter-spacing:-0.055em}
+.gym-hero .hero-n small{font-size:calc(var(--t-xl) * .4);color:rgba(255,255,255,.7);margin-left:6px;letter-spacing:-0.02em}
+.gym-spark{display:block;width:100%;height:28px;overflow:visible}
+.gym-spark.big{height:56px}
+.gs-line{fill:none;stroke:currentColor;stroke-width:2;stroke-linejoin:round;stroke-linecap:round;stroke-dasharray:600;animation:draw 900ms var(--ease-out) both}
+.gym-hero .gs-line{stroke:#fff;filter:drop-shadow(0 0 4px rgba(255,255,255,.6))}
+.gs-dot{fill:currentColor}
+.gym-hero .gs-dot{fill:#fff}
+@keyframes draw{from{stroke-dashoffset:600}to{stroke-dashoffset:0}}
+.gym-rings{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.gym-ring{position:relative;display:flex;flex-direction:column;align-items:center;gap:2px;padding:14px 8px 12px;color:inherit;text-decoration:none}
+.gym-ring-svg{width:72px;height:72px}
+.gr-track{fill:none;stroke:var(--line);stroke-width:6}
+.gr-fill{fill:none;stroke:var(--accent);stroke-width:6;stroke-linecap:round;stroke-dashoffset:var(--off);animation:ring 1000ms var(--ease-out) both;filter:drop-shadow(0 0 4px rgba(var(--glow),.55))}
+@keyframes ring{from{stroke-dashoffset:var(--c)}}
+.gr-v{position:absolute;top:38px;font-size:15px;letter-spacing:-0.02em}
+.gym-mini{gap:6px;min-height:0;padding:14px 16px 12px;color:var(--sub)}
+.gym-mini .s{color:var(--sub)}
+.gym-mini .gym-v{color:var(--ink);font-size:24px;letter-spacing:-0.03em}
+.gym-mini.t-better{color:var(--accent)}
+.gym-mini.t-worse{color:var(--sub)}
+.gym-spark-empty{display:block;height:28px}
+.gym-d.t-better{color:var(--accent)}
+.gym-d.t-worse{color:var(--sub)}
+@media (min-width:760px){.gym-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (prefers-reduced-motion: reduce){.gs-line,.gr-fill{animation:none}}

@@ -9,6 +9,7 @@ import { shortDate } from '@/lib/admin';
 import { dayLabel, todayStr } from '@/lib/dates';
 import { fmt, groupOf, nextCheck, summary, trend, type Assessment } from '@/lib/gym';
 import { Top, Hint } from './Home';
+import { CountUp } from '@/ui/CountUp';
 
 // Ginásio: as avaliações de cada um, com as medidas que escolheu. Só o próprio vê (nem a outra pessoa da casa).
 // De cada medida: o último valor, a diferença para a anterior e para a primeira, e a linha. Regras em CALCULOS.md, 14.
@@ -28,24 +29,48 @@ export function Gym() {
   const fields = gym.fields.filter((f) => chosen.includes(f.key));
   const next = nextCheck(gym.rows, gym.prefs.every_weeks, today);
   const hist = [...gym.rows].sort((a, b) => b.measured_on.localeCompare(a.measured_on));
+  const sums = fields.map((f) => ({ f, s: summary(gym.rows, f.key) }));
+  const hero = sums.find((x) => x.s) ?? null;
+  const better = sums.filter((x) => x.s?.sincePrev != null && trend(x.s.sincePrev, x.f) === 'better').length;
+  const judged = sums.filter((x) => x.s?.sincePrev != null && trend(x.s.sincePrev, x.f) !== null).length;
+  // A composição do corpo em anéis: gordura, água e músculo (em % do peso), quando há.
+  const val = (k: string) => sums.find((x) => x.f.key === k)?.s?.last ?? null;
+  const w = val('weight'), mus = val('muscle');
+  const rings = [
+    { k: 'fat', n: 'Gordura', v: val('fat') },
+    { k: 'water', n: 'Água', v: val('water') },
+    { k: 'muscle', n: 'Músculo', v: w && mus ? (mus / w) * 100 : null },
+  ].filter((r) => r.v !== null) as { k: string; n: string; v: number }[];
   return (
     <>
       <Top title="Ginásio" right={<button className="tb press" onClick={() => open(<AssessSheet />)}>Nova</button>} />
-      <p className="s">{!next ? 'Ainda sem avaliações. A primeira é só o ponto de partida: sem julgamentos.' : next.late > 0 ? `A próxima avaliação era ${dayLabel(next.due)}.` : `Próxima avaliação: ${dayLabel(next.due)}.`} Só tu vês.</p>
-      <div className="gym-grid">{fields.map((f) => {
-        const s = summary(gym.rows, f.key), t = s?.sincePrev != null ? trend(s.sincePrev, f) : null;
+      {hero?.s ? (
+        <Link className="tile gym-hero press" to={`/ginasio/${hero.f.key}`}>
+          <span className="hero-top"><span className="s">{hero.f.label} · {dt(hero.s.on)}</span>{judged > 0 && <span className="pill">{better} de {judged} a melhorar</span>}</span>
+          <span className="hero-n"><CountUp to={hero.s.last} fmt={(v) => fmt(v, '').replace(/\s.*$/, '')} /><small>{hero.f.unit}</small></span>
+          {hero.s.points.length > 1 && <Spark pts={hero.s.points} big />}
+          <span className="s">{hero.s.points.length > 1 ? `${fmt(hero.s.sinceFirst, hero.f.unit, true)} desde ${dt(hero.s.points[0].on)}` : 'A primeira avaliação: o ponto de partida.'}{next ? ` · ${next.late > 0 ? 'nova avaliação em atraso' : `próxima ${dayLabel(next.due)}`}` : ''}</span>
+        </Link>
+      ) : <p className="s">Ainda sem avaliações. A primeira é só o ponto de partida.</p>}
+      {rings.length > 0 && <div className="gym-rings">{rings.map((r) => (
+        <Link key={r.k} className="tile gym-ring press" to={`/ginasio/${r.k === 'muscle' ? 'muscle' : r.k}`}>
+          <Ring pct={Math.min(1, r.v / 100)} />
+          <span className="gr-v">{fmt(r.v, '%')}</span><span className="s">{r.n}</span>
+        </Link>
+      ))}</div>}
+      <div className="gym-grid">{sums.filter((x) => x !== hero && !rings.some((r) => r.k === x.f.key && r.k !== 'muscle')).map(({ f, s }) => {
+        const t = s?.sincePrev != null ? trend(s.sincePrev, f) : null;
         return (
-          <Link key={f.key} className="tile gym-mini press" to={`/ginasio/${f.key}`} aria-label={`${f.label}: ${s ? fmt(s.last, f.unit) : 'sem valor'}`}>
+          <Link key={f.key} className={`tile gym-mini press${t ? ` t-${t}` : ''}`} to={`/ginasio/${f.key}`} aria-label={`${f.label}: ${s ? fmt(s.last, f.unit) : 'sem valor'}`}>
             <span className="s">{f.label}</span>
             <span className="gym-v">{s ? fmt(s.last, f.unit) : '—'}</span>
-            <span className={`gym-d${t ? ` t-${t}` : ''}`}>{s?.sincePrev != null ? <>{s.sincePrev > 0 ? '▲' : s.sincePrev < 0 ? '▼' : '='} {fmt(Math.abs(s.sincePrev), f.unit)}{t && t !== 'same' ? ` · ${t === 'better' ? 'melhor' : 'pior'}` : ''}</> : s ? 'primeira' : 'por medir'}</span>
+            {s && s.points.length > 1 ? <Spark pts={s.points} /> : <span className="gym-spark-empty" />}
+            <span className={`gym-d${t ? ` t-${t}` : ''}`}>{s?.sincePrev != null ? (Math.abs(s.sincePrev) < 1e-9 ? 'igual' : fmt(s.sincePrev, f.unit, true)) : s ? 'primeira' : 'por medir'}</span>
           </Link>
         );
       })}</div>
-      <Hint>Face à avaliação anterior. Toca numa medida para ver a evolução e comparar com outras.</Hint>
-      <div className="actions"><button className="btn quiet press" onClick={() => open(<FieldsForm />)}>Medidas e lembrete</button></div>
       {hist.length > 0 && <section className="stack" aria-label="Avaliações">
-        <span className="s">Avaliações</span>
+        <div className="wbar"><span className="s">Avaliações</span><button className="tb press" onClick={() => open(<FieldsForm />)}>Medidas</button></div>
         <div className="tile card rows">{hist.map((a) => (
           <button key={a.id} className="press" onClick={() => open(<AssessSheet a={a} />)}>
             <span>{dt(a.measured_on)}</span><span className="v s">{Object.values(a.values).filter((v) => v !== null && v !== '').length} medidas<Icon n="chev" s={16} /></span>
@@ -53,6 +78,32 @@ export function Gym() {
         ))}</div>
       </section>}
     </>
+  );
+}
+
+/** Uma linha pequena da evolução de uma medida (o último ponto a brilhar). */
+function Spark({ pts, big }: { pts: { on: string; v: number }[]; big?: boolean }) {
+  const W = big ? 300 : 120, H = big ? 56 : 28, P = 4;
+  const vs = pts.map((p) => p.v), lo = Math.min(...vs), hi = Math.max(...vs), r = hi - lo || 1;
+  const xy = pts.map((p, n) => [P + (n / (pts.length - 1)) * (W - 2 * P), P + (1 - (p.v - lo) / r) * (H - 2 * P)] as const);
+  const d = xy.map(([x, y], n) => `${n ? 'L' : 'M'}${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
+  const [lx, ly] = xy[xy.length - 1];
+  return (
+    <svg className={`gym-spark${big ? ' big' : ''}`} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden="true">
+      <path d={d} className="gs-line" vectorEffect="non-scaling-stroke" />
+      <circle cx={lx} cy={ly} r={big ? 4 : 2.6} className="gs-dot" />
+    </svg>
+  );
+}
+
+/** Um anel de 0 a 100%. */
+function Ring({ pct }: { pct: number }) {
+  const R = 26, C = 2 * Math.PI * R;
+  return (
+    <svg className="gym-ring-svg" viewBox="0 0 64 64" aria-hidden="true">
+      <circle cx="32" cy="32" r={R} className="gr-track" />
+      <circle cx="32" cy="32" r={R} className="gr-fill" style={{ strokeDasharray: C, ['--off' as any]: C * (1 - pct), ['--c' as any]: C }} transform="rotate(-90 32 32)" />
+    </svg>
   );
 }
 
