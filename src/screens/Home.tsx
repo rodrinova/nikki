@@ -201,7 +201,7 @@ function MoneyLine() {
     <Link className="tile money-line hero press" style={{ ['--heat' as any]: heat(m.pace) }} to="/dinheiro" aria-label={`${cap1(monthName(m.key))}${partner ? ', a tua parte' : ''}: ${eur(m.total, 0)} €${pace}. ${us}`}>
       <span className="hero-top"><span className="s">{cap1(monthName(m.key))}{partner ? ' · a tua parte' : ''}</span><span className="ic" aria-hidden="true"><Icon n="chev" s={16} /></span></span>
       <span className="hero-n"><CountUp to={m.total} fmt={(v) => eur(v, 0)} /><small>€</small></span>
-      {!m.pace.fresh && <span className="pill">{m.pace.pct >= 0 ? '↗' : '↘'} {m.pace.pct === 0 ? 'no ritmo habitual' : `${Math.abs(m.pace.pct)}% ${m.pace.pct > 0 ? 'acima' : 'abaixo'} do habitual`}</span>}
+      {!m.pace.fresh && <span className="pill">{m.pace.pct >= 0 ? '↗\uFE0E' : '↘\uFE0E'} {m.pace.pct === 0 ? 'no ritmo habitual' : `${Math.abs(m.pace.pct)}% ${m.pace.pct > 0 ? 'acima' : 'abaixo'} do habitual`}</span>}
       {us && <span className="s">{us}</span>}
     </Link>
   );
