@@ -15,6 +15,7 @@ import { ZoomHint } from '@/ui/ZoomHint';
 import { shortDate } from '@/lib/admin';
 import { KINDS, LEVELS, MILESTONES, WHERE, celebrate, entriesByMonth, fundCheck, liqOf, nextBadge, sourceMonthly, vacationUntil, type AssetKind, type FundRole } from '@/lib/wealth';
 import { Top, Hint } from './Home';
+import { Arc } from '@/ui/Arc';
 
 // Património: a saúde financeira da família e quantos meses vive do que tem. Regras em docs/CALCULOS.md, secção 6.
 
@@ -103,7 +104,7 @@ function Score({ w, cheer }: { w: W; cheer: { k: string; label: string } | null 
   return (
     <section className="tile pane hs" aria-label="Saúde financeira">
       <div className="pane-top"><span className="s">Saúde financeira{w.casa ? '' : ' · tu'}</span><span className="lvl">{s.level}</span></div>
-      <p className="xl">{s.total}<small>/100</small></p>
+      <Arc value={s.total} label={`Saúde financeira: ${s.total} de 100, ${s.level}`} />
       <div className="ladder" role="img" aria-label={`${s.total} pontos de 100: ${s.level}`}>
         {LEVELS.map(([min, name], j) => {
           const max = LEVELS[j + 1]?.[0] ?? 100, f = Math.max(0, Math.min(1, (s.total - min) / (max - min)));
@@ -387,7 +388,14 @@ function NetChart({ points }: { points: { on: string; v: number }[] }) {
   const pick = inside.length ? inside : seen;
   const p = pick.find((q) => q.on === sel) ?? pick[pick.length - 1], first = pick[0];
   const diff = p.v - first.v;
-  const line = seen.map((q, n) => `${n ? 'L' : 'M'}${x(q.on).toFixed(1)},${y(q.v).toFixed(1)}`).join(' ');
+  // Uma linha suave (Catmull-Rom em curvas de Bézier), como no carrossel; com dois pontos, uma reta.
+  const P = seen.map((q) => [x(q.on), y(q.v)] as const);
+  const line = P.map(([px, py], n) => {
+    if (!n) return `M${px.toFixed(1)},${py.toFixed(1)}`;
+    const p0 = P[n - 2] ?? P[n - 1], p1 = P[n - 1], p3 = P[n + 1] ?? [px, py];
+    const c1x = p1[0] + (px - p0[0]) / 6, c1y = p1[1] + (py - p0[1]) / 6, c2x = px - (p3[0] - p1[0]) / 6, c2y = py - (p3[1] - p1[1]) / 6;
+    return `C${c1x.toFixed(1)},${c1y.toFixed(1)} ${c2x.toFixed(1)},${c2y.toFixed(1)} ${px.toFixed(1)},${py.toFixed(1)}`;
+  }).join(' ');
   const dayAt = (n: number) => toDateStr(new Date(t0 + Math.round(n) * DAY + DAY / 2));
   return (
     <figure className="net-chart" aria-label="Evolução do património">
@@ -397,6 +405,7 @@ function NetChart({ points }: { points: { on: string; v: number }[] }) {
         <path d={`${line} L${x(seen[seen.length - 1].on).toFixed(1)},${H - B} L${x(seen[0].on).toFixed(1)},${H - B} Z`} className="net-area" />
         <path d={line} className="gc-line net-line" />
         <line x1={x(p.on)} x2={x(p.on)} y1={T} y2={H - B} className="gc-cross" />
+        <circle cx={x(p.on)} cy={y(p.v)} r={14} className="net-halo" />
         <circle cx={x(p.on)} cy={y(p.v)} r={4.5} className="gc-dot net-dot" />
         <text x={2} y={H - 6} className="gc-ax" textAnchor="start">{day(dayAt(a))}</text>
         <text x={W - 2} y={H - 6} className="gc-ax" textAnchor="end">{day(dayAt(b))}</text>
