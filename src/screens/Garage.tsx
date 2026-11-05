@@ -9,6 +9,7 @@ import { Icon } from '@/ui/Icon';
 import { eur, parseAmount, toU } from '@/lib/money';
 import { addDays, monthName, todayStr } from '@/lib/dates';
 import { shortDate } from '@/lib/admin';
+import { Hint } from './Home';
 import { anniversary, iucDue, nextYear, paymentKind, yearlyInsurance, type CarLog } from '@/lib/garage';
 
 // Garagem: carros da casa ou de cada um, consumo de cheio a cheio, km, €/km, prazos (IUC e seguro com um mês de
@@ -201,7 +202,7 @@ export function CarPaidSheet({ d, car }: { d: DeadlineRow; car: CarRow }) {
     <form onSubmit={save} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <p className="l">{d.title}</p>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}><input className="amount" inputMode="decimal" placeholder="0,00" aria-label="Valor pago" value={amt} onChange={(e) => setAmt(e.target.value)} style={{ width: `${Math.max(4.2, amt.length + 0.6)}ch` }} /><span className="l">€</span></div>
-      {d.kind === 'insurance' && <p className="s">Antes de renovar, pede 2 ou 3 propostas com as mesmas coberturas e mostra a melhor à tua seguradora. Costuma dar para um jantar fora.</p>}
+      {d.kind === 'insurance' && <Hint>Antes de renovar, pede 2 ou 3 propostas com as mesmas coberturas e mostra a melhor à tua seguradora. Costuma dar para um jantar fora.</Hint>}
       <p className="s why"><span className="dot" aria-hidden="true" /><span>{err || `Fica nas despesas de hoje, em Carros${d.recurrence === 'yearly' ? `, e o prazo passa para ${dt(nextYear(d.due_on))}` : ''}.`}</span></p>
       <button className="btn wide press">Paguei <Icon n="check" s={20} /></button>
     </form>

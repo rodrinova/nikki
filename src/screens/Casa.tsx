@@ -10,6 +10,7 @@ import { addDays, monthKey, monthName, prevMonth, todayStr } from '@/lib/dates';
 import { shortDate } from '@/lib/admin';
 import { nextYear } from '@/lib/garage';
 import { BILL_CATEGORIES, KINDS, annualOf, billStats, defaultPeriod, invoiceToLink, looksLikeAdjustment, matchBill, nextDue, partOfBill, unpaidInvoice, type BillKind, type BillStats } from '@/lib/home';
+import { Hint } from './Home';
 import { BillInvoice } from './Invoice';
 
 export const dt = (d: string) => shortDate(`${d}T12:00:00`);
@@ -144,7 +145,7 @@ export function BillSheet({ bill, home, draft }: { bill?: BillRow; home?: string
         <label>{kind === 'seguro' ? 'Renova em' : 'Fidelização até (opcional)'}<input type="date" value={ends} onChange={(e) => setEnds(e.target.value)} /></label>
         {places.length > 1 && <div className="chips" role="group" aria-label="Que casa">{places.map((h) => <button key={h.id} type="button" className="press" aria-pressed={place === h.id} onClick={() => setPlace(h.id)}>{h.name}</button>)}</div>}
         {owners.length > 0 && <div className="seg" role="group" aria-label="De quem">{owners.map(([id, l]) => <button key={l} type="button" className="press" aria-pressed={owner === id} onClick={() => setOwner(id)}>{l}</button>)}</div>}
-        <p className="s">O fornecedor e as palavras servem para a NIKKI reconhecer as despesas desta conta. Com duas contas parecidas (duas luzes da EDP), põe uma palavra que as distinga; se ainda houver dúvida, a NIKKI pergunta.</p>
+        <Hint>O fornecedor e as palavras servem para a NIKKI reconhecer as despesas desta conta. Com duas contas parecidas (duas luzes da EDP), põe uma palavra que as distinga; se ainda houver dúvida, a NIKKI pergunta.</Hint>
         {err && <p className="err">{err}</p>}
         <button className="btn wide press">Guardar <Icon n="check" s={20} /></button>
       </form>
@@ -260,7 +261,7 @@ export function PaidSheet({ d }: { d: DeadlineRow }) {
     <form onSubmit={save} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <p className="l">{d.title}</p>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}><input className="amount" inputMode="decimal" placeholder="0,00" aria-label="Valor pago" value={amt} onChange={(e) => setAmt(e.target.value)} style={{ width: `${Math.max(4.2, amt.length + 0.6)}ch` }} /><span className="l">€</span></div>
-      {d.kind === 'insurance' && <p className="s">Antes de renovar: pede 2 ou 3 propostas com as mesmas coberturas e leva a melhor à tua seguradora. Se tens crédito, o banco não pode obrigar a que o seguro seja o dele. (Ele vai tentar.)</p>}
+      {d.kind === 'insurance' && <Hint>Antes de renovar: pede 2 ou 3 propostas com as mesmas coberturas e leva a melhor à tua seguradora. Se tens crédito, o banco não pode obrigar a que o seguro seja o dele. (Ele vai tentar.)</Hint>}
       <p className="s why"><span className="dot" aria-hidden="true" /><span>{err || `Fica nas despesas de hoje, em Casa${partner ? ', partilhada' : ''}${d.recurrence === 'yearly' ? `, e o prazo passa para ${dt(nextYear(d.due_on))}` : ''}.`}</span></p>
       <button className="btn wide press">Paguei <Icon n="check" s={20} /></button>
     </form>
@@ -288,7 +289,7 @@ export function ContractSheet({ d }: { d: DeadlineRow }) {
   return (
     <form onSubmit={save} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <p className="l">{d.title}</p>
-      <p className="s">No fim da fidelização podes mudar sem penalização, ou pedir ao atual uma proposta melhor para ficar. Compara o preço total, não o da promoção dos primeiros três meses.</p>
+      <Hint>No fim da fidelização podes mudar sem penalização, ou pedir ao atual uma proposta melhor para ficar. Compara o preço total, não o da promoção dos primeiros três meses.</Hint>
       <label className="form"><span className="s">Nova fidelização até (se renovaste)</span><input className="field" type="date" value={ends} onChange={(e) => setEnds(e.target.value)} /></label>
       <button className="btn wide press">Tratado <Icon n="check" s={20} /></button>
     </form>

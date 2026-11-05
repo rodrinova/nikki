@@ -12,7 +12,7 @@ import { Face } from '@/brand/Face';
 import { eur, parseAmount, toU } from '@/lib/money';
 import { addDays, dayLabel, monthKey, monthName, prevMonth, todayStr } from '@/lib/dates';
 import { L100, consumption, fixedIn, flags, forgotten, kmIn, longRun, perKm, period, waitingFull, yearFigures, type CarLog } from '@/lib/garage';
-import { Top } from './Home';
+import { Top, Hint } from './Home';
 import { km, dt, electric, useCarDeadlines, LOGNAME, LogSheet, CarPaidSheet } from './Garage';
 
 type PK = '12m' | 'year' | 'all';
@@ -235,7 +235,7 @@ function MonthlyCost({ car, logs }: { car: CarRow; logs: CarLog[] }) {
         <button key={x.m} type="button" className={`press${j === sel ? ' on' : ''}`} aria-label={`${monthName(x.m)}: ${eur(x.v, 0)} €`} onClick={() => setSel(j)}><i style={{ height: x.v ? `${Math.max(6, (x.v / max) * 100)}%` : 2 }} className={x.v ? '' : 'zero'} /></button>
       ))}</div>
       <div className="wk-axis s"><span>{monthName(months[0].m).slice(0, 3)}</span><span>{monthName(months[11].m).slice(0, 3)}</span></div>
-      <p className="s">Com seguro, IUC e outros fixos repartidos pelos meses. O custo real, sem desconto emocional.</p>
+      <Hint>Com seguro, IUC e outros fixos repartidos pelos meses. O custo real, sem desconto emocional.</Hint>
     </section>
   );
 }
@@ -369,7 +369,7 @@ function CarForm({ car, onDone }: { car?: CarRow; onDone: () => void }) {
           <label>Matrícula<input value={plate} onChange={(e) => setPlate(e.target.value)} placeholder="AA-00-AA" maxLength={12} /></label>
         </div>
         <div className="seg" role="group" aria-label="Motor"><button type="button" className="press" aria-pressed={energy === 'combustao'} onClick={() => setEnergy('combustao')}>Combustão</button><button type="button" className="press" aria-pressed={energy === 'eletrico'} onClick={() => setEnergy('eletrico')}>Elétrico</button></div>
-        {energy === 'eletrico' && <p className="s">Elétricos: km, €/km e fixos já contam. O consumo em kWh/100 km chega em breve.</p>}
+        {energy === 'eletrico' && <Hint>Elétricos: km, €/km e fixos já contam. O consumo em kWh/100 km chega em breve.</Hint>}
         {owners.length > 1 && <div className="seg" role="group" aria-label="De quem">{owners.map(([id, l]) => <button key={l} type="button" className="press" aria-pressed={owner === id} onClick={() => setOwner(id)}>{l}</button>)}</div>}
         <div className="two">
           <label>Data da matrícula<input type="date" value={reg} onChange={(e) => setReg(e.target.value)} /></label>

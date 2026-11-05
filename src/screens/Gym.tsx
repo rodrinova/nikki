@@ -8,7 +8,7 @@ import { Icon } from '@/ui/Icon';
 import { shortDate } from '@/lib/admin';
 import { dayLabel, todayStr } from '@/lib/dates';
 import { fmt, groupOf, nextCheck, summary, trend, type Assessment } from '@/lib/gym';
-import { Top } from './Home';
+import { Top, Hint } from './Home';
 
 // Ginásio: as avaliações de cada um, com as medidas que escolheu. Só o próprio vê (nem a outra pessoa da casa).
 // De cada medida: o último valor, a diferença para a anterior e para a primeira, e a linha. Regras em CALCULOS.md, 14.
@@ -42,7 +42,7 @@ export function Gym() {
           </Link>
         );
       })}</div>
-      <p className="s">Face à avaliação anterior. Toca numa medida para ver a evolução e comparar com outras.</p>
+      <Hint>Face à avaliação anterior. Toca numa medida para ver a evolução e comparar com outras.</Hint>
       <div className="actions"><button className="btn quiet press" onClick={() => open(<FieldsForm />)}>Medidas e lembrete</button></div>
       {hist.length > 0 && <section className="stack" aria-label="Avaliações">
         <span className="s">Avaliações</span>
@@ -204,7 +204,7 @@ export function GymMetric() {
           </svg>
           <figcaption className="s">{dt(dates[k])}: {series.map((ser) => { const p = ser.s!.points.find((q) => q.on === dates[k]); return p ? `${ser.f.label} ${fmt(p.v, ser.f.unit)}${multi ? ` (${lab((p.v / ser.s!.first - 1) * 100)})` : ''}` : null; }).filter(Boolean).join(' · ')}</figcaption>
         </figure>
-        {multi && <p className="s">Com várias medidas, cada linha mostra a mudança desde a primeira avaliação (em %), para se poderem comparar.</p>}
+        {multi && <Hint>Com várias medidas, cada linha mostra a mudança desde a primeira avaliação (em %), para se poderem comparar.</Hint>}
         {others.length > 0 && <section className="stack" aria-label="Sobrepor">
           <span className="s">Sobrepor (até 2)</span>
           <div className="chips wrap" role="group" aria-label="Sobrepor">{others.map((o) => (

@@ -12,7 +12,7 @@ import { addDays, dayLabel, monthName, todayStr } from '@/lib/dates';
 import { store } from '@/lib/store';
 import { warrantyState } from '@/lib/chores';
 import { KINDS, billStats, imiNext, invoiceToLink, usageLabel, type BillKind, type BillPayment, type BillStats } from '@/lib/home';
-import { Top } from './Home';
+import { Top, Hint } from './Home';
 import { Loading, later } from '@/ui/lazy';
 import { dt, EVERY, categoryOf, TENURE, useCasa, useBillDeadline, BillSheet, BillEntry, billEntry, BillFields, useSaveBill, PaidSheet, ContractSheet } from './Casa';
 
@@ -106,9 +106,9 @@ export function CasaPart() {
         {c.active.length ? <div className="bills">{c.active.map((b) => <BillCard key={b.id} b={b} s={c.stats.get(b.id)!} next={c.dues.find((d) => d.b.id === b.id)} place={many && sel === 'all' ? c.places.find((h) => h.id === c.homeOf(b))?.name : undefined} />)}</div>
           : <button className="tile hint-card press" onClick={() => open(<BillSheet home={here ?? c.first} />)}><span className="st2"><span>Juntar a primeira conta</span><span className="s">Luz, água, internet, renda… A NIKKI liga-lhe as despesas sozinha. Tu só pagas (isso, infelizmente, continua contigo).</span></span><Icon n="arrow" s={16} /></button>}
         <How>
-          <p className="s">€ por mês: cada fatura reparte-se pelos meses que cobre, à proporção dos dias (uma de 2 meses vale metade em cada; um acerto entra nos meses que corrige). Média dos meses com faturas nos últimos 12, sem o mês a decorrer.</p>
-          <p className="s">Que conta é: pelo fornecedor ou pelas palavras na nota, pelo valor (que pode variar até ±35% do normal) e pelo dia. Se houver dúvida, por exemplo duas contas do mesmo fornecedor, a NIKKI pergunta.</p>
-          <p className="s">Preço por kWh ou m³: tudo o que se pagou ÷ o consumo das faturas com consumo, nos últimos 12 meses, comparado com os 12 anteriores.</p>
+          <Hint>€ por mês: cada fatura reparte-se pelos meses que cobre, à proporção dos dias (uma de 2 meses vale metade em cada; um acerto entra nos meses que corrige). Média dos meses com faturas nos últimos 12, sem o mês a decorrer.</Hint>
+          <Hint>Que conta é: pelo fornecedor ou pelas palavras na nota, pelo valor (que pode variar até ±35% do normal) e pelo dia. Se houver dúvida, por exemplo duas contas do mesmo fornecedor, a NIKKI pergunta.</Hint>
+          <Hint>Preço por kWh ou m³: tudo o que se pagou ÷ o consumo das faturas com consumo, nos últimos 12 meses, comparado com os 12 anteriores.</Hint>
         </How>
       </>
     );
@@ -342,7 +342,7 @@ export function CasaSetup() {
         <span className="s">A casa é</span>
         <div className="seg" role="group" aria-label="A casa é">{TENURE.map(([k, l]) => <button key={k} type="button" className="press" aria-pressed={tenure === k} onClick={() => setTenure(k)}>{l}</button>)}</div>
         {owns && <label>IMI por ano (€)<input inputMode="decimal" value={imi} onChange={(e) => setImi(e.target.value)} placeholder="ex.: 320" /></label>}
-        {owns && <p className="s">Até 100 € paga-se em maio; até 500 €, em maio e novembro; acima, em maio, agosto e novembro. A NIKKI avisa um mês antes.</p>}
+        {owns && <Hint>Até 100 € paga-se em maio; até 500 €, em maio e novembro; acima, em maio, agosto e novembro. A NIKKI avisa um mês antes.</Hint>}
         <span className="s">Acompanhar os consumos de água, luz e gás?</span>
         <div className="seg" role="group" aria-label="Acompanhar os consumos">
           <button type="button" className="press" aria-pressed={track === true} onClick={() => setTrack(true)}>Sim</button>
@@ -373,7 +373,7 @@ export function CasaSetup() {
             </div>
           );
         })}</div>
-        <p className="s">Seguro da casa e fidelizações: a NIKKI avisa um mês antes, para pedir propostas e renegociar com calma. O resto junta-se depois em «Nova conta».</p>
+        <Hint>Seguro da casa e fidelizações: a NIKKI avisa um mês antes, para pedir propostas e renegociar com calma. O resto junta-se depois em «Nova conta».</Hint>
         {err && <p className="err">{err}</p>}
         <button className="btn wide press">Feito <Icon n="check" s={20} /></button>
       </form>

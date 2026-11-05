@@ -1025,3 +1025,98 @@ body.near .bottom .in > a[aria-current="page"]{color:var(--ground)}
 /* O cabeçalho em vidro (deixa ver o brilho e o que passa por baixo, sem cortar a cor). */
 body::before{background:color-mix(in srgb,var(--ground) 70%,transparent);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px)}
 .status{background:color-mix(in srgb,var(--ground) 70%,transparent);-webkit-backdrop-filter:blur(18px) saturate(140%);backdrop-filter:blur(18px) saturate(140%);max-width:none;padding-left:max(16px,calc((100% - 520px) / 2 + 16px),env(safe-area-inset-left,0px));padding-right:max(16px,calc((100% - 520px) / 2 + 16px),env(safe-area-inset-right,0px))}
+
+/* ═════════════════ Ecrãs grandes: iPad e computador ═════════════════ */
+.side{display:none}
+.hub,.hub-a,.hub-b{display:contents}
+
+/* iPad ao alto (e janelas médias): mais largo, o Início em duas colunas. */
+@media (min-width:760px){
+  :root{--t-xl:68px}
+  .app{max-width:720px}
+  .app.is-hub{max-width:980px}
+  .status{padding-left:max(24px,calc((100% - 980px) / 2 + 24px));padding-right:max(24px,calc((100% - 980px) / 2 + 24px))}
+  .hub{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:20px;align-items:start}
+  .hub-a,.hub-b{display:flex;flex-direction:column;gap:20px;min-width:0}
+  .hub-a > *{min-height:100%}
+  .hello{font-size:34px;letter-spacing:-0.03em}
+  .lib{grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+  .lib > *{min-height:140px;padding:18px}
+}
+
+/* iPad deitado e computador: barra lateral de vidro; formulários num painel à direita. */
+@media (min-width:1024px){
+  :root{--side:248px}
+  .bottom,.status{display:none}
+  body.nobar .app,.app{padding-top:28px;padding-bottom:48px}
+  .app{max-width:none;margin:0 0 0 var(--side);padding-left:clamp(24px,4vw,56px);padding-right:clamp(24px,4vw,56px)}
+  .app > .screen{max-width:760px;margin:0 auto}
+  .app.is-hub > .screen{max-width:1180px}
+  .hub{grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:24px}
+  .lib{grid-template-columns:repeat(auto-fill,minmax(180px,1fr))}
+  .side{display:flex;flex-direction:column;gap:6px;position:fixed;z-index:20;inset:12px auto 12px 12px;width:calc(var(--side) - 24px);padding:18px 12px;border-radius:var(--r-card);background:var(--glass),var(--tile);border:1px solid var(--glass-line);box-shadow:var(--glass-hi),0 20px 60px rgba(0,0,0,.35);-webkit-backdrop-filter:blur(22px) saturate(140%);backdrop-filter:blur(22px) saturate(140%);overflow-y:auto}
+  .side a,.side button{color:inherit;text-decoration:none}
+  .side-brand{display:flex;align-items:center;gap:12px;padding:4px 8px 16px;font-size:var(--t-m);letter-spacing:.18em}
+  .side-tok{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;background:var(--glass);border:1px solid var(--glass-line);box-shadow:var(--glass-hi),0 0 18px rgba(var(--glow),.35)}
+  .side-add{display:flex;align-items:center;gap:10px;min-height:48px;padding:0 16px;margin-bottom:10px;border:0;border-radius:var(--r-pill);background:var(--accent);color:var(--on-accent)!important;transition:transform 200ms var(--ease-out),box-shadow 200ms ease}
+  .side-add:hover{box-shadow:0 0 24px rgba(var(--glow),.45)}
+  .side-list{display:flex;flex-direction:column;gap:2px;flex:1}
+  .side-i{display:flex;align-items:center;gap:12px;min-height:44px;padding:0 14px;border-radius:var(--r-pill);color:var(--sub)!important;transition:background-color 180ms ease,color 180ms ease}
+  .side-i:hover{background:rgba(127,127,127,.10);color:var(--ink)!important}
+  .side-i[aria-current="page"]{background:var(--ink);color:var(--ground)!important}
+  .side-me{display:flex;align-items:center;gap:10px;padding:10px 8px 0;border-top:1px solid var(--glass-line);margin-top:8px;color:var(--sub)!important}
+  .side-me .avatar{width:36px;height:36px}
+  /* As folhas: um painel de vidro à direita, a toda a altura. */
+  .sheet{left:auto;right:12px;top:12px;bottom:12px;width:min(460px,calc(100% - 24px));transform:none;border-radius:var(--r-card);max-height:none;animation:side-in 380ms var(--ease-drawer) both;box-shadow:0 30px 80px rgba(0,0,0,.45);border:1px solid var(--glass-line)}
+  .sheet.out{animation:side-out 200ms ease-out both}
+  .sheet .grab{display:none}
+  .scrim{background:rgba(0,0,0,.35);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+  .toast-root{bottom:24px;left:calc(50% + var(--side) / 2)}
+  .update-pill{bottom:24px}
+  .tk-fab{bottom:24px;right:24px}
+}
+@keyframes side-in{from{transform:translateX(calc(100% + 24px))}}
+@keyframes side-out{to{transform:translateX(calc(100% + 24px))}}
+/* Computador: com rato, os cartões levantam um pouco ao passar. */
+@media (hover:hover) and (pointer:fine){
+  .tile.press,.lib > *{transition:transform 220ms var(--ease-out),box-shadow 220ms ease,border-color 220ms ease}
+  .tile.press:hover,.lib > *:hover{transform:translateY(-2px);border-color:rgba(var(--glow),.35);box-shadow:var(--glass-hi),0 14px 40px rgba(0,0,0,.25)}
+}
+
+/* As explicações: um «?» pequeno de vidro; abre por baixo, sem empurrar o resto do ecrã de repente. */
+details.hint{margin-top:-10px;align-self:flex-start;max-width:100%}
+details.hint summary{list-style:none;display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;cursor:pointer;font-size:12px;color:var(--sub);background:var(--glass);border:1px solid var(--glass-line);transition:color 180ms ease,border-color 180ms ease}
+details.hint summary::-webkit-details-marker{display:none}
+details.hint summary:hover,details.hint[open] summary{color:var(--ink);border-color:rgba(var(--glow),.45)}
+details.hint[open] summary{background:rgba(var(--glow),.12)}
+details.hint > p{margin-top:8px;animation:in 260ms var(--ease-out) both}
+
+/* ═════════════════ Movimento: viva mas calma ═════════════════ */
+/* O brilho aquece com o ritmo do mês (--heat 0 a 1: abaixo do habitual mais frio, acima mais quente). */
+.swap::before{background:radial-gradient(55% 60% at 30% 50%,rgba(var(--glow),calc(.12 + var(--heat,.5) * .26)),transparent 72%)}
+.money-line.hero::after{content:"";position:absolute;inset:-30%;pointer-events:none;background:radial-gradient(40% 40% at 80% 20%,rgba(255,214,170,calc(var(--heat,.5) * .45)),transparent 70%);animation:drift 14s ease-in-out infinite alternate}
+@keyframes drift{from{transform:translate(-6%,4%)}to{transform:translate(6%,-4%)}}
+/* Os cartões do Início entram em cascata. */
+.screen.enter .hub-a > *,.screen.enter .hub-b > *{animation:in 460ms var(--ease-out) both}
+.screen.enter .hub-b > *:nth-child(1){animation-delay:60ms}
+.screen.enter .hub-b > *:nth-child(2){animation-delay:120ms}
+.screen.enter .hub-b > *:nth-child(3){animation-delay:180ms}
+/* As barras dos 12 meses crescem de baixo, uma a seguir à outra. */
+.yb .yb-bar,.yb .yb-ev{transform-box:fill-box;transform-origin:50% 100%;animation:grow 620ms var(--ease-out) both}
+.yb .tl:nth-child(odd) .yb-bar{animation-delay:40ms}
+@keyframes grow{from{transform:scaleY(0)}}
+/* O ritmo: os traços sobem ao abrir. */
+.bar31 i{transform-origin:50% 100%;animation:grow 520ms var(--ease-out) both}
+.bar31 i:nth-child(3n+1){animation-delay:20ms}.bar31 i:nth-child(3n+2){animation-delay:60ms}.bar31 i:nth-child(3n){animation-delay:100ms}
+@media (prefers-reduced-motion: reduce){
+  .money-line.hero::after,.screen.enter .hub-a > *,.screen.enter .hub-b > *,.yb .yb-bar,.yb .yb-ev,.bar31 i,details.hint > p{animation:none}
+}
+/* Uma frase com o «?» ao lado; aberto, a explicação ocupa a linha de baixo. */
+.with-hint{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px}
+.with-hint details.hint{margin-top:0}
+.with-hint details.hint[open]{flex-basis:100%;order:2}
+.with-hint details.hint{position:relative}
+.with-hint details.hint[open] > p{margin-top:0}
+@media (min-width:760px){.titlebar h1{font-size:34px;letter-spacing:-0.03em}}
+/* No computador, a barra lateral já leva a todo o lado: o «Voltar» dos ecrãs principais fica discreto. */
+@media (min-width:1024px){.back{opacity:.55}.back:hover{opacity:1}}

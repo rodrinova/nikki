@@ -21,7 +21,7 @@ import { useAdminBadge } from '@/data/adminBadge';
 import { Loading, later } from '@/ui/lazy';
 import { QuickAdd } from '@/screens/QuickAdd';
 import { Goals } from '@/screens/Goals';
-import { moduleOf } from '@/lib/modules';
+import { MODULES, moduleOf } from '@/lib/modules';
 
 // Ecrãs menos usados (ou só de algumas pessoas): só se carregam quando se abrem.
 const Wealth = later(() => import('@/screens/Wealth'), 'Wealth');
@@ -53,6 +53,34 @@ function TopBar() {
       <div className="left" style={{ color: 'var(--ink)' }}><Link className="press" to="/historia" aria-label="NIKKI: a história"><Face h={18} /></Link></div>
       <div className="right"><Link className="avatar press" to="/perfil" style={{ ['--c' as any]: me?.color }} aria-label={`Perfil de ${me?.name ?? ''}${adm.pending + adm.novo ? ` (${adm.pending + adm.novo} na administração)` : ''}`}>{me?.name?.[0]}{adm.pending + adm.novo > 0 && <span className="av-dot" aria-hidden="true" />}</Link></div>
     </header>
+  );
+}
+
+/**
+ * No iPad deitado e no computador: uma barra lateral de vidro com a marca, os espaços em uso, o «Juntar» e o
+ * perfil. Substitui a barra de topo e a de baixo (o CSS mostra uma ou outra pela largura do ecrã).
+ */
+function SideBar() {
+  const { pathname } = useLocation();
+  const { me } = useSession();
+  const { on } = useHouse();
+  const { open, isOpen, close } = useOverlays();
+  const at = (to: string) => (to === '/' ? pathname === '/' : pathname === to || pathname.startsWith(`${to}/`));
+  const item = (to: string, ic: string, n: string) => (
+    <Link key={to} className="side-i press" to={to} aria-current={at(to) ? 'page' : undefined}><Icon n={ic as any} s={20} /><span>{n}</span></Link>
+  );
+  return (
+    <nav className="side" aria-label="Principal">
+      <Link className="side-brand press" to="/historia" aria-label="NIKKI: a história"><span className="side-tok"><Face h={18} /></span><span>NIKKI</span></Link>
+      <button className="side-add press" aria-expanded={isOpen} onClick={() => (isOpen ? close() : open(<QuickAdd />))}><Icon n="plus" s={20} w={1.6} /><span>Juntar</span></button>
+      <div className="side-list">
+        {item('/', 'home', 'Início')}
+        {item('/dinheiro', 'coins', 'Dinheiro')}
+        {MODULES.filter((m) => on(m.k)).map((m) => item(m.to, m.ic, m.name))}
+        {item('/espacos', 'grid', 'Espaços')}
+      </div>
+      <Link className="side-me press" to="/perfil" aria-current={at('/perfil') ? 'page' : undefined}><span className="avatar" style={{ ['--c' as any]: me?.color }}>{me?.name?.[0]}</span><span>{me?.name}</span></Link>
+    </nav>
   );
 }
 
@@ -113,7 +141,7 @@ function Shell() {
     <HouseProvider>
       <HousePull />
       {onHub && <TopBar />}
-      <div className="app"><main className="screen" key={pathname}>
+      <div className={`app${pathname === '/' ? ' is-hub' : ''}`}><main className="screen" key={pathname}>
         <Suspense fallback={<Loading label="A abrir" />}>
         <Routes>
           <Route path="/" element={<Hub />} />
@@ -150,6 +178,7 @@ function Shell() {
         </Suspense>
       </main></div>
       <BottomBar />
+      <SideBar />
       <SheetHost />
     </HouseProvider>
   );

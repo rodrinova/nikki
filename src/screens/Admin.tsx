@@ -9,7 +9,7 @@ import { MODULES, moduleName } from '@/lib/modules';
 import { ago, fillWeeks, hoursLabel, shortDate } from '@/lib/admin';
 import { todayStr } from '@/lib/dates';
 import { Shot, statusClass, type Ticket, type TicketStatus } from './Tickets';
-import { Top } from './Home';
+import { Top, Hint } from './Home';
 
 // Painel de administração da app (só o Rodrigo). Vem tudo das funções nikki.admin_*: contas, casas, módulos,
 // datas e tickets. Nunca dinheiro, agendas, compras, carros, objetivos ou medidas.
@@ -73,7 +73,7 @@ export function Admin() {
   return (
     <>
       <Top title="Administração" />
-      <p className="s">Contas, casas, módulos e tickets. Aqui nunca aparece o que está dentro das casas: dinheiro, agendas, listas.</p>
+      <Hint>Contas, casas, módulos e tickets. Aqui nunca aparece o que está dentro das casas: dinheiro, agendas, listas.</Hint>
       <div className="chips" role="tablist" aria-label="Secções">{TABS.map((t) => <button key={t} role="tab" className="press" aria-pressed={cur === t} aria-selected={cur === t} onClick={() => setTab(t)}>{label[t]}</button>)}</div>
       {err && <p className="err">{err === 'só para a administração da app' ? 'Este painel é só para a administração da app.' : err}</p>}
       {!d && !err && <Loading />}

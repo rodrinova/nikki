@@ -12,6 +12,7 @@ import { invoiceText } from '@/lib/ocr';
 import { Shot, rid, shrink } from './Tickets';
 import { Loading, later } from '@/ui/lazy';
 const Scanner = later(() => import('@/ui/Scanner'), 'Scanner');
+import { Hint } from './Home';
 import { MaintDoneSheet, useChoreDone } from './Today';
 
 // Casa, fase 2: tarefas que se repetem (de alguém, à vez ou de quem pegar), manutenção (com sugestões) e garantias
@@ -178,7 +179,7 @@ export function WarrantiesSection({ home, homeOf }: { home: string | null; homeO
           <span className="st2"><span>{w.item}</span><span className="s">{w.store ? `${w.store} · ` : ''}{s.state === 'ended' ? `acabou a ${dt(s.end)}` : <span className={s.state === 'soon' ? 'warn' : ''}>até {dt(s.end)}{s.state === 'soon' ? ` · faltam ${s.days} dias` : ''}</span>}</span></span>
           {w.receipt_path ? <Icon n="doc" s={16} /> : null}
         </button>
-      ))}</div> : <p className="s">Tira uma foto ao talão quando comprares um eletrodoméstico: a NIKKI guarda-o e avisa antes de a garantia acabar. Em Portugal são 3 anos. A gaveta dos talões pode reformar-se.</p>}
+      ))}</div> : <Hint>Tira uma foto ao talão quando comprares um eletrodoméstico: a NIKKI guarda-o e avisa antes de a garantia acabar. Em Portugal são 3 anos. A gaveta dos talões pode reformar-se.</Hint>}
     </section>
   );
 }

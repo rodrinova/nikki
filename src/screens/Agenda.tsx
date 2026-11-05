@@ -7,6 +7,7 @@ import { useOverlays } from '@/ui/overlays';
 import { Icon } from '@/ui/Icon';
 import { store } from '@/lib/store';
 import { WEEKDAYS, addDays, monthKey, monthName, monthWeeks, nextMonth, parseDate, prevMonth, toDateStr, todayStr, weekOf, weekdayName } from '@/lib/dates';
+import { Hint } from './Home';
 import { isoWeekday, mapsLinks, nthOf, repeatLabel, type Repeat } from '@/lib/agenda';
 
 // Agenda (no início, não é módulo): a semana ou o mês com o texto pequenino de cada coisa (como no iPhone), a lista
@@ -301,7 +302,7 @@ function PhoneSheet() {
             </form>
           : <button className="btn wide press" onClick={() => setForm(true)}>iPhone: ligar o iCloud <Icon n="cal" s={18} /></button>}
         {row('google') ? <Status l={row('google')!} name="Google" /> : <button className="btn quiet wide press" disabled={busy} onClick={google}>Android: entrar com o Google <Icon n="cal" s={18} /></button>}
-        <p className="s">O acesso fica guardado encriptado e só serve para escrever no calendário «NIKKI» (no Google, a NIKKI nem vê os outros calendários).</p>
+        <Hint>O acesso fica guardado encriptado e só serve para escrever no calendário «NIKKI» (no Google, a NIKKI nem vê os outros calendários).</Hint>
       </>}
       <details className="how"><summary className="s">Sem ligar contas (só leitura, atualiza de 15 em 15 min ou mais)</summary>
         {!tok ? <button className="btn quiet wide press" onClick={() => getTok()}>Criar a minha ligação <Icon n="link" s={18} /></button> : <>

@@ -7,7 +7,7 @@ import type { InviteRow } from '@/data/house';
 import { useAdminBadge } from '@/data/adminBadge';
 import { useOverlays } from '@/ui/overlays';
 import { Icon } from '@/ui/Icon';
-import { Top } from './Home';
+import { Top, Hint } from './Home';
 import { marks, requests, spans } from '@/lib/perf';
 import { newDeviceCode } from '@/data/devices';
 import { Loading } from '@/ui/lazy';
@@ -112,7 +112,7 @@ export function People() {
       {staff.length > 0 && <div className="tile card rows">{staff.map((m) => (
         <Link key={m.id} className="press" to="/housekeeping"><span style={{ display: 'flex', alignItems: 'center', gap: 12 }}><span className="avatar" style={{ ['--c' as any]: m.color }}>{m.name[0]}</span><span>{m.name}<span className="role" style={{ display: 'block' }}>Housekeeping · vê só a lista das visitas, as mensagens e as compras</span></span></span><Icon n="chev" s={16} /></Link>
       ))}</div>}
-      <p className="s">Até duas pessoas por casa, cada uma com o seu login. As duas podem tudo: convidar, ligar módulos, mudar a partilha. Democracia.</p>
+      <Hint>Até duas pessoas por casa, cada uma com o seu login. As duas podem tudo: convidar, ligar módulos, mudar a partilha. Democracia.</Hint>
     </>
   );
 }
@@ -175,7 +175,7 @@ function DeviceCode() {
         <p className="xl device-code" aria-live="polite">{left > 0 ? c.code : '— —'}</p>
         <p className="s" style={{ fontSize: 'var(--t-m)' }}>{left > 0 ? `No outro aparelho, abre a NIKKI, toca em «Já uso a NIKKI noutro aparelho» e escreve este código. Vale ${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}, e só uma vez.` : 'Este código já passou do prazo. Pede outro.'}</p>
         {left > 0 && <button className="btn quiet wide press" onClick={async () => { try { await navigator.clipboard.writeText(link); toast('Ligação copiada. Abre-a no outro aparelho.', { ok: true }); } catch { toast(link); } }}>Copiar a ligação <Icon n="arrow" s={20} /></button>}
-        <p className="s">Cada aparelho fica com a sua sessão: sair num não tira o outro. No iPhone, a NIKKI do ecrã principal e o Safari contam como dois aparelhos.</p>
+        <Hint>Cada aparelho fica com a sua sessão: sair num não tira o outro. No iPhone, a NIKKI do ecrã principal e o Safari contam como dois aparelhos.</Hint>
       </>}
     </div>
   );

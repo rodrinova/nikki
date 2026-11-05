@@ -14,7 +14,8 @@ import { useZoom } from '@/ui/zoom';
 import { ZoomHint } from '@/ui/ZoomHint';
 import { KIND_ASK, carKindOf, guess, parseQuick, splitOf, type Past } from '@/lib/quick';
 import { pairEntries, pairFilter, type PairPeriod, type PairSort, type PairWho } from '@/lib/pairlog';
-import { Hint, Top, useSeen } from './Home';
+import { Hint, Top, heat, useSeen } from './Home';
+import { CountUp } from '@/ui/CountUp';
 import { BillFields, billEntry, useBillChoice, useSaveBill, type BillEntry } from './Casa';
 import { CarEntryFields, carEntry, checkEntry, entryWhy, lastOdometer, useLearnFromPayment, useSaveCarLog, type CarEntry } from './Garage';
 
@@ -71,7 +72,6 @@ export function Money() {
         <button type="button" role="tab" className="press" aria-selected={!us} aria-pressed={!us} onClick={() => setSp({}, { replace: true })}>Gastos</button>
         <button type="button" role="tab" className="press" aria-selected={us} aria-pressed={us} onClick={() => setSp({ ver: 'entre-nos' }, { replace: true })}>Entre nós</button>
       </div>}
-      {partner && <p className="s">{us ? `Quem adiantou mais, e como ficarem quites sem discutir.` : 'O que é teu, mês a mês. Pague quem pagar.'}</p>}
       {us ? <Ledger embedded /> : <Spend />}
     </>
   );
@@ -90,7 +90,7 @@ const monthTitle = (k: string, year = monthKey(todayStr()).slice(0, 4)) => { con
 
 function Spend() {
   const { me, partner } = useSession();
-  const { spendRows: expRows, occasions } = useHouse();
+  const { spendRows: expRows } = useHouse();
   const [key, setKey] = useMonthParam();
   const m = useMonth(key);
   const p = m.pace;
@@ -105,7 +105,6 @@ function Spend() {
     const evBy = new Map(ev.months.map((x) => [x.key, x.total]));
     return { months: s.months.slice(Math.min(i, s.months.length - 12)).map((x) => ({ ...x, events: evBy.get(x.key) ?? 0 })) };
   }, [spendRows, expRows, me?.id]);
-  const evNames = useMemo(() => [...new Set(expRows.filter((e) => e.occasion_id && monthKey(e.spent_on) === key).map((e) => occasions.rows.find((o) => o.id === e.occasion_id)?.name).filter(Boolean))].join(', '), [expRows, occasions.rows, key]);
   const vsAvg = !m.current && m.normal && m.everyday > 0 ? Math.round((m.everyday / m.normal - 1) * 100) : null;
   return (
     <>
@@ -114,9 +113,8 @@ function Spend() {
         <span className="mnav-t">{monthTitle(key)}{!m.current && <button type="button" className="mnav-now press" onClick={() => setKey(monthKey(todayStr()))}>Este mês</button>}</span>
         <button type="button" className="tb press" aria-label="Mês seguinte" disabled={m.current} onClick={() => setKey(nextMonth(key))}><Icon n="arrow" s={16} /></button>
       </div>
-      <div className="swap" key={key}><p className="xl">{eur(m.total, 0)}<small>€</small></p><p className="s" style={{ marginTop: 8 }}>{partner ? `A tua parte em ${monthName(m.key)}` : monthTitle(m.key)}{vsAvg !== null ? ` · ${vsAvg === 0 ? 'no teu normal' : `${Math.abs(vsAvg)}% ${vsAvg > 0 ? 'acima' : 'abaixo'} do teu normal`}` : ''}</p></div>
-      {m.events > 0 && <p className="s why"><span className="dot" aria-hidden="true" /><span>{eur(m.everyday, 0)} € do dia a dia + {eur(m.events, 0)} € {evNames ? `do ${evNames}` : 'de eventos'}. Eventos e compras extraordinárias contam à parte: ficam fora do ritmo e do normal.</span></p>}
-      {partner && <Hint show={seen < 3}>A tua parte: o que é só teu mais a tua fatia das partilhadas. Quem pagou não interessa aqui; interessa em «Entre nós».</Hint>}
+      <div className="swap" key={key} style={{ ['--heat' as any]: m.current ? heat(p) : 0.5 }}><p className="xl"><CountUp to={m.total} fmt={(v) => eur(v, 0)} /><small>€</small></p><div className="with-hint" style={{ marginTop: 8 }}><p className="s">{partner ? `A tua parte em ${monthName(m.key)}` : monthTitle(m.key)}{vsAvg !== null ? ` · ${vsAvg === 0 ? 'no teu normal' : `${Math.abs(vsAvg)}% ${vsAvg > 0 ? 'acima' : 'abaixo'} do teu normal`}` : ''}</p>
+        <Hint>{partner ? 'A tua parte: o que é só teu mais a tua fatia das partilhadas, pague quem pagar. ' : ''}Eventos e compras extraordinárias contam no mês, mas à parte: ficam fora do ritmo e do teu normal.</Hint></div></div>
       {m.current && (p.fresh
         ? <p className="s why"><span className="dot" aria-hidden="true" /><span>Ritmo: ao fim do primeiro mês completo a NIKKI conhece o teu normal. Depois, compara sem julgar.</span></p>
         : <>
@@ -124,9 +122,9 @@ function Spend() {
             <div className="bar31" style={{ gridTemplateColumns: `repeat(${p.days},minmax(0,1fr))` }} role="img" aria-label={`Ritmo ${p.pct}%`}>
               {Array.from({ length: p.days }, (_, j) => <i key={j} className={`${j < p.blocks ? (j < p.day ? 'f' : 'a') : ''}${j === p.day - 1 ? ' today' : ''}`} />)}
             </div>
-            <span className="s">Ritmo · {p.pct === 0 ? 'no ritmo habitual' : `${Math.abs(p.pct)}% ${p.pct > 0 ? 'acima' : 'abaixo'} do ritmo habitual`}</span>
+            <div className="with-hint"><span className="s">Ritmo · {p.pct === 0 ? 'no ritmo habitual' : `${Math.abs(p.pct)}% ${p.pct > 0 ? 'acima' : 'abaixo'} do ritmo habitual`}</span>
+              <Hint>Cada traço é um dia de um mês normal. Os brancos já foram. Os laranja são dias que ainda não chegaram, mas já foram gastos.</Hint></div>
           </div>
-          <Hint show={seen < 3}>Cada traço é um dia de um mês normal. Os brancos já foram. Os laranja são dias que ainda não chegaram, mas já foram gastos.</Hint>
         </>)}
       <YearBars months={hist.months} normal={m.normal} sel={key} onPick={setKey} />
       <div className="tile card rows">
@@ -739,7 +737,7 @@ export function Ledger({ embedded }: { embedded?: boolean }) {
   return (
     <>
       {!embedded && <Top title="Entre nós" />}
-      <div className="swap"><p className="xl">{eur(Math.abs(L.v))}<small>€</small></p><p className="s" style={{ marginTop: 8 }}>{L.even ? 'Estão quites' : L.v > 0 ? `Adiantaste a mais (o combinado é ${Math.round(myShare * 100)}/${100 - Math.round(myShare * 100)})` : `${partner.name} adiantou a mais (o combinado é ${Math.round(myShare * 100)}/${100 - Math.round(myShare * 100)})`}</p></div>
+      <div className="swap"><p className="xl"><CountUp to={Math.abs(L.v)} fmt={(v) => eur(v)} /><small>€</small></p><p className="s" style={{ marginTop: 8 }}>{L.even ? 'Estão quites' : L.v > 0 ? `Adiantaste a mais (o combinado é ${Math.round(myShare * 100)}/${100 - Math.round(myShare * 100)})` : `${partner.name} adiantou a mais (o combinado é ${Math.round(myShare * 100)}/${100 - Math.round(myShare * 100)})`}</p></div>
       <Hint show={seen < 3}>{`Quanto cada um adiantou face ao combinado (${pct}/${100 - pct}). Não é uma dívida: é só para o esforço ficar bem repartido.`}</Hint>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         <div style={{ display: 'grid', placeItems: 'center', padding: '8px 0 4px', color: 'var(--ink)' }}>
