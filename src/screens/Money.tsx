@@ -7,7 +7,7 @@ import { KINDS, type Occasion, type OccasionKind } from '@/lib/occasions';
 import { useOverlays } from '@/ui/overlays';
 import { Icon } from '@/ui/Icon';
 import { Whiskers } from '@/ui/Whiskers';
-import { abates, eur, monthSpend, monthlySeries, normalMonth, openingOf, pace, pairBalance, parseAmount, toU, type EntryKind, type Split, whiskerLean } from '@/lib/money';
+import { GIFTS, abates, abatingKind, eur, monthSpend, monthlySeries, normalMonth, openingOf, pace, pairBalance, parseAmount, toU, type EntryKind, type Split, whiskerLean } from '@/lib/money';
 import { addDays, dayLabel, monthKey, monthName, nextMonth, prevMonth, todayStr } from '@/lib/dates';
 import { store } from '@/lib/store';
 import { useZoom } from '@/ui/zoom';
@@ -18,7 +18,7 @@ import { Hint, Top, useSeen } from './Home';
 import { BillFields, billEntry, useBillChoice, useSaveBill, type BillEntry } from './Casa';
 import { CarEntryFields, carEntry, checkEntry, entryWhy, lastOdometer, useLearnFromPayment, useSaveCarLog, type CarEntry } from './Garage';
 
-export const CATEGORIES = ['Supermercado', 'Restaurantes', 'Casa', 'Contas', 'Carros', 'Lazer', 'Saúde', 'Roupa', 'Viagens', 'Future Me'];
+export const CATEGORIES = ['Supermercado', 'Restaurantes', 'Casa', 'Contas', 'Carros', 'Lazer', 'Saúde', 'Roupa', 'Viagens', GIFTS, 'Future Me'];
 export const INVEST = 'Future Me'; // investir não é gasto
 /** O nome que se mostra: «Future Me» (como fica guardado) aparece como «Investir». */
 export const catLabel = (c: string) => (c === INVEST ? 'Investir' : c);
@@ -282,7 +282,7 @@ function EntryDetail({ x, label }: { x: IncomeEntryRow; label: string }) {
         <div><span className="k">De quem é</span><span className="v">{label}</span></div>
         {x.note && <div><span className="k">Nota</span><span className="v">{x.note}</span></div>}
       </div>
-      <p className="s">{abates(x.kind) ? 'Abate nos gastos da categoria e do evento, no mês em que entrou.' : 'Conta como dinheiro que entra (no Património, nos rendimentos).'}</p>
+      <p className="s">{abates(x.kind, x.category) ? 'Abate nos gastos da categoria e do evento, no mês em que entrou.' : 'Conta como dinheiro que entra (no Património, nos rendimentos).'}</p>
       {mine && <button className="btn quiet wide press" onClick={del}>Apagar <Icon n="arrow" s={20} /></button>}
     </div>
   );
@@ -382,7 +382,7 @@ export function ExpenseSheet() {
   const v = q.amount ? parseAmount(q.amount) : null;
   const sv = v ? toU(v) : 0;
   // A categoria de uma entrada: num reembolso ou acerto, a do gasto que abate (adivinhada); nas outras, só se escrita.
-  const inCat = inCatSet !== undefined ? inCatSet : abates(kind) ? cat : q.category ?? null;
+  const inCat = inCatSet !== undefined ? inCatSet : kind === 'presente' ? GIFTS : abatingKind(kind) ? cat : q.category ?? null;
   const sign = incoming ? '+' : '';
   const spentOn = day === 'hoje' ? todayStr() : day === 'ontem' ? addDays(todayStr(), -1) : date;
   // Em Contas ou Casa, com a Casa ligada: de que conta fixa é (reconhecida pela nota e pelo valor, ou escolhida).
@@ -488,7 +488,7 @@ export function ExpenseSheet() {
       </div> : <QuickHint q={q} partner={partner?.name} err={err} cars={garage} occs={allOccs} />}
       {v && (err || (more && split === 'shared' && hint)) ? <p className="s" style={{ marginTop: -8 }}>{err || hint}</p> : null}
       {incoming && v && <div className="chips wrap" role="group" aria-label="Tipo de entrada">{ENTRY_KINDS.map((k) => chip(kind === k.k, k.name, () => setKind(k.k)))}</div>}
-      {incoming && v && <p className="s why" style={{ marginTop: -8 }}><span className="dot" aria-hidden="true" /><span>{abates(kind) ? `Abate ${eur(sv)} € ${inCat ? `em ${catLabel(inCat)}` : 'nos gastos'}${occName ? ` do ${occName}` : ''} neste mês.` : `Conta como dinheiro que entra${occName ? `, ligado ao ${occName}` : ''}. Não mexe nos gastos.`}</span></p>}
+      {incoming && v && <p className="s why" style={{ marginTop: -8 }}><span className="dot" aria-hidden="true" /><span>{abates(kind, inCat) ? `Abate ${eur(sv)} € ${inCat ? `em ${catLabel(inCat)}` : 'nos gastos'}${occName ? ` do ${occName}` : ''} neste mês.` : `Conta como dinheiro que entra${occName ? `, ligado ao ${occName}` : ''}. Não mexe nos gastos${inCat === GIFTS ? ' (nas Prendas, as entradas nunca abatem)' : ''}.`}</span></p>}
       {more && !incoming && <div className="chips wrap" role="group" aria-label="Categoria">{CATEGORIES.map((c) => chip(cat === c, catLabel(c), () => setCat(c)))}</div>}
       {more && incoming && <div className="chips wrap" role="group" aria-label="Categoria">{chip(!inCat, 'Sem categoria', () => setInCat(null))}{CATEGORIES.filter((c) => c !== INVEST).map((c) => chip(inCat === c, catLabel(c), () => setInCat(c)))}</div>}
       {(sure || !v) && car && f && <div className="form">

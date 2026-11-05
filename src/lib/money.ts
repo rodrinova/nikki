@@ -43,8 +43,12 @@ export interface MoneyIn {
   occasion_id?: string | null;
   income_id?: string | null;
 }
-/** Os tipos que abatem nos gastos (o resto conta como rendimento). */
-export const abates = (k: EntryKind) => k === 'reembolso' || k === 'acerto';
+/** A categoria das prendas: nela, nenhuma entrada abate (uma prenda recebida não desconta as que se dão). */
+export const GIFTS = 'Prendas';
+/** Os tipos que, por natureza, abatem nos gastos (reembolso e acerto); o resto conta como rendimento. */
+export const abatingKind = (k: EntryKind) => k === 'reembolso' || k === 'acerto';
+/** Se a entrada abate nos gastos: reembolso ou acerto, fora das Prendas. */
+export const abates = (k: EntryKind, category?: string | null) => abatingKind(k) && category !== GIFTS;
 /** Uma entrada como uma despesa negativa (o mesmo cálculo de partes e de contas a dois, com o sinal trocado). */
 export function entryAsExpense<T extends MoneyIn>(x: T): Expense & { entry: T; occasion_id: string | null } {
   const a = String(x.amount).trim();

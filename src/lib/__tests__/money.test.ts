@@ -237,6 +237,9 @@ describe('entradas de dinheiro', () => {
     expect(abates('acerto')).toBe(true);
     expect(abates('salario')).toBe(false);
     expect(abates('presente')).toBe(false);
+    // Nas Prendas nenhuma entrada abate, nem um reembolso.
+    expect(abates('reembolso', 'Prendas')).toBe(false);
+    expect(abates('acerto', 'Restaurantes')).toBe(true);
   });
   it('numa partilhada, quem recebeu fica a dever a parte do outro', () => {
     const gasto = ex({ paid_by: R, other_id: I, amount: '100.00', split: 'shared', payer_share: '0.500' });

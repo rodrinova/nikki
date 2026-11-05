@@ -58,7 +58,7 @@ export function useWealth(view: WealthView) {
     // registos», pela parte de quem vê (os reembolsos e os acertos não são rendimento: abatem nos gastos).
     // Sem contar duas vezes: um salário solto de quem já tem um salário fixo no Património não soma.
     const fixedKind = new Set(incomes.rows.filter((r) => (r.mode ?? 'fixed') === 'fixed').map((r) => `${r.profile_id}:${r.kind}`));
-    const loose = incomeEntries.rows.filter((e) => !e.income_id && !abates(e.kind) && !fixedKind.has(`${e.received_by}:${e.kind}`)).map((e) => ({
+    const loose = incomeEntries.rows.filter((e) => !e.income_id && !abates(e.kind, e.category) && !fixedKind.has(`${e.received_by}:${e.kind}`)).map((e) => ({
       income_id: 'soltas', received_on: e.received_on,
       amount: casa ? toU(e.amount) : me ? partOf({ ...e, id: e.id, paid_by: e.received_by, spent_on: e.received_on, category: e.category ?? '' }, me.id) : 0,
     })).filter((e) => e.amount > 0);

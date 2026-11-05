@@ -168,7 +168,7 @@ function useHouseData() {
     [e.reload, t.reload, op.reload, s.reload, dl.reload, ev.reload, mo.reload, go.reload, as.reload, sn.reload, inc.reload, ie.reload, ca.reload, cl.reload, ho.reload, bi.reload, bp.reload, chs.reload, chl.reload, wa.reload, td.reload, hk.reload, hkt.reload, hkl.reload, hkm.reload, hkp.reload, oc.reload, og.reload, oi.reload, ov.reload, of.reload, busy.reload, monthTotals.reload]);
   // Gastos com os reembolsos e acertos a abater; contas a dois com todas as entradas partilhadas.
   const inRows = d.incomeEntries.rows;
-  const spendRows = useMemo<ExpenseRow[]>(() => [...d.expenses.rows, ...inRows.filter((x) => abates(x.kind)).map(asRow)], [d.expenses.rows, inRows]);
+  const spendRows = useMemo<ExpenseRow[]>(() => [...d.expenses.rows, ...inRows.filter((x) => abates(x.kind, x.category)).map(asRow)], [d.expenses.rows, inRows]);
   const pairRows = useMemo<ExpenseRow[]>(() => [...d.expenses.rows, ...inRows.filter((x) => x.split !== 'mine').map(asRow)], [d.expenses.rows, inRows]);
   return { ...d, busy, monthTotals, gym, on, reloadAll, spendRows, pairRows };
 }

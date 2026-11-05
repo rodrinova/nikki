@@ -1584,7 +1584,7 @@ language sql stable security invoker set search_path = '' as $$
   from o;
 $$;
 
--- As médias da casa e o gasto dos eventos descontam os reembolsos e os acertos.
+-- As médias da casa e o gasto dos eventos descontam os reembolsos e os acertos (menos nas Prendas, onde nada abate).
 create or replace function nikki.house_month_totals(h uuid, since date) returns table (month text, total numeric)
 language sql stable security definer set search_path = '' as $$
   select m, sum(v) from (
@@ -1593,7 +1593,7 @@ language sql stable security definer set search_path = '' as $$
     union all
     select to_char(x.received_on, 'YYYY-MM'), -x.amount from nikki.income_entries x
     where x.household_id = h and x.received_on >= since and x.kind in ('reembolso', 'acerto')
-      and coalesce(x.category, '') <> 'Future Me' and x.occasion_id is null
+      and coalesce(x.category, '') not in ('Future Me', 'Prendas') and x.occasion_id is null
   ) t where nikki.is_member(h)
   group by 1 order by 1;
 $$;
@@ -1603,7 +1603,7 @@ language sql stable security definer set search_path = '' as $$
     select e.occasion_id o, e.amount v from nikki.expenses e where e.household_id = h and e.occasion_id is not null
     union all
     select x.occasion_id, -x.amount from nikki.income_entries x
-    where x.household_id = h and x.occasion_id is not null and x.kind in ('reembolso', 'acerto')
+    where x.household_id = h and x.occasion_id is not null and x.kind in ('reembolso', 'acerto') and coalesce(x.category, '') <> 'Prendas'
   ) t where nikki.is_member(h)
   group by 1;
 $$;
@@ -1616,3 +1616,6 @@ insert into nikki.income_entries (household_id, received_by, kind, category, amo
 delete from nikki.expenses where amount < 0;
 alter table nikki.expenses drop constraint if exists expenses_amount_check;
 alter table nikki.expenses add constraint expenses_amount_check check (amount > 0);
+
+-- Prendas: uma categoria onde as entradas nunca abatem. As despesas com «prenda» ou «presente» na nota passam para lá.
+update nikki.expenses set category = 'Prendas' where note ~* '(prend|present)' and category <> 'Prendas';

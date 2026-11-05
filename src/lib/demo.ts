@@ -586,7 +586,7 @@ export function createDemoClient() {
         if (!db.memberships.some((m) => m.profile_id === me && m.household_id === args.h)) return { data: [], error: null };
         const by = new Map<string, number>();
         for (const e of db.expenses) if (e.household_id === args.h && e.spent_on >= args.since && e.category !== 'Future Me' && !e.occasion_id) by.set(e.spent_on.slice(0, 7), (by.get(e.spent_on.slice(0, 7)) ?? 0) + Number(e.amount));
-        for (const x of db.income_entries) if (x.household_id === args.h && x.received_on >= args.since && ['reembolso', 'acerto'].includes(x.kind) && x.category !== 'Future Me' && !x.occasion_id) by.set(x.received_on.slice(0, 7), (by.get(x.received_on.slice(0, 7)) ?? 0) - Number(x.amount));
+        for (const x of db.income_entries) if (x.household_id === args.h && x.received_on >= args.since && ['reembolso', 'acerto'].includes(x.kind) && !['Future Me', 'Prendas'].includes(x.category) && !x.occasion_id) by.set(x.received_on.slice(0, 7), (by.get(x.received_on.slice(0, 7)) ?? 0) - Number(x.amount));
         return { data: [...by].sort().map(([month, total]) => ({ month, total: total.toFixed(2) })), error: null };
       }
       if (name === 'occasion_totals') {
@@ -594,7 +594,7 @@ export function createDemoClient() {
         if (!db.memberships.some((m) => m.profile_id === me && m.household_id === args.h && m.role !== 'staff')) return { data: [], error: null };
         const by = new Map<string, number>();
         for (const e of db.expenses) if (e.household_id === args.h && e.occasion_id) by.set(e.occasion_id, (by.get(e.occasion_id) ?? 0) + Number(e.amount));
-        for (const x of db.income_entries) if (x.household_id === args.h && x.occasion_id && ['reembolso', 'acerto'].includes(x.kind)) by.set(x.occasion_id, (by.get(x.occasion_id) ?? 0) - Number(x.amount));
+        for (const x of db.income_entries) if (x.household_id === args.h && x.occasion_id && ['reembolso', 'acerto'].includes(x.kind) && x.category !== 'Prendas') by.set(x.occasion_id, (by.get(x.occasion_id) ?? 0) - Number(x.amount));
         return { data: [...by].map(([occasion_id, total]) => ({ occasion_id, total: total.toFixed(2) })), error: null };
       }
       if (name === 'touch') { if (p) p.last_seen_at = new Date().toISOString(); return { data: null, error: null }; }

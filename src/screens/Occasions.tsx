@@ -345,7 +345,7 @@ function Spent({ o, total }: { o: Occasion; total: number }) {
       {hidden > 0 && <p className="s">Mais {eur(hidden)} € em despesas só {partner ? `de ${partner.name}` : 'pessoais'}, ligadas ao evento.</p>}
       {(() => {
         // O dinheiro que entrou ligado ao evento e não abate (presentes em dinheiro, por exemplo): à parte, para saber.
-        const got = incomeEntries.rows.filter((x) => x.occasion_id === o.id && !abates(x.kind));
+        const got = incomeEntries.rows.filter((x) => x.occasion_id === o.id && !abates(x.kind, x.category));
         return got.length > 0 && <p className="s why"><span className="dot" aria-hidden="true" /><span>Entrou {eur(got.reduce((t, x) => t + toU(x.amount), 0))} € ligado ao evento ({got.length} {got.length === 1 ? 'entrada' : 'entradas'}).</span></p>;
       })()}
     </section>
