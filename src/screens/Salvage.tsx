@@ -15,11 +15,26 @@ import { shortDate } from '@/lib/admin';
 
 const STATUS: Record<SalvageStatus, string> = { repair: 'Em reparação', selling: 'À venda', sold: 'Vendido' };
 const pct = (v: number | null) => (v === null ? '—' : `${v >= 0 ? '+' : '−'}${Math.abs(v * 100).toFixed(0)}%`);
-const money = (u: number) => `${eur(u, 0)} €`;
+const money = (u: number) => `${eur(u, 0)}\u00a0€`;
 const dt = (d: string) => shortDate(`${d}T12:00:00`);
 /** «Volkswagen Golf VI 2012» (a marca é opcional). */
 const full = (c: Pick<SalvageCar, 'name' | 'brand'>) => (c.brand ? `${c.brand} ${c.name}` : c.name);
 const tone = (v: number | null) => (v === null || Math.abs(v) < 1e-9 ? '' : v > 0 ? 'pos' : 'neg');
+// Humor de oficina (o Rodrigo e o Pedro são amigos): uma frase escolhida pelo dia, para não mudar a cada toque.
+const pick = (list: string[], seed = '') => { let h = 0; for (const ch of todayStr() + seed) h = (h * 31 + ch.charCodeAt(0)) | 0; return list[Math.abs(h) % list.length]; };
+/** Uma frase curta sobre como está a correr o carro. */
+function quip(x: ReturnType<typeof carNumbers>, c: SalvageCar, partner: string) {
+  if (x.roi !== null) {
+    if (x.roi >= 0.5) return pick(['Negócio de mestre. Alguém paga o jantar.', `Isto já dá para um polo com o nome do ${partner}.`, 'Comprar barato, vender caro. A teoria funciona.'], c.id);
+    if (x.roi >= 0.15) return pick(['Bom negócio. Brinda-se com bifanas.', `O ${partner} merece pelo menos um café.`, 'Lucro honesto, mãos sujas.'], c.id);
+    if (x.roi >= 0) return pick(['Ficou ela por ela. Ao menos divertiram-se.', 'Lucro tímido. Mas é lucro.'], c.id);
+    return pick(['Este ensinou mais do que rendeu.', 'Prejuízo com estilo. Fica a história.', 'Um carro destes não se esquece. Infelizmente.'], c.id);
+  }
+  if (x.days > 120) return pick(['Já faz parte da mobília da oficina.', `Já tem nome próprio. Pergunta ao ${partner}.`], c.id);
+  if (x.hours >= 20) return pick([`${x.hours.toLocaleString('pt-PT')} horas. O ${partner} já sonha com este carro.`, 'As horas sobem. A paciência desce.'], c.id);
+  if (!c.logs.length) return pick(['Acabado de chegar. Ainda cheira a negócio.', 'Página em branco. Que comece a obra.'], c.id);
+  return pick(['Em obras. Café a correr.', `Nas mãos do ${partner}. Boas mãos, garante ele.`, 'Mais uma peça e fica como novo. Diz-se sempre.'], c.id);
+}
 const sign = (u: number) => `${u >= 0 ? '+' : '−'}${eur(Math.abs(u), 0)} €`;
 
 /** Os carros e a ligação do mecânico (do dono). */
@@ -66,7 +81,7 @@ export function Salvage() {
         {t.open > 0 && <span className="pill">{money(t.invested)} teus em {t.open} {t.open === 1 ? 'carro' : 'carros'} por vender</span>}
       </section>
       <Account owe={t.owe} partner={partner} />
-      {!cars.length ? <p className="s">Ainda sem carros. Carrega em «+ Carro».</p> : (
+      {!cars.length ? <p className="s">A garagem está vazia e triste. Carrega em «+ Carro».</p> : (
         <div className="salv-list">{cars.map((c) => {
           const x = carNumbers(c, today);
           return (
@@ -99,7 +114,8 @@ function Account({ owe, partner, big }: { owe: number; partner: string; big?: bo
   return (
     <section className={`tile salv-acc${big ? ' big' : ''}`} aria-label="Conta corrente">
       <span className="s">Conta corrente com o {partner}</span>
-      <p className="l">{even ? 'Estão quites.' : owe > 0 ? `Deves ${money(owe)} ao ${partner}` : `O ${partner} deve-te ${money(-owe)}`}</p>
+      <p className="l">{even ? 'Estão quites.' : owe > 0 ? `O ${partner} adiantou mais ${money(owe)}` : `Adiantaste mais ${money(-owe)}`}</p>
+      <span className="s">{even ? pick(['A amizade agradece.', 'Contas certas, amizade longa.']) : owe > 0 ? pick([`Transfere antes que ele cobre juros em bifanas.`, `Ele lembra-se de cada cêntimo.`, `O ${partner} está a ser simpático. Por enquanto.`]) : pick([`O ${partner} paga os cafés até acertar.`, 'Ficas com crédito na oficina.'])}</span>
     </section>
   );
 }
@@ -149,6 +165,7 @@ export function SalvageCarScreen() {
           {x.cost > 0 && <span className="pos"><b>{money(Math.round(x.cost * 1.2))}</b> para +20%</span>}
         </>}
       </div>
+      <p className="salv-quip">{quip(x, c, partner)}</p>
       <Account owe={x.owe} partner={partner} big />
       {/* Numa linha, de onde vêm os custos: tocar na compra divide-a. */}
       <div className="salv-strip" role="group" aria-label="Custos">
@@ -178,7 +195,7 @@ export function SalvageCarScreen() {
 }
 
 function Logs({ logs, partner, onDelete }: { logs: SalvageLog[]; partner: string; onDelete?: (l: SalvageLog) => void }) {
-  if (!logs.length) return <p className="s">Ainda sem peças nem horas.</p>;
+  if (!logs.length) return <p className="s">Ainda sem peças nem horas. Está tudo a beber café.</p>;
   return (
     <div className="tile card rows">{logs.map((l) => (
       <div key={l.id}>
@@ -212,7 +229,7 @@ function LogSheet({ onSave, ownerSide, partner, kind: k0 }: { onSave: (l: NewLog
     const d = kind === 'transfer' ? on : kind === 'hours' && day === 'ontem' ? addDays(todayStr(), -1) : todayStr();
     const r = await onSave({ kind, amount: a, hours: kind === 'hours' ? hrs : null, note: note.trim() || null, paid_by: kind === 'hours' ? 'partner' : paid, on_date: d });
     if (r) return setErr(r);
-    close(); toast(kind === 'part' ? `${note.trim()}: ${eur(toU(a!))} €` : kind === 'transfer' ? `Transferência: ${eur(toU(a!))} €` : `${hrs} h registadas`, { ok: true });
+    close(); toast(kind === 'part' ? `${note.trim()}: ${eur(toU(a!))} €. ${pick(['Mais uma.', 'Peça a peça.', 'A conta cresce.'])}` : kind === 'transfer' ? `Transferência: ${eur(toU(a!))} €. ${pick(['A amizade agradece.', 'Contas em dia, amigos para sempre.'])}` : `${hrs} h registadas. ${pick(['Mãos de ouro.', 'Suor contabilizado.', 'Isto não se faz sozinho.'])}`, { ok: true });
   }
   const chip = (on: boolean, t: string, f: () => void) => <button type="button" key={t} className="press" aria-pressed={on} onClick={f}>{t}</button>;
   return (
@@ -252,7 +269,7 @@ function CarSheet({ onDone, rate, partner }: { onDone: () => void; rate: number 
     const me = split === 'half' ? null : split === 'me' ? p : '0';
     const { error } = await supabase.from('salvage_cars').insert({ name: name.trim().slice(0, 60), brand: brand.trim().slice(0, 30) || null, plate: plateOf(plate), price: p, price_me: me, price_paid_by: split === 'partner' ? 'partner' : 'me', hour_rate: rate, bought_on: on });
     if (error) return setErr(error.message);
-    onDone(); close(); toast(`${full({ name: name.trim(), brand: brand.trim() })}: na oficina.`, { ok: true });
+    onDone(); close(); toast(`${full({ name: name.trim(), brand: brand.trim() })}: na oficina. Que comece a aventura.`, { ok: true });
   }
   const chip = (on: boolean, t: string, f: () => void) => <button type="button" key={t} className="press" aria-pressed={on} onClick={f}>{t}</button>;
   return (
@@ -373,7 +390,7 @@ function SellSheet({ car, onDone }: { car: SalvageCar; onDone: () => void }) {
     if (!a) return setErr('Por quanto foi vendido?');
     const { error } = await supabase.from('salvage_cars').update({ status: 'sold', sold_for: a, sold_on: on < car.bought_on ? car.bought_on : on, sale_to: to }).eq('id', car.id);
     if (error) return setErr(error.message);
-    onDone(); close(); toast(`${full(car)}: vendido.`, { ok: true });
+    onDone(); close(); toast(`${full(car)}: vendido. Hoje há jantar.`, { ok: true });
   }
   return (
     <form onSubmit={save} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -444,7 +461,8 @@ export function SalvageLinkPage() {
     <div className="salv-page">
       <div className="salv-head"><span className="side-tok"><Face h={18} /></span><span className="s">Salvados</span></div>
       <p className="l hello">Olá, {v.partner}.</p>
-      {!live.length ? <p className="s">Não há carros na oficina.</p> : <>
+      <p className="s">{pick(['Hoje é chave inglesa ou chave de fendas?', 'Regista tudo, que o Rodrigo é contabilista de bancada.', 'Cada hora conta. Literalmente.', 'O café não se regista. Ainda.'])}</p>
+      {!live.length ? <p className="s">Não há carros na oficina. Férias?</p> : <>
         <div className="chips wrap" role="group" aria-label="Carro">{live.map((c) => <button key={c.id} type="button" className="press" aria-pressed={car?.id === c.id} onClick={() => setSel(c.id)}>{full(c)}{c.plate ? ` · ${c.plate}` : ''}</button>)}</div>
         {x && <div className="salv-grid">
           <span className="tile"><span className="s">Horas</span><b>{x.hours.toLocaleString('pt-PT')} h</b></span>
