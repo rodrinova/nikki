@@ -168,7 +168,7 @@ function Shell() {
     <HouseProvider>
       <HousePull />
       {onHub && <TopBar />}
-      <div className={`app${pathname === '/' ? ' is-hub' : ''}`}><main className={`screen enter ${dir}`} key={pathname}>
+      <div className={`app${pathname === '/' ? ' is-hub' : ''}`}><main className={`screen enter pg-${dir}`} key={pathname}>
         <Suspense fallback={<Loading label="A abrir" />}>
         <Routes>
           <Route path="/" element={<Hub />} />

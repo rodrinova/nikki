@@ -1279,14 +1279,14 @@ details.hint > p{margin-top:8px;animation:in 260ms var(--ease-out) both}
 
 /* ═════════════════ Transições entre páginas (leves: só transform e opacity) ═════════════════ */
 .screen.enter{animation:page-fade 260ms var(--ease-out) backwards}
-.screen.enter.fwd{animation:page-fwd 340ms var(--ease-drawer) backwards}
-.screen.enter.back{animation:page-back 300ms var(--ease-drawer) backwards}
+.screen.enter.pg-fwd{animation:page-fwd 340ms var(--ease-drawer) backwards}
+.screen.enter.pg-back{animation:page-back 300ms var(--ease-drawer) backwards}
 /* Ao entrar de lado, a página move-se inteira (sem a cascata dos filhos, para não somar movimentos). */
-.screen.enter.fwd > *,.screen.enter.back > *,.screen.enter.fwd .hub-a > *,.screen.enter.fwd .hub-b > *,.screen.enter.back .hub-a > *,.screen.enter.back .hub-b > *{animation:none}
+.screen.enter.pg-fwd > *,.screen.enter.pg-back > *,.screen.enter.pg-fwd .hub-a > *,.screen.enter.pg-fwd .hub-b > *,.screen.enter.pg-back .hub-a > *,.screen.enter.pg-back .hub-b > *{animation:none}
 @keyframes page-fade{from{opacity:0;transform:translateY(6px)}}
 @keyframes page-fwd{from{opacity:0;transform:translateX(32px)}}
 @keyframes page-back{from{opacity:0;transform:translateX(-32px)}}
-@media (prefers-reduced-motion: reduce){.screen.enter,.screen.enter.fwd,.screen.enter.back{animation:page-fade 1ms both}}
+@media (prefers-reduced-motion: reduce){.screen.enter,.screen.enter.pg-fwd,.screen.enter.pg-back{animation:page-fade 1ms both}}
 
 /* O cabeçalho do Início fica no topo (top: 0) e é ele que reserva a zona do relógio/notch: assim, com o scroll todo
    para cima, nada da página fica escondido por baixo dele (com top = a altura do notch, a 1.ª linha ficava tapada). */
@@ -1420,3 +1420,12 @@ body::before{content:"";position:fixed;left:0;right:0;top:0;height:env(safe-area
 .sug-row .st2{flex:1;min-width:0}
 .sug-btns{display:flex;gap:6px;flex-shrink:0}
 .sug-btns .tb.on{background:var(--ink);color:var(--ground);border-color:var(--ink)}
+
+/* Largura certa, sempre: a página ocupa a largura toda. (Ao voltar atrás, a página tinha a classe «back», a mesma do
+   botão «Voltar», e ficava com a largura do conteúdo; a direção passou a pg-fwd / pg-back / pg-fade.) As páginas
+   entram só a aparecer. */
+.app{width:100%;box-sizing:border-box}
+.app > .screen,.hub,.hub-a,.hub-b{width:100%;box-sizing:border-box}
+@keyframes page-fwd{from{opacity:0}}
+@keyframes page-back{from{opacity:0}}
+@keyframes page-fade{from{opacity:0}}
