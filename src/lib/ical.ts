@@ -13,6 +13,8 @@ export interface IcsEvent {
   month_mode?: 'day' | 'nth';
   until_on?: string | null;
   skip_dates?: string[] | null;
+  /** UID de um evento que nasceu no iPhone (fica o dele, para o iPhone o reconhecer); senão, «<id>@nikki». */
+  ext_uid?: string | null;
 }
 
 const BYDAY = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'];
@@ -78,7 +80,7 @@ export function buildIcs(name: string, events: IcsEvent[], now = new Date()): st
   const L = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//NIKKI//Agenda//PT', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
     `X-WR-CALNAME:${esc(name)}`, 'X-WR-TIMEZONE:Europe/Lisbon', 'REFRESH-INTERVAL;VALUE=DURATION:PT1H', 'X-PUBLISHED-TTL:PT1H', ...VTIMEZONE];
   for (const e of events) {
-    L.push('BEGIN:VEVENT', `UID:${e.id}@nikki`, `DTSTAMP:${utc(now)}`, `SUMMARY:${esc(e.title)}`);
+    L.push('BEGIN:VEVENT', `UID:${e.ext_uid || `${e.id}@nikki`}`, `DTSTAMP:${utc(now)}`, `SUMMARY:${esc(e.title)}`);
     if (e.all_day) {
       const d = lisbonDay(e.starts_at), end = e.ends_at ? nextDay(lisbonDay(e.ends_at)) : nextDay(d);
       L.push(`DTSTART;VALUE=DATE:${ymd(d)}`, `DTEND;VALUE=DATE:${ymd(end)}`);

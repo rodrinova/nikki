@@ -43,6 +43,8 @@ export function openPlace(place: string) {
  */
 export function AgendaPane({ defaultOpen = false }: { defaultOpen?: boolean }) {
   const today = todayStr();
+  const { house: h } = useSession();
+  useEffect(() => { if (h) pullFromPhones(h.id); }, [h]);
   // Aberta no mês inteiro por omissão; fica como a pessoa a deixou da última vez.
   const [open, setOpen] = useState(() => { const v = store.get('nikki_agenda_open'); return v === null ? defaultOpen : v === '1'; });
   const [sel, setSel] = useState(today);
@@ -237,6 +239,37 @@ export function pushToPhones(household: string, event_id: string) {
   supabase.functions.invoke('calendar-sync', { body: { household, event_id } }).catch(() => { /* fica para a próxima */ });
 }
 
+/** Do iPhone para a NIKKI: ao abrir a agenda, traz o que mudou no calendário «NIKKI» do iCloud (no máximo de 2 em 2 min). */
+let lastPull = 0;
+export function pullFromPhones(household: string) {
+  if (Date.now() - lastPull < 120_000) return;
+  lastPull = Date.now();
+  supabase.functions.invoke('calendar-pull', { body: { household } }).catch(() => { /* o servidor volta a tentar de 15 em 15 min */ });
+}
+
+/** Um evento criado no iPhone: de quem é? Até escolher, fica «só para mim». */
+export function AskShareSheet({ ev }: { ev: EventRow }) {
+  const { house, me, partner } = useSession();
+  const { close, toast } = useOverlays();
+  async function pick(kind: 'mine' | 'house' | 'private') {
+    const row = kind === 'house' ? { owner_id: null, private: false } : kind === 'mine' ? { owner_id: me!.id, private: false } : { owner_id: me!.id, private: true };
+    const { error } = await supabase.from('events').update({ ...row, ask_share: false }).eq('id', ev.id);
+    if (error) return toast(error.message);
+    pushToPhones(house!.id, ev.id);
+    close(); toast(kind === 'house' ? 'Da casa.' : kind === 'mine' ? 'Teu.' : 'Só para ti.', { ok: true });
+  }
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <p className="l">{ev.title}</p>
+      <p className="s">Criado no iPhone. De quem é?</p>
+      <button className="btn wide press" onClick={() => pick('mine')}>Meu <Icon n="arrow" s={20} /></button>
+      {partner && <button className="btn quiet wide press" onClick={() => pick('house')}>Da casa (para os dois) <Icon n="arrow" s={20} /></button>}
+      <button className="btn quiet wide press" onClick={() => pick('private')}>Só para mim <Icon n="arrow" s={20} /></button>
+      {partner && <p className="s">Só para mim: {partner.name} vê só que tens planos.</p>}
+    </div>
+  );
+}
+
 interface LinkRow { id: string; provider: 'icloud' | 'google'; account_hint: string | null; status: 'ok' | 'error'; last_sync_at: string | null; last_error: string | null }
 
 /** No calendário do telemóvel: na hora (iCloud ou Google, a NIKKI escreve lá) ou por ligação (só leitura, sem conta). */
@@ -293,7 +326,7 @@ function PhoneSheet() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       <p className="l">No calendário do telemóvel</p>
-      <p className="s">A NIKKI escreve os eventos da casa e os teus num calendário «NIKKI». O telemóvel mostra-os em segundos, com o Waze já apontado.{partner ? ` Os de ${partner.name} não vão.` : ''}</p>
+      <p className="s">A NIKKI escreve os eventos da casa e os teus num calendário «NIKKI». O telemóvel mostra-os em segundos, com o Waze já apontado. No iPhone, o que criares ou mudares no calendário «NIKKI» também volta para cá.{partner ? ` Os de ${partner.name} não vão.` : ''}</p>
       {links === null ? <p className="s">A ver…</p> : <>
         {row('icloud') ? <Status l={row('icloud')!} name="iCloud" /> : form
           ? <form className="form" onSubmit={icloud} autoComplete="off">

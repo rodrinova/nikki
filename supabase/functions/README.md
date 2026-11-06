@@ -4,6 +4,7 @@
 |---|---|---|
 | `calendar` | O calendário da NIKKI em `.ics` (subscrever por ligação, só leitura). | `supabase functions deploy calendar --no-verify-jwt` |
 | `calendar-link` | Ligar/desligar o calendário «NIKKI» ao iCloud (palavra-passe de app) ou ao Google (entrar com o Google). | `supabase functions deploy calendar-link --no-verify-jwt` |
+| `calendar-pull` | Do iPhone para a NIKKI: lê o calendário «NIKKI» do iCloud (novos, mudados, apagados). pg_cron de 15 em 15 min (com `x-cron-secret`) e a app ao abrir a agenda. | junto num ficheiro, sem verificação de JWT |
 | `calendar-sync` | Na hora: a app chama-a depois de guardar ou apagar um evento; escreve no iCloud/Google de quem o deve ver. | `supabase functions deploy calendar-sync` |
 
 ## Segredos (uma vez)
