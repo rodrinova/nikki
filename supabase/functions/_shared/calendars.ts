@@ -5,6 +5,7 @@ import {
   CALDAV_ROOT, MKCALENDAR, PROPFIND_HOME, PROPFIND_PRINCIPAL, absolute, caldavBody, caldavPath, googleEvent, googleId, hrefIn,
   open, seal, visibleTo, type SyncEvent,
 } from '../../../src/lib/calsync.ts';
+import { REPORT_ALL, changes, nikkiId, parseEvent, parseMultistatus } from '../../../src/lib/icspull.ts';
 
 export const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { db: { schema: 'nikki' }, auth: { persistSession: false } });
 // A chave que encripta os acessos guardados (32 bytes em base64): o segredo CALENDAR_KEY, se existir; senão, a da
@@ -81,9 +82,14 @@ export async function syncOne(link: Link, e: SyncEvent | null, eventId: string, 
   const show = e !== null && visibleTo(e, link.profile_id);
   if (link.provider === 'icloud') {
     const { u, p } = JSON.parse(secret) as { u: string; p: string };
-    const url = caldavPath(link.calendar_ref, eventId), auth = basic(u, p);
+    // O endereço onde está no iCloud: o que ficou registado (os que nasceram no iPhone têm o nome que o iPhone deu).
+    const { data: seen } = await admin.from('calendar_seen').select('href').eq('link_id', link.id).eq('event_id', eventId).maybeSingle();
+    const url = seen?.href ? absolute(seen.href, link.calendar_ref) : caldavPath(link.calendar_ref, eventId), auth = basic(u, p);
     const r = show ? await dav(url, 'PUT', auth, caldavBody(e!), '0', 'text/calendar; charset=utf-8') : await dav(url, 'DELETE', auth);
     if (!r.ok && !(r.status === 404 && !show)) throw new Error(`iCloud ${r.status}`);
+    // Fica registado o que lá está (e a etag), para a volta saber o que mudou no iPhone.
+    if (show) await admin.from('calendar_seen').upsert({ link_id: link.id, event_id: eventId, href: new URL(url).pathname, etag: r.headers.get('etag') }, { onConflict: 'link_id,event_id' });
+    else await admin.from('calendar_seen').delete().eq('link_id', link.id).eq('event_id', eventId);
     return;
   }
   const token = cache.get(link.id) ?? (await googleToken(secret));
@@ -96,7 +102,7 @@ export async function syncOne(link: Link, e: SyncEvent | null, eventId: string, 
   if (!r.ok) throw new Error(`Google ${r.status}`);
 }
 
-const COLS = 'id, title, starts_at, ends_at, all_day, location, repeat, weekdays, month_mode, until_on, skip_dates, owner_id, private, created_by';
+export const COLS = 'id, household_id, title, starts_at, ends_at, all_day, location, repeat, weekdays, month_mode, until_on, skip_dates, owner_id, private, created_by, ext_uid';
 
 /** Sincroniza um evento (ou todos, sem eventId) para as ligações de uma casa (ou só uma ligação). */
 export async function syncHousehold(household: string, eventId?: string, onlyLink?: string) {
@@ -121,3 +127,85 @@ export async function syncHousehold(household: string, eventId?: string, onlyLin
 }
 
 export { seal };
+
+// ───────────── do iPhone para a NIKKI ─────────────
+
+/**
+ * Lê o calendário «NIKKI» do iCloud de uma ligação e traz para a NIKKI o que lá mudou:
+ * - eventos novos (criados no iPhone): entram como «só para mim» de quem os criou, e a NIKKI pergunta de quem são;
+ * - eventos mudados no iPhone (a etag mudou): a NIKKI fica com a versão do iPhone;
+ * - eventos apagados no iPhone: saem da NIKKI (e dos calendários dos outros);
+ * - eventos da NIKKI que ainda não estão lá (ou que lá ficaram depois de apagados na NIKKI): acerta-os.
+ */
+export async function pullLink(link: Link) {
+  const { u, p } = JSON.parse(await open(link.secret_enc, await calKey())) as { u: string; p: string };
+  const auth = basic(u, p);
+  const r = await dav(link.calendar_ref, 'REPORT', auth, REPORT_ALL, '1');
+  if (r.status !== 207) throw new Error(`iCloud ${r.status}`);
+  const items = parseMultistatus(await r.text());
+  const [{ data: evs }, { data: seenRows }] = await Promise.all([
+    admin.from('events').select(COLS).eq('household_id', link.household_id),
+    admin.from('calendar_seen').select('event_id, href, etag').eq('link_id', link.id),
+  ]);
+  const events = (evs ?? []) as (SyncEvent & { household_id: string; ext_uid: string | null })[];
+  const seen = new Map((seenRows ?? []).map((s) => [s.event_id as string, s as { event_id: string; href: string; etag: string | null }]));
+  const byHref = new Map((seenRows ?? []).map((s) => [s.href as string, s.event_id as string]));
+  const path = (h: string) => new URL(h, link.calendar_ref).pathname;
+  const there = new Set<string>(), stats = { new: 0, changed: 0, removed: 0, pushed: 0 };
+  const touched: string[] = [];
+  for (const it of items) {
+    const pe = parseEvent(it.ics);
+    if (!pe) continue;
+    const href = path(it.href);
+    const id = byHref.get(href) ?? nikkiId(pe.uid) ?? events.find((e) => e.ext_uid === pe.uid)?.id ?? null;
+    const ev = id ? events.find((e) => e.id === id) : undefined;
+    if (ev && visibleTo(ev, link.profile_id)) {
+      there.add(ev.id);
+      const s = seen.get(ev.id);
+      if (s && s.etag && it.etag && s.etag === it.etag) continue; // igual ao que a NIKKI lá pôs
+      const diff = changes(ev as unknown as Record<string, unknown>, pe);
+      if (Object.keys(diff).length) { await admin.from('events').update(diff).eq('id', ev.id); stats.changed++; touched.push(ev.id); }
+      await admin.from('calendar_seen').upsert({ link_id: link.id, event_id: ev.id, href, etag: it.etag }, { onConflict: 'link_id,event_id' });
+    } else if (nikkiId(pe.uid) || ev) {
+      // Já não existe na NIKKI (ou já não é para esta pessoa): sai do iPhone.
+      await dav(absolute(it.href, link.calendar_ref), 'DELETE', auth);
+      if (id) await admin.from('calendar_seen').delete().eq('link_id', link.id).eq('event_id', id);
+    } else {
+      // Novo, criado no iPhone: fica «só para mim» de quem o criou até escolher de quem é.
+      const { data: row } = await admin.from('events').insert({
+        household_id: link.household_id, created_by: link.profile_id, owner_id: link.profile_id, private: true, ask_share: true, kind: 'event', ext_uid: pe.uid,
+        title: pe.title, starts_at: pe.starts_at, ends_at: pe.ends_at, all_day: pe.all_day, location: pe.location,
+        repeat: pe.repeat, weekdays: pe.weekdays, month_mode: pe.month_mode, until_on: pe.until_on, skip_dates: pe.skip_dates,
+      }).select('id').single();
+      if (row) { await admin.from('calendar_seen').insert({ link_id: link.id, event_id: row.id, href, etag: it.etag }); there.add(row.id); stats.new++; }
+    }
+  }
+  // O que estava lá e desapareceu: apagado no iPhone. Por cautela, uma resposta vazia não apaga nada.
+  if (items.length) for (const s of seen.values()) if (!there.has(s.event_id) && events.some((e) => e.id === s.event_id && visibleTo(e, link.profile_id))) {
+    await admin.from('calendar_seen').delete().eq('link_id', link.id).eq('event_id', s.event_id); // os dos outros ficam: o syncHousehold usa-os para tirar lá
+    await admin.from('events').delete().eq('id', s.event_id);
+    stats.removed++; touched.push(s.event_id);
+  }
+  await admin.from('calendar_links').update({ status: 'ok', last_error: null, last_sync_at: new Date().toISOString() }).eq('id', link.id);
+  // O que mudou no iPhone de uma pessoa vai também para os calendários dos outros da casa.
+  for (const id of touched) await syncHousehold(link.household_id, id);
+  // O que é para esta pessoa e ainda não está no iPhone dela (ligação nova, ou um envio que falhou).
+  const cache = new Map<string, string>();
+  for (const e of events) if (visibleTo(e, link.profile_id) && !there.has(e.id) && !touched.includes(e.id)) { await syncOne(link, e, e.id, cache); stats.pushed++; }
+  return stats;
+}
+
+/** Traz o que mudou no iPhone de todas as ligações ao iCloud (de uma casa, ou de todas). */
+export async function pullAll(household?: string) {
+  let q = admin.from('calendar_links').select('id, profile_id, household_id, provider, calendar_ref, secret_enc').eq('provider', 'icloud');
+  if (household) q = q.eq('household_id', household);
+  const { data: links } = await q;
+  const out: Record<string, unknown> = {};
+  for (const l of (links ?? []) as Link[]) {
+    try { out[l.id] = await pullLink(l); } catch (err) {
+      await admin.from('calendar_links').update({ status: 'error', last_error: String((err as Error).message).slice(0, 200) }).eq('id', l.id);
+      out[l.id] = { error: (err as Error).message };
+    }
+  }
+  return out;
+}

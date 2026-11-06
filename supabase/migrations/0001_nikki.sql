@@ -1880,3 +1880,30 @@ create table if not exists nikki.calendar_config (
 alter table nikki.calendar_config enable row level security;
 grant all on nikki.calendar_config to service_role;
 insert into nikki.calendar_config (id) values (true) on conflict (id) do nothing;
+
+-- ───────────────────────── calendário nos dois sentidos ─────────────────────────
+-- Eventos criados no iPhone (calendário «NIKKI»): guardam o UID do iPhone e ficam «só para mim» até a pessoa escolher
+-- de quem são (ask_share). calendar_seen: o que está em cada iCloud (endereço e etag), para saber o que lá mudou.
+alter table nikki.events add column if not exists ext_uid text check (length(ext_uid) <= 300);
+alter table nikki.events add column if not exists ask_share boolean not null default false;
+create index if not exists events_ext_uid on nikki.events (household_id, ext_uid) where ext_uid is not null;
+create table if not exists nikki.calendar_seen (
+  link_id uuid not null references nikki.calendar_links (id) on delete cascade,
+  event_id uuid not null,
+  href text not null,
+  etag text,
+  primary key (link_id, event_id)
+);
+alter table nikki.calendar_seen enable row level security;
+grant all on nikki.calendar_seen to service_role;
+do $do$ begin
+  if exists (select 1 from pg_extension where extname = 'pg_cron') then
+    perform cron.unschedule('nikki-calendar-pull') where exists (select 1 from cron.job where jobname = 'nikki-calendar-pull');
+    perform cron.schedule('nikki-calendar-pull', '*/15 * * * *', $cron$
+      select net.http_post(
+        url := 'https://imbflvhufvvjcfetljsd.supabase.co/functions/v1/calendar-pull',
+        headers := jsonb_build_object('content-type', 'application/json', 'x-cron-secret', (select cron_secret from nikki.push_config where id)),
+        body := '{}'::jsonb);
+    $cron$);
+  end if;
+end $do$;

@@ -29,7 +29,7 @@ export interface WarrantyRow { id: string; home_id: string | null; item: string;
 export interface HomeRow { id: string; household_id: string; name: string; tenure: 'propria' | 'credito' | 'arrendada' | null; imi: string | null; archived: boolean; updated_at: string; track_usage?: boolean }
 export interface BillRow extends Bill { owner_id: string | null; home_id: string | null; created_at: string }
 export interface CarRow { id: string; owner_id: string | null; name: string; plate: string | null; annual_insurance: number | string; annual_tax: number | string; annual_other: number | string; archived: boolean; created_at: string; registered_on: string | null; insurer: string | null; insurance_renews_on: string | null; tank_litres: number | string | null; energy: 'combustao' | 'eletrico' }
-export interface EventRow { id: string; title: string; starts_at: string; ends_at: string | null; all_day: boolean; owner_id: string | null; private: boolean; created_by: string; location: string | null; kind: 'event' | 'birthday'; repeat: Repeat; weekdays: number[] | null; month_mode: 'day' | 'nth'; until_on: string | null; skip_dates: string[] | null; remind_days: number | null }
+export interface EventRow { id: string; title: string; starts_at: string; ends_at: string | null; all_day: boolean; owner_id: string | null; private: boolean; created_by: string; location: string | null; kind: 'event' | 'birthday'; repeat: Repeat; weekdays: number[] | null; month_mode: 'day' | 'nth'; until_on: string | null; skip_dates: string[] | null; remind_days: number | null; ask_share?: boolean }
 export interface AssetRow { id: string; owner_id: string | null; name: string; kind: string; expected_return: number | string; role: 'emergency' | 'cushion' | null; archived: boolean; created_at: string }
 export interface SnapshotRow { asset_id: string; on_date: string; value: number | string; created_at: string }
 export interface IncomeRow { id: string; profile_id: string; kind: 'salario' | 'alimentacao' | 'complemento' | 'outro'; label: string | null; amount: number | string | null; times_per_year: number; mode: 'fixed' | 'log' }
@@ -145,7 +145,7 @@ function useHouseData() {
     openings: useLive<OpeningRow>('ledger_openings', h, 'profile_a, profile_b, cutover, amount_a'),
     shop: useLive<ShopItem>('shopping_items', h, 'id, name, aisle, done, done_by, created_by, created_at', { column: 'created_at' }),
     deadlines: useLive<DeadlineRow>('deadlines', h, 'id, title, due_on, amount, paid_at, recurrence, car_id, bill_id, home_id, kind, remind_days', { column: 'due_on' }),
-    events: useLive<EventRow>('events', h, 'id, title, starts_at, ends_at, all_day, owner_id, private, created_by, location, kind, repeat, weekdays, month_mode, until_on, skip_dates, remind_days', { column: 'starts_at' }),
+    events: useLive<EventRow>('events', h, 'id, title, starts_at, ends_at, all_day, owner_id, private, created_by, location, kind, repeat, weekdays, month_mode, until_on, skip_dates, remind_days, ask_share', { column: 'starts_at' }),
     goals: useLive<GoalRow>('goals', h, 'id, owner_id, title, metric, target, start_value, due_on, status, created_by, created_at', { column: 'created_at' }),
     assets: useLive<AssetRow>('assets', ph, 'id, owner_id, name, kind, expected_return, role, archived, created_at', { column: 'created_at' }),
     snapshots: useLive<SnapshotRow>('asset_snapshots', ph, 'asset_id, on_date, value, created_at', { column: 'on_date' }),

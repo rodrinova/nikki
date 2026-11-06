@@ -24,7 +24,7 @@ import { seenKey, useAskHk, useHkPay, usePaid } from './Housekeeping';
 import { isVisitDay, nextVisit, payDue } from '@/lib/hk';
 import { fmt, nextCheck, summary } from '@/lib/gym';
 import { useAgendaItems } from '@/data/agenda';
-import { AgendaPane } from './Agenda';
+import { AgendaPane, AskShareSheet } from './Agenda';
 import { warrantyState } from '@/lib/chores';
 import { CountUp } from '@/ui/CountUp';
 import { totals as salvageTotals } from '@/lib/salvage';
@@ -100,7 +100,7 @@ type Need = NowItem & { act?: { label: string; run: () => void }; tick?: () => P
 
 function Now() {
   const { partner, me, house } = useSession();
-  const { deadlines, on, chores, warranties, hk, hkMessages, cars, todos, gym } = useHouse();
+  const { deadlines, on, chores, warranties, hk, hkMessages, cars, todos, gym, events } = useHouse();
   const { open } = useOverlays();
   const casa = useCasa();
   const tickIt = useTick();
@@ -126,6 +126,9 @@ function Now() {
       ...('act' in ha ? { act: ha.act } : {}),
     });
   }
+  // Eventos criados no iPhone (calendário «NIKKI»): de quem são? Até escolher, ficam «só para mim».
+  for (const ev of events.rows.filter((x) => x.ask_share && x.created_by === me?.id))
+    items.push({ key: `ask:${ev.id}`, rank: 0.9, t: `Do iPhone: ${ev.title}`, s: 'De quem é? Até escolheres, fica só para ti.', act: { label: 'Escolher', run: () => open(<AskShareSheet ev={ev} />) } });
   // Prazos: com a antecedência de cada um (IUC, IMI, seguros e contratos: um mês; o resto: uma semana).
   for (const d of deadlines.rows.filter((x) => !x.paid_at && (on('casa') || (x.car_id && on('garagem'))) && x.due_on <= addDays(today, x.remind_days ?? 7))) {
     const to = d.car_id ? `/garagem/${d.car_id}` : on('casa') ? '/casa/prazos' : undefined, near = d.due_on <= addDays(today, 2);
