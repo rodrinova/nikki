@@ -1869,3 +1869,14 @@ begin
   return i;
 end $$;
 grant execute on function nikki.short_code(int), nikki.salvage_link_do(text, text, jsonb) to anon, authenticated;
+
+-- ───────────────────────── calendário: a chave dos acessos guardados ─────────────────────────
+-- A chave que encripta as palavras-passe de app (iCloud) e os acessos do Google fica aqui, criada sozinha, em vez de
+-- um segredo posto à mão nas funções. Com RLS e sem regras, só a chave de serviço (as funções) a lê.
+create table if not exists nikki.calendar_config (
+  id boolean primary key default true check (id),
+  key text not null default encode(extensions.gen_random_bytes(32), 'base64')
+);
+alter table nikki.calendar_config enable row level security;
+grant all on nikki.calendar_config to service_role;
+insert into nikki.calendar_config (id) values (true) on conflict (id) do nothing;

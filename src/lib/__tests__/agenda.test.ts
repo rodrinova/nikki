@@ -68,7 +68,7 @@ describe('calendário para o iPhone (.ics)', () => {
     expect(rrule({ id: 'd', title: '', starts_at: '2026-01-02T20:00:00Z', ends_at: null, all_day: false, repeat: 'monthly', month_mode: 'nth', until_on: '2026-12-31' })).toBe('FREQ=MONTHLY;BYDAY=1FR;UNTIL=20261231T235959Z');
   });
   it('escapa e dobra linhas', () => {
-    expect(esc('a;b,c\\d\ne')).toBe('a\;b\\,c\\\\d\\ne');
+    expect(esc('a;b,c\\d\ne')).toBe('a\\;b\\,c\\\\d\\ne');
     expect(fold('X'.repeat(160)).split('\r\n ').length).toBe(3);
   });
 });

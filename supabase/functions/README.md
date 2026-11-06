@@ -8,8 +8,9 @@
 
 ## Segredos (uma vez)
 
+A chave que encripta os acessos guardados fica em `nikki.calendar_config` (criada pela migração; só a chave de serviço a lê). Publicar juntando cada função num só ficheiro (como a `push`), porque importam `src/lib/*.ts`.
+
 ```
-supabase secrets set CALENDAR_KEY=$(openssl rand -base64 32)   # encripta os acessos guardados
 supabase secrets set APP_URL=https://<endereço da app>           # para onde volta depois do Google
 supabase secrets set GOOGLE_CLIENT_ID=… GOOGLE_CLIENT_SECRET=…   # só para o Google
 ```
