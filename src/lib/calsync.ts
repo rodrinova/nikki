@@ -20,6 +20,22 @@ export const PROPFIND_HOME = '<?xml version="1.0" encoding="utf-8"?><d:propfind 
 /** Criar o calendário «NIKKI» (só eventos). */
 export const MKCALENDAR = '<?xml version="1.0" encoding="utf-8"?><c:mkcalendar xmlns:d="DAV:" xmlns:c="urn:ietf:params:xml:ns:caldav" xmlns:a="http://apple.com/ns/ical/"><d:set><d:prop><d:displayname>NIKKI</d:displayname><a:calendar-color>#E8600AFF</a:calendar-color><c:supported-calendar-component-set><c:comp name="VEVENT"/></c:supported-calendar-component-set></d:prop></d:set></c:mkcalendar>';
 
+/** Criar o calendário só com o nome e o tipo (o iCloud recusa às vezes propriedades a mais). */
+export const MKCALENDAR_MIN = '<?xml version="1.0" encoding="utf-8"?><c:mkcalendar xmlns:d="DAV:" xmlns:c="urn:ietf:params:xml:ns:caldav"><d:set><d:prop><d:displayname>NIKKI</d:displayname><c:supported-calendar-component-set><c:comp name="VEVENT"/></c:supported-calendar-component-set></d:prop></d:set></c:mkcalendar>';
+/** Os calendários de uma conta (nome e tipo), para reaproveitar um «NIKKI» que já exista. */
+export const PROPFIND_CALS = '<?xml version="1.0" encoding="utf-8"?><d:propfind xmlns:d="DAV:"><d:prop><d:displayname/><d:resourcetype/></d:prop></d:propfind>';
+/** O endereço do calendário com este nome (sem distinguir maiúsculas), numa resposta PROPFIND com Depth 1. */
+export function calendarNamed(xml: string, name: string): string | null {
+  for (const m of xml.matchAll(/<(?:[\w-]+:)?response[^>]*>([\s\S]*?)<\/(?:[\w-]+:)?response>/gi)) {
+    const r = m[1];
+    const dn = r.match(/<(?:[\w-]+:)?displayname[^>]*>([^<]*)<\/(?:[\w-]+:)?displayname>/i)?.[1]?.trim();
+    const isCal = /<(?:[\w-]+:)?resourcetype[^>]*>[\s\S]*?<(?:[\w-]+:)?calendar[\s/>]/i.test(r);
+    const href = r.match(/<(?:[\w-]+:)?href[^>]*>([^<]+)<\/(?:[\w-]+:)?href>/i)?.[1]?.trim();
+    if (dn && href && isCal && dn.toLowerCase() === name.toLowerCase()) return href;
+  }
+  return null;
+}
+
 /** O primeiro href dentro de uma propriedade (ex.: current-user-principal) de uma resposta multistatus. */
 export function hrefIn(xml: string, prop: string): string | null {
   const m = xml.match(new RegExp(`<(?:[\\w-]+:)?${prop}[^>]*>\\s*<(?:[\\w-]+:)?href[^>]*>([^<]+)</(?:[\\w-]+:)?href>`, 'i'));

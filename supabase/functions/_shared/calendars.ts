@@ -2,7 +2,7 @@
 
 import { createClient } from 'npm:@supabase/supabase-js@2.118.0';
 import {
-  CALDAV_ROOT, MKCALENDAR, PROPFIND_HOME, PROPFIND_PRINCIPAL, absolute, caldavBody, caldavPath, googleEvent, googleId, hrefIn,
+  CALDAV_ROOT, MKCALENDAR, MKCALENDAR_MIN, PROPFIND_CALS, PROPFIND_HOME, calendarNamed, PROPFIND_PRINCIPAL, absolute, caldavBody, caldavPath, googleEvent, googleId, hrefIn,
   open, seal, visibleTo, type SyncEvent,
 } from '../../../src/lib/calsync.ts';
 import { REPORT_ALL, changes, nikkiId, parseEvent, parseMultistatus } from '../../../src/lib/icspull.ts';
@@ -36,8 +36,8 @@ export interface Link { id: string; profile_id: string; household_id: string; pr
 // ───────────── iCloud ─────────────
 
 const basic = (user: string, pass: string) => `Basic ${btoa(`${user}:${pass}`)}`;
-async function dav(url: string, method: string, auth: string, body?: string, depth = '0', type = 'application/xml; charset=utf-8') {
-  return fetch(url, { method, headers: { authorization: auth, depth, 'content-type': type }, body });
+async function dav(url: string, method: string, auth: string, body?: string, depth: string | null = '0', type = 'application/xml; charset=utf-8') {
+  return fetch(url, { method, headers: { authorization: auth, ...(depth === null ? {} : { depth }), 'content-type': type }, body });
 }
 
 /** Entra no iCloud com a palavra-passe de app, encontra os calendários e cria (ou reaproveita) o «NIKKI». */
@@ -52,10 +52,22 @@ export async function icloudConnect(appleId: string, appPassword: string): Promi
   const t2 = await r2.text();
   const home = hrefIn(t2, 'calendar-home-set');
   if (!home) { console.error('icloud home', r2.status, t2.slice(0, 400)); throw new Error(`Não encontrei os calendários do iCloud (${r2.status}).`); }
-  const cal = absolute(home, absolute(principal, CALDAV_ROOT)).replace(/\/?$/, '/') + 'nikki/';
-  const r3 = await dav(cal, 'MKCALENDAR', auth, MKCALENDAR);
-  if (!r3.ok && r3.status !== 405) { console.error('icloud mkcalendar', r3.status, cal, (await r3.text()).slice(0, 400)); throw new Error(`O iCloud não deixou criar o calendário (${r3.status}).`); } // 405: já existe
-  return cal;
+  const homeUrl = absolute(home, absolute(principal, CALDAV_ROOT)).replace(/\/?$/, '/');
+  // 1. Um calendário «NIKKI» que já exista (criado antes, ou à mão no iPhone).
+  const r4 = await dav(homeUrl, 'PROPFIND', auth, PROPFIND_CALS, '1');
+  const found = r4.status === 207 ? calendarNamed(await r4.text(), 'NIKKI') : null;
+  if (found) return absolute(found, homeUrl).replace(/\/?$/, '/');
+  // 2. Criá-lo: com um id como os do iCloud e só o essencial; depois com a cor; por fim com o nome «nikki».
+  const tries: [string, string][] = [[crypto.randomUUID().toUpperCase(), MKCALENDAR_MIN], [crypto.randomUUID().toUpperCase(), MKCALENDAR], ['nikki', MKCALENDAR_MIN]];
+  let last = 0;
+  for (const [name, body] of tries) {
+    const cal = `${homeUrl}${name}/`;
+    const r3 = await dav(cal, 'MKCALENDAR', auth, body, null);
+    if (r3.ok || r3.status === 405) return cal; // 405: já existe
+    last = r3.status;
+    console.error('icloud mkcalendar', r3.status, cal, (await r3.text()).slice(0, 300));
+  }
+  throw new Error(`O iCloud não deixou a NIKKI criar o calendário (${last}). No iPhone: Calendário → Calendários → Adicionar calendário → «NIKKI» (na conta iCloud), e volta a ligar aqui.`);
 }
 
 // ───────────── Google ─────────────

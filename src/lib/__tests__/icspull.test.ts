@@ -48,3 +48,14 @@ END:VCALENDAR</calendar-data></prop></propstat></response></multistatus>`;
     expect(parseEvent(r[0].ics)).toMatchObject({ uid: 'x', title: 'A & B', all_day: true, ends_at: null });
   });
 });
+
+import { calendarNamed } from '../calsync';
+describe('iCloud: reaproveitar o calendário «NIKKI»', () => {
+  it('encontra-o pelo nome, só se for calendário', () => {
+    const xml = `<multistatus xmlns="DAV:"><response><href>/1/calendars/</href><propstat><prop><displayname>NIKKI</displayname><resourcetype><collection/></resourcetype></prop></propstat></response>
+<response><href>/1/calendars/ABC-1/</href><propstat><prop><displayname>Casa</displayname><resourcetype><collection/><calendar xmlns="urn:ietf:params:xml:ns:caldav"/></resourcetype></prop></propstat></response>
+<response><href>/1/calendars/DEF-2/</href><propstat><prop><displayname>Nikki</displayname><resourcetype><collection/><calendar xmlns="urn:ietf:params:xml:ns:caldav"/></resourcetype></prop></propstat></response></multistatus>`;
+    expect(calendarNamed(xml, 'NIKKI')).toBe('/1/calendars/DEF-2/');
+    expect(calendarNamed(xml, 'Trabalho')).toBeNull();
+  });
+});
