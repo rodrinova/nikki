@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { useSession } from '@/data/session';
 import { useHouse, type CarRow, type ExpenseRow, type IncomeEntryRow } from '@/data/house';
+import { attachReceipt, readReceipt } from '@/data/receipts';
 import { KINDS, type Occasion, type OccasionKind } from '@/lib/occasions';
 import { useOverlays } from '@/ui/overlays';
 import { Icon } from '@/ui/Icon';
@@ -324,9 +325,31 @@ function EntryDetail({ x, label }: { x: IncomeEntryRow; label: string }) {
 }
 
 function ExpenseDetail({ e, label }: { e: ExpenseRow; label: string }) {
-  const { me } = useSession();
+  const { me, house } = useSession();
   const { close, toast } = useOverlays();
-  const mine = e.created_by === me?.id || e.paid_by === me?.id;
+  const { expenses, receiptItems } = useHouse();
+  const [busyR, setBusyR] = useState(false);
+  const items = receiptItems.rows.filter((r) => r.expense_id === e.id);
+  async function attach(f: File | null) {
+    if (!f || !house) return;
+    setBusyR(true);
+    const r = await attachReceipt(house.id, e, f);
+    setBusyR(false);
+    if (r.error) return toast(r.error);
+    expenses.reload(); toast('Fatura junta.', { ok: true });
+    if (r.reading) r.reading.then((why) => { toast(why ?? 'Fatura lida.', why ? undefined : { ok: true }); receiptItems.reload(); });
+  }
+  async function see() {
+    if (!e.receipt_path) return;
+    const { data } = await supabase.storage.from('receipts').createSignedUrl(e.receipt_path, 600);
+    if (data?.signedUrl) window.open(data.signedUrl, '_blank', 'noopener');
+  }
+  async function reread() {
+    setBusyR(true); const why = await readReceipt(e.id); setBusyR(false);
+    toast(why ?? 'Fatura lida.', why ? undefined : { ok: true }); receiptItems.reload();
+  }
+  const { open } = useOverlays();
+  const mine = e.created_by === me?.id || e.paid_by === me?.id || e.other_id === me?.id;
   async function del() {
     const { error } = await supabase.from('expenses').delete().eq('id', e.id);
     if (error) toast(error.message); else { close(); toast('Despesa apagada. Como se nunca tivesse existido.'); }
@@ -339,9 +362,74 @@ function ExpenseDetail({ e, label }: { e: ExpenseRow; label: string }) {
         <div><span className="k">Dia</span><span className="v">{dayLabel(e.spent_on)}</span></div>
         <div><span className="k">De quem é</span><span className="v">{label}</span></div>
         {e.note && <div><span className="k">Nota</span><span className="v">{e.note}</span></div>}
+        {e.receipt_path && <button type="button" className="press" onClick={see}><span className="k">Fatura</span><span className="v">Ver <Icon n="chev" s={16} /></span></button>}
+        {items.length > 0 && <div><span className="k">Produtos lidos</span><span className="v">{items.length}</span></div>}
       </div>
+      {items.length > 0 && <p className="s">{items.slice(0, 8).map((r) => r.product).join(', ')}{items.length > 8 ? '…' : ''}</p>}
+      <label className="rcpt-pick press" aria-busy={busyR}>
+        <input type="file" accept="image/*,application/pdf" capture="environment" hidden onChange={(ev) => attach(ev.target.files?.[0] ?? null)} />
+        <Icon n="cam" s={18} /><span>{busyR ? 'A tratar…' : e.receipt_path ? 'Trocar a fatura' : 'Juntar a fatura'}</span>
+      </label>
+      {e.receipt_path && e.category === 'Supermercado' && <button className="btn quiet wide press" disabled={busyR} onClick={reread}>{e.receipt_read_at ? 'Ler outra vez' : 'Ler os produtos'} <Icon n="arrow" s={20} /></button>}
+      {mine && <button className="btn wide press" onClick={() => open(<ExpenseEdit e={e} />)}>Editar <Icon n="arrow" s={20} /></button>}
       {mine && <button className="btn quiet wide press" onClick={del}>Apagar <Icon n="arrow" s={20} /></button>}
     </div>
+  );
+}
+
+/** Editar uma despesa já registada: tudo (valor, nota, categoria, de quem é, quem pagou, a parte, o dia, o evento). */
+function ExpenseEdit({ e }: { e: ExpenseRow }) {
+  const { me, partner, myShare } = useSession();
+  const { expenses, occasions, on } = useHouse();
+  const { close, toast } = useOverlays();
+  const allOccs = occasions.rows.filter((o) => o.purchase || on('eventos'));
+  // Do lado de quem edita: quem pagou e de quem é (na base, a divisão é do lado de quem pagou).
+  const iPaid = e.paid_by === me?.id;
+  const split0: Split = iPaid ? e.split : e.split === 'shared' ? 'shared' : e.split === 'mine' ? 'other' : 'mine';
+  const payer0 = e.payer_share === null || e.payer_share === undefined ? null : Number(e.payer_share);
+  const mine0 = payer0 === null ? myShare : iPaid ? payer0 : 1 - payer0;
+  const [amt, setAmt] = useState(String(e.amount).replace('.', ','));
+  const [note, setNote] = useState(e.note ?? '');
+  const [cat, setCat] = useState(e.category);
+  const [split, setSplit] = useState<Split>(split0);
+  const [paid, setPaid] = useState<'me' | 'partner'>(iPaid || !partner ? 'me' : 'partner');
+  const [pct, setPct] = useState(String(Math.round(mine0 * 100)));
+  const [day, setDay] = useState(e.spent_on);
+  const [occ, setOcc] = useState<string | null>(e.occasion_id ?? null);
+  const [err, setErr] = useState('');
+  async function save(ev: FormEvent) {
+    ev.preventDefault();
+    const v = parseAmount(amt);
+    if (!v) return setErr('O valor escreve-se assim: 12,35.');
+    if (!me) return;
+    const p = Math.min(100, Math.max(0, Number(pct) || 0)) / 100;
+    const payerShare = paid === 'me' ? p : 1 - p;
+    const who = paid === 'partner' && partner
+      ? { paid_by: partner.id, split: split === 'shared' ? 'shared' : split === 'mine' ? 'other' : 'mine', other_id: split === 'other' ? null : me.id, payer_share: split === 'shared' ? payerShare : null }
+      : { paid_by: me.id, split, other_id: split === 'mine' || !partner ? null : partner.id, payer_share: split === 'shared' ? payerShare : null };
+    const { error } = await supabase.from('expenses').update({ amount: v, note: note.trim().slice(0, 120) || null, category: cat, spent_on: day, occasion_id: occ, ...who }).eq('id', e.id);
+    if (error) return setErr(error.message);
+    expenses.reload(); close(); close(); toast(`Despesa mudada: ${eur(toU(v))} €.`, { ok: true });
+  }
+  const chip = (sel: boolean, t: string, f: () => void) => <button type="button" className="press" aria-pressed={sel} onClick={f} key={t}>{t}</button>;
+  return (
+    <form onSubmit={save} autoComplete="off" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <p className="l">Editar despesa</p>
+      <div className="form">
+        <div className="two">
+          <label>Valor (€)<input inputMode="decimal" value={amt} onChange={(x) => { setAmt(x.target.value); setErr(''); }} /></label>
+          <label>Dia<input type="date" value={day} max={todayStr()} onChange={(x) => setDay(x.target.value || day)} /></label>
+        </div>
+        <label>Nota<input value={note} maxLength={120} onChange={(x) => setNote(x.target.value)} placeholder="ex.: Pingo Doce" /></label>
+      </div>
+      <div className="chips wrap" role="group" aria-label="Categoria">{CATEGORIES.map((c) => chip(cat === c, catLabel(c), () => setCat(c)))}</div>
+      {partner && <div className="seg" role="group" aria-label="De quem é">{chip(split === 'mine', 'Minha', () => setSplit('mine'))}{chip(split === 'shared', 'Partilhada', () => setSplit('shared'))}{chip(split === 'other', ofName(partner.name), () => setSplit('other'))}</div>}
+      {partner && split === 'shared' && <label className="s salv-date">A tua parte (%) <input className="field" inputMode="numeric" value={pct} onChange={(x) => setPct(x.target.value.replace(/[^0-9]/g, '').slice(0, 3))} /></label>}
+      {partner && <div className="seg" role="group" aria-label="Quem pagou">{chip(paid === 'me', 'Paguei eu', () => setPaid('me'))}{chip(paid === 'partner', `Pagou ${partner.name}`, () => setPaid('partner'))}</div>}
+      {allOccs.length > 0 && <div className="chips wrap" role="group" aria-label="Evento">{chip(!occ, 'Sem evento', () => setOcc(null))}{allOccs.filter((o) => !o.archived || o.id === occ).map((o) => chip(occ === o.id, `${o.purchase ? '◆ ' : ''}${o.name}`, () => setOcc(o.id)))}</div>}
+      {err && <p className="s" style={{ color: 'var(--accent)' }}>{err}</p>}
+      <button className="btn wide press">Guardar <Icon n="check" s={20} /></button>
+    </form>
   );
 }
 
@@ -359,7 +447,7 @@ export function ExpenseSheet() {
   const [modeSet, setMode] = useState<'out' | 'in' | null>(null);
   const [kindSet, setKind] = useState<EntryKind | null>(null);
   const [inCatSet, setInCat] = useState<string | null | undefined>(undefined);
-  const { incomes } = useHouse();
+  const { incomes, receiptItems } = useHouse();
   const [occSet, setOcc] = useState<string | null | undefined>(undefined);
   const { close, toast } = useOverlays();
   // Num gesto: «45 pingo doce» dá o valor e a nota; pode escrever-se tudo («ontem», «dia 3», «partilhada», «minha»,
@@ -388,6 +476,7 @@ export function ExpenseSheet() {
   const [noKm, setNoKm] = useState(false);
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
+  const [rfile, setRfile] = useState<File | null>(null); // a fatura (foto ou PDF), se houver
   // «Guardar e outra»: a folha fica aberta, com a mesma categoria, divisão e dia, para registar várias seguidas.
   const [done, setDone] = useState<{ n: number; total: number; last: string } | null>(null);
   const amtRef = useRef<HTMLInputElement>(null);
@@ -463,6 +552,13 @@ export function ExpenseSheet() {
     setBusy(false);
     if (error) return setErr(error.message);
     const billErr = await saveBill(bc, bf, (data as { id: string }).id, v, spent_on);
+    // A fatura vai depois da despesa (precisa do id); as de supermercado leem-se em segundo plano.
+    if (rfile) {
+      const r = await attachReceipt(house.id, { id: (data as { id: string }).id, category: cat }, rfile);
+      if (r.error) toast(r.error);
+      else if (r.reading) { toast('A ler a fatura…'); r.reading.then((why) => { toast(why ?? 'Fatura lida: as Compras já sabem o que compraram.', why ? undefined : { ok: true }); receiptItems.reload(); }); }
+      setRfile(null);
+    }
     if (again) {
       setDone((d) => ({ n: (d?.n ?? 0) + 1, total: (d?.total ?? 0) + sv, last: `${eur(sv)} € · ${car ? car.name : note.trim() || cat}` }));
       setText(''); setCat(null); setSplit(null); setDay(null); setDate(null); setMore(false); setOk(false); setNoKm(false); setErr(''); setEntry(null); setBf(billEntry()); setPaid(null); setCarId(null); setKind(null); setInCat(undefined); // o evento escolhido mantém-se (várias despesas do mesmo casamento)
@@ -544,6 +640,10 @@ export function ExpenseSheet() {
       </div>}
       {more && <div className="chips" role="group" aria-label="Dia">{chip(day === 'hoje', 'Hoje', () => setDay('hoje'))}{chip(day === 'ontem', 'Ontem', () => setDay('ontem'))}{chip(day === 'outro', 'Outro dia', () => setDay('outro'))}</div>}
       {more && day === 'outro' && <input className="field" type="date" aria-label="Dia da despesa" max={todayStr()} value={date} onChange={(e) => setDate(e.target.value)} />}
+      {v && !incoming && <label className="rcpt-pick press">
+        <input type="file" accept="image/*,application/pdf" capture="environment" hidden onChange={(e) => setRfile(e.target.files?.[0] ?? null)} />
+        <Icon n="cam" s={18} /><span>{rfile ? 'Fatura junta' : cat === 'Supermercado' ? 'Fotografar a fatura (lê os produtos)' : 'Fotografar a fatura'}</span>{rfile && <Icon n="check" s={16} />}
+      </label>}
       <div className="save-two">
         <button className="btn quiet press" data-again="1" disabled={busy}>Guardar e outra</button>
         <button className="btn press" disabled={busy}>{done ? 'Guardar e fechar' : incoming ? 'Guardar entrada' : `Guardar · ${me?.name}`} <Icon n="arrow" s={20} /></button>
