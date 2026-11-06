@@ -51,6 +51,9 @@ const COLORS = ['#8EA6BD', '#D29B7A', '#94B096', '#B7A2C9', '#C9B37A'];
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [ready, setReady] = useState(false);
+  // Só depois de saber se há sessão guardada (getSession) é que a app pode decidir o que mostrar: antes disso,
+  // «sem sessão» mostrava a entrada e depois o «Como te chamas?» até chegarem os dados.
+  const [authKnown, setAuthKnown] = useState(false);
   const [me, setMe] = useState<Me | null>(null);
   const [appAdmin, setAppAdmin] = useState(false);
   const touched = useRef<string | null>(null);
@@ -61,9 +64,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [ratioRow, setRatioRow] = useState<State['ratioRow']>(null);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => { setSession(data.session); if (!data.session) (mark('sessão'), setReady(true)); });
+    supabase.auth.getSession().then(({ data }) => { setSession(data.session); setAuthKnown(true); if (!data.session) (mark('sessão'), setReady(true)); });
     const { data } = supabase.auth.onAuthStateChange((e, s) => {
-      setSession(s);
+      if (e === 'INITIAL_SESSION') setAuthKnown(true);
+      // Acabou de entrar: espera pelos dados dela (ou pelo resumo guardado) antes de mostrar o que quer que seja.
+      if (e === 'SIGNED_IN') setSession((old) => { if (!old && s) setReady(false); return s; });
+      else setSession(s);
       if (e === 'SIGNED_OUT') { cache.clear(); try { Object.keys(localStorage).filter((k) => k.startsWith('nikki_session_')).forEach((k) => store.remove(k)); } catch { /* sem armazenamento */ } }
     });
     return () => data.subscription.unsubscribe();
@@ -82,6 +88,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [session?.user.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const reload = useCallback(async () => {
+    if (!authKnown) return;
     const uid = session?.user.id;
     if (!uid) { setMe(null); setAppAdmin(false); setHouses([]); setMembers([]); (mark('sessão'), setReady(true)); return; }
     const [{ data: p, error: pe }, { data: ms }, { data: adm }] = await Promise.all([
@@ -114,7 +121,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     } else { setMembers([]); setStaff([]); setRatioRow(null); }
     store.set(SNAP(uid), JSON.stringify({ me: p, appAdmin: adm === true, houses: hs, ...snap }));
     (mark('sessão'), setReady(true));
-  }, [session?.user.id, houseId]);
+  }, [session?.user.id, houseId, authKnown]);
 
   useEffect(() => { reload(); }, [reload]);
 
