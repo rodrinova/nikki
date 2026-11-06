@@ -81,8 +81,31 @@ export function Admin() {
       {d && cur === 'pessoas' && <People people={d.people} onDone={load} />}
       {d && cur === 'casas' && <Houses houses={d.houses} />}
       {d && cur === 'tickets' && <Tickets tickets={d.tickets} onDone={load} set={(t) => setD({ ...d, tickets: d.tickets.map((x) => (x.id === t.id ? t : x)) })} />}
-      {d && cur === 'numeros' && <Numbers k={d.kpis} />}
+      {d && cur === 'numeros' && <><Numbers k={d.kpis} /><GeminiKey /></>}
     </>
+  );
+}
+
+/** A chave do Gemini (para ler as faturas do supermercado): cola-se aqui; fica fechada na base, só o servidor a lê. */
+function GeminiKey() {
+  const { toast } = useOverlays();
+  const [ready, setReady] = useState<boolean | null>(null);
+  const [k, setK] = useState('');
+  useEffect(() => { supabase.rpc('admin_gemini_ready').then(({ data }) => setReady(!!data)); }, []);
+  async function save() {
+    const { error } = await supabase.rpc('admin_set_gemini_key', { k: k.trim() });
+    if (error) return toast(error.message);
+    setK(''); setReady(!!k.trim()); toast(k.trim() ? 'Chave guardada. As faturas do supermercado já se leem.' : 'Chave tirada.', { ok: true });
+  }
+  return (
+    <section className="tile card" style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: 16 }} aria-label="Leitura de faturas">
+      <span className="l" style={{ fontSize: 'var(--t-m)' }}>Leitura de faturas</span>
+      <span className="s">{ready === null ? 'A ver…' : ready ? 'Ligada (Gemini). Para trocar, cola outra chave.' : 'Desligada. Cria uma chave grátis em aistudio.google.com (Get API key) e cola-a aqui.'}</span>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <input className="field" style={{ flex: 1, minWidth: 0 }} value={k} onChange={(e) => setK(e.target.value)} placeholder="AIza…" autoComplete="off" aria-label="Chave do Gemini" />
+        <button type="button" className="tb press" onClick={save} disabled={!k.trim() && !ready}>{k.trim() ? 'Guardar' : 'Tirar'}</button>
+      </div>
+    </section>
   );
 }
 

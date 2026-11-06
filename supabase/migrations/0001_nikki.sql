@@ -1907,3 +1907,68 @@ do $do$ begin
     $cron$);
   end if;
 end $do$;
+-- ───────────────────────── faturas das despesas e o que se compra ─────────────────────────
+-- Cada despesa pode ter a fotografia (ou o PDF) da fatura, no bucket «receipts» (receipts/<casa>/despesas/<id>/…).
+-- As de supermercado são lidas pela função «receipt-read» (Gemini): cada linha vira um produto simples com quantidade
+-- (kg, l ou unidades), para as sugestões das Compras («costumam comprar 4 kg de limões por mês»).
+alter table nikki.expenses add column if not exists receipt_path text check (length(receipt_path) <= 300);
+alter table nikki.expenses add column if not exists receipt_read_at timestamptz;
+create table if not exists nikki.receipt_items (
+  id uuid primary key default gen_random_uuid(),
+  household_id uuid not null references nikki.households (id) on delete cascade,
+  expense_id uuid not null references nikki.expenses (id) on delete cascade,
+  bought_on date not null,
+  product text not null check (length(trim(product)) between 1 and 60),
+  qty numeric(10, 3) check (qty > 0),
+  unit text check (unit in ('kg', 'l', 'un')),
+  price numeric(10, 2),
+  raw text check (length(raw) <= 120),
+  created_at timestamptz not null default now()
+);
+create index if not exists receipt_items_house on nikki.receipt_items (household_id, product, bought_on);
+create index if not exists receipt_items_expense on nikki.receipt_items (expense_id);
+alter table nikki.receipt_items enable row level security;
+grant select, insert, update, delete on nikki.receipt_items to authenticated;
+grant all on nikki.receipt_items to service_role;
+do $$ begin
+  if not exists (select 1 from pg_policies where schemaname = 'nikki' and tablename = 'receipt_items' and policyname = 'receipt_items_house') then
+    create policy receipt_items_house on nikki.receipt_items for all to authenticated
+      using (nikki.is_member(household_id)) with check (nikki.is_member(household_id));
+  end if;
+  if exists (select 1 from pg_publication where pubname = 'supabase_realtime')
+     and not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'nikki' and tablename = 'receipt_items') then
+    alter publication supabase_realtime add table nikki.receipt_items;
+  end if;
+end $$;
+
+-- ───────────────────────── despesas: editar e apagar tudo o que se vê ─────────────────────────
+-- Quem vê uma despesa (pagou, registou ou é a outra pessoa nela) pode mudá-la ou apagá-la.
+alter policy expenses_edit on nikki.expenses
+  using (created_by = auth.uid() or paid_by = auth.uid() or other_id = auth.uid() or nikki.is_admin(household_id));
+alter policy expenses_delete on nikki.expenses
+  using (created_by = auth.uid() or paid_by = auth.uid() or other_id = auth.uid() or nikki.is_admin(household_id));
+
+-- ───────────────────────── faturas: a chave do Gemini ─────────────────────────
+-- Posta pela administração da app (na NIKKI, em Administração → Números), sem ir ao painel do Supabase.
+-- Só a chave de serviço (a função receipt-read) a lê; a app só sabe se já está posta.
+create table if not exists nikki.ai_config (
+  id boolean primary key default true check (id),
+  gemini_key text check (length(gemini_key) <= 200),
+  updated_at timestamptz not null default now()
+);
+alter table nikki.ai_config enable row level security;
+grant all on nikki.ai_config to service_role;
+create or replace function nikki.admin_set_gemini_key(k text) returns void
+language plpgsql security definer set search_path = '' as $$
+begin
+  perform nikki.admin_check();
+  insert into nikki.ai_config (id, gemini_key, updated_at) values (true, nullif(trim(k), ''), now())
+    on conflict (id) do update set gemini_key = excluded.gemini_key, updated_at = now();
+end $$;
+create or replace function nikki.admin_gemini_ready() returns boolean
+language plpgsql stable security definer set search_path = '' as $$
+begin
+  perform nikki.admin_check();
+  return exists (select 1 from nikki.ai_config where id and gemini_key is not null);
+end $$;
+grant execute on function nikki.admin_set_gemini_key(text), nikki.admin_gemini_ready() to authenticated;

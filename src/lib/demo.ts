@@ -67,9 +67,12 @@ function seed() {
     share_ratios: [{ household_id: H, profile_a: R, profile_b: I, ratio_a: 0.5 }],
     invites: [], tickets: [], goals: [], assets: [], asset_snapshots: [], incomes: [], cars: [], car_logs: [], homes: [], bills: [], bill_payments: [], chores: [], chore_logs: [], todos: [], warranties: [], calendar_links: [], housekeeping: [], hk_tasks: [], hk_log: [], hk_messages: [], hk_paid: [], gym_fields: [], gym_prefs: [], gym_assessments: [],
     expenses: [], transfers: [], deadlines: [], shopping_items: [], events: [],
-    salvage_cars: [], salvage_logs: [], salvage_links: [], salvage_settings: [],
+    salvage_cars: [], salvage_logs: [], salvage_links: [], salvage_settings: [], receipt_items: [],
   };
   others(db);
+  // O que se comprou (como se as faturas do supermercado tivessem sido lidas): limões, leite, ovos, café.
+  for (const [p, q, u, every, ago0] of [['Limões', '2', 'kg', 15, 24], ['Leite meio-gordo', '6', 'l', 10, 12], ['Ovos', '12', 'un', 14, 9], ['Café em grão', '1', 'kg', 30, 40], ['Bananas', '1.5', 'kg', 7, 3]] as [string, string, string, number, number][])
+    for (let k = 0; k < 4; k++) db.receipt_items.push({ id: uid(), household_id: H, expense_id: 'demo', bought_on: addDays(today, -(ago0 + k * every)), product: p, qty: q, unit: u, price: null, raw: null, created_at: ago(ago0 + k * every) });
   // Salvados (só do Rodrigo): um vendido, um em reparação; a ligação do Pedro já criada.
   {
     const c1 = uid(), c2 = uid();
@@ -719,6 +722,7 @@ export function createDemoClient() {
         if (name === 'calendar-link' && b.action === 'unlink') { db.calendar_links = db.calendar_links.filter((l) => !(l.profile_id === me && l.provider === b.provider)); return { data: { ok: true }, error: null }; }
         if (name === 'device-link' && b.action === 'create') return { data: { code: 'NIKK-2345', expires_at: new Date(Date.now() + 600_000).toISOString() }, error: null };
         if (name === 'device-link' && b.action === 'redeem') return String(b.code).toUpperCase().replace(/[^A-Z0-9]/g, '') === 'NIKK2345' ? { data: { token_hash: 'demo:R' }, error: null } : { data: { error: 'código inválido' }, error: null };
+        if (name === 'receipt-read') { const e = db.expenses.find((x) => x.id === b.expense_id); if (e) e.receipt_read_at = new Date().toISOString(); return { data: { items: 0 }, error: null }; }
         return { data: { ok: true }, error: null };
       },
     },

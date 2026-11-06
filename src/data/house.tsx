@@ -15,7 +15,8 @@ import type { Repeat } from '@/lib/agenda';
 import type { HkLog, HkTask } from '@/lib/hk';
 import type { Assessment, GymField } from '@/lib/gym';
 
-export interface ExpenseRow extends Expense { created_by: string; note: string | null; created_at: string; car_id?: string | null; source?: string; occasion_id?: string | null }
+export interface ExpenseRow extends Expense { created_by: string; note: string | null; created_at: string; car_id?: string | null; source?: string; occasion_id?: string | null; receipt_path?: string | null; receipt_read_at?: string | null }
+export interface ReceiptItemRow { product: string; qty: number | string | null; unit: 'kg' | 'l' | 'un' | null; bought_on: string; expense_id: string }
 export interface TransferRow extends Transfer { id: string; created_by: string }
 /** Saldo de abertura do par (vindo da app antiga): amount_a > 0 = profile_a adiantou mais até ao corte. */
 export interface OpeningRow { profile_a: string; profile_b: string; cutover: string; amount_a: number | string }
@@ -140,9 +141,11 @@ function useHouseData() {
   const eh = on('eventos') ? h : null;
   const d = {
     modules,
-    expenses: useLive<ExpenseRow>('expenses', h, 'id, paid_by, other_id, amount, split, payer_share, spent_on, category, created_by, note, created_at, car_id, source, occasion_id', { column: 'spent_on', ascending: false }),
+    expenses: useLive<ExpenseRow>('expenses', h, 'id, paid_by, other_id, amount, split, payer_share, spent_on, category, created_by, note, created_at, car_id, source, occasion_id, receipt_path, receipt_read_at', { column: 'spent_on', ascending: false }),
     transfers: useLive<TransferRow>('transfers', h, 'id, from_id, to_id, amount, made_on, created_by', { column: 'made_on', ascending: false }),
     openings: useLive<OpeningRow>('ledger_openings', h, 'profile_a, profile_b, cutover, amount_a'),
+    // O que se comprou (das faturas do supermercado lidas): para as sugestões das Compras.
+    receiptItems: useLive<ReceiptItemRow>('receipt_items', h, 'product, qty, unit, bought_on, expense_id', { column: 'bought_on', ascending: false }),
     shop: useLive<ShopItem>('shopping_items', h, 'id, name, aisle, done, done_by, created_by, created_at', { column: 'created_at' }),
     deadlines: useLive<DeadlineRow>('deadlines', h, 'id, title, due_on, amount, paid_at, recurrence, car_id, bill_id, home_id, kind, remind_days', { column: 'due_on' }),
     events: useLive<EventRow>('events', h, 'id, title, starts_at, ends_at, all_day, owner_id, private, created_by, location, kind, repeat, weekdays, month_mode, until_on, skip_dates, remind_days, ask_share', { column: 'starts_at' }),

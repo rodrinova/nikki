@@ -6,6 +6,8 @@ import { useOverlays } from '@/ui/overlays';
 import { useShopPresence } from '@/data/presence';
 import { Icon } from '@/ui/Icon';
 import { Top } from './Home';
+import { niceQty, qtyText, suggestions, type Suggestion } from '@/lib/pantry';
+import { todayStr } from '@/lib/dates';
 
 // Corredor por palavras-chave; o que não se reconhece vai para Mercearia. Sem unidades nem quantidades.
 const AISLES: [string, RegExp][] = [
@@ -23,8 +25,8 @@ const ORDER = [...AISLES.map(([a]) => a), 'Mercearia'];
 
 export function Shop() {
   const { me, partner, house, members, staff } = useSession();
-  const { shop } = useHouse();
-  const { toast } = useOverlays();
+  const { shop, receiptItems } = useHouse();
+  const { toast, open } = useOverlays();
   const [name, setName] = useState('');
   const left = shop.rows.filter((i) => !i.done).length, done = shop.rows.filter((i) => i.done);
 
@@ -70,6 +72,14 @@ export function Shop() {
     if (error) { shop.reload(); toast(error.message); } else toast(`${ids.length} riscados limpos.`, { ok: true });
   }
 
+  // Sugestões: o que costumam comprar (pelas faturas lidas) e que já devia ter acabado, com a quantidade habitual.
+  const sug = suggestions(receiptItems.rows, shop.rows.filter((i) => !i.done).map((i) => i.name), todayStr());
+  async function addSug(x: Suggestion, q: number) {
+    if (!me || !house) return;
+    const nm = `${x.product} · ${qtyText(q, x.unit)}`;
+    const { error } = await supabase.from('shopping_items').insert({ household_id: house.id, name: nm, aisle: aisleOf(x.product), created_by: me.id });
+    if (error) toast('Não ficou na lista. Tenta outra vez.'); else { shop.reload(); toast(`${nm}: na lista.`, { ok: true }); }
+  }
   const groups = ORDER.map((a) => [a, shop.rows.filter((i) => i.aisle === a)] as const).filter(([, l]) => l.length);
   const who = (id: string | null) => members.find((m) => m.id === id);
   // Os pedidos de quem faz o housekeeping entram sozinhos na lista e vêm marcados com o nome.
@@ -80,6 +90,7 @@ export function Shop() {
       <Top title="Compras" right={done.length ? <button className="tb press" onClick={clear}>Limpar riscados</button> : null} />
       <p className="s">{left} por comprar{asked.length ? ` · ${asked.length} ${asked.length === 1 ? 'pedido' : 'pedidos'} de ${[...new Set(asked.map((i) => asker(i.created_by)!.name))].join(' e ')}` : ''}{partner && !live ? ' · a lista atualiza-se sozinha' : ''}</p>
       {live && <p className="live-bar" role="status"><span className="dot" aria-hidden="true" />Em direto com {company.map((m) => m.name).join(' e ')}</p>}
+      {sug.length > 0 && <button type="button" className="sug-pill press" onClick={() => open(<Suggestions list={sug} onAdd={addSug} />)}><Icon n="ask" s={16} />{sug.length} {sug.length === 1 ? 'sugestão' : 'sugestões'} pelas vossas compras</button>}
       <form className="add-row" onSubmit={add} autoComplete="off"><label className="sr" htmlFor="new-item">Novo artigo</label><input id="new-item" className="field" placeholder="Adicionar" value={name} onChange={(e) => setName(e.target.value)} /><button className="sq press" aria-label="Adicionar"><Icon n="plus" /></button></form>
       {groups.length ? (
         <div className="tile card">{groups.map(([a, l]) => (
@@ -96,5 +107,29 @@ export function Shop() {
         ))}</div>
       ) : <p className="s" style={{ fontSize: 'var(--t-m)' }}>Lista vazia. Escreve o primeiro artigo.</p>}
     </>
+  );
+}
+
+/** As sugestões: o que costumam comprar e que já devia ter acabado. Um toque junta à lista, com a quantidade. */
+function Suggestions({ list, onAdd }: { list: Suggestion[]; onAdd: (x: Suggestion, q: number) => Promise<void> }) {
+  const [gone, setGone] = useState<Set<string>>(new Set());
+  const half = (x: Suggestion) => niceQty(x.qty / 2, x.unit);
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <p className="l">Faltará isto?</p>
+      <div className="tile card rows">{list.filter((x) => !gone.has(x.product)).map((x) => {
+        const h = half(x);
+        return (
+          <div key={x.product} className="sug-row">
+            <span className="st2"><span>{x.product}</span><span className="s">{qtyText(x.perMonth, x.unit)} por mês · a última há {x.daysSince} dias</span></span>
+            <span className="sug-btns">
+              {h !== x.qty && <button type="button" className="tb press" onClick={async () => { await onAdd(x, h); setGone((g) => new Set(g).add(x.product)); }}>{qtyText(h, x.unit)}</button>}
+              <button type="button" className="tb press on" onClick={async () => { await onAdd(x, x.qty); setGone((g) => new Set(g).add(x.product)); }}>{qtyText(x.qty, x.unit)}</button>
+            </span>
+          </div>
+        );
+      })}</div>
+      <p className="s">Pelas faturas do supermercado que juntaram às despesas.</p>
+    </div>
   );
 }
