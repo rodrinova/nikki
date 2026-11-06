@@ -1,6 +1,6 @@
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { BrowserRouter, Link, MemoryRouter, Navigate, Route, Routes, useLocation, useNavigationType, useParams } from 'react-router-dom';
-import { DEMO } from '@/lib/supabase';
+import { DEMO, DEMO_VISIT, stopDemo } from '@/lib/supabase';
 import { SessionProvider, useSession } from '@/data/session';
 import { HouseProvider, useHouse } from '@/data/house';
 import { OverlayProvider, SheetHost, useOverlays } from '@/ui/overlays';
@@ -271,6 +271,7 @@ export default function App() {
       <OverlayProvider>
         <SessionProvider><Shell /></SessionProvider>
         <UpdateReady />
+        {DEMO_VISIT && <button type="button" className="demo-pill press" onClick={stopDemo} aria-label="Sair da demonstração">Demonstração · Sair</button>}
       </OverlayProvider>
     </Router>
   );

@@ -35,12 +35,12 @@ function others(db: Record<string, Row[]>) {
   p('demo-pedro', 'Pedro', { status: 'active', created_at: ago(62), requested_at: ago(62), approved_at: ago(61.6), approved_via: 'admin', last_seen_at: ago(0.2) });
   h('demo-ourique', 'T1 em Campo de Ourique', 61.6, [['demo-pedro', 'admin', 61.6]], [['compras', 61.6], ['casa', 61.6], ['garagem', 50], ['ginasio', 33]]);
   p('demo-sofia', 'Sofia', { status: 'active', created_at: ago(36), requested_at: ago(36), approved_at: ago(35.9), approved_via: 'admin', last_seen_at: ago(3) });
-  p('demo-tiago', 'Tiago', { status: 'active', created_at: ago(30), approved_at: ago(30), approved_via: 'invite', last_seen_at: ago(40) });
-  h('demo-jardim', 'Casa do Jardim', 35.9, [['demo-sofia', 'admin', 35.9], ['demo-tiago', 'member', 30]], [['contas', 35.9], ['compras', 35.9], ['agenda', 35.9], ['casa', 35.9]]);
+  p('demo-andre', 'André', { status: 'active', created_at: ago(30), approved_at: ago(30), approved_via: 'invite', last_seen_at: ago(40) });
+  h('demo-jardim', 'Casa do Jardim', 35.9, [['demo-sofia', 'admin', 35.9], ['demo-andre', 'member', 30]], [['contas', 35.9], ['compras', 35.9], ['agenda', 35.9], ['casa', 35.9]]);
   p('demo-rui', 'Rui', { status: 'paused', created_at: ago(90), requested_at: ago(90), approved_at: ago(89), approved_via: 'admin', last_seen_at: ago(80) });
   h('demo-rui-casa', 'Estúdio do Rui', 89, [['demo-rui', 'admin', 89]], [['compras', 89]]);
   p('demo-bruno', 'Bruno', { status: 'declined', created_at: ago(50), request: { house: 'Teste', note: null }, requested_at: ago(50) });
-  p('demo-marta', 'Marta', { status: 'pending', created_at: ago(0.14), request: { house: 'Casa da Graça', note: 'Vivo com o Tomás. Queremos deixar de fazer as contas da casa numa folha de Excel.' }, requested_at: ago(0.12) });
+  p('demo-ana', 'Ana', { status: 'pending', created_at: ago(0.14), request: { house: 'Casa da Graça', note: 'Vivo com o Tomás. Queremos deixar de fazer as contas da casa numa folha de Excel.' }, requested_at: ago(0.12) });
   p('demo-luis', 'Luís', { status: 'pending', created_at: ago(1.2), request: { house: 'Casa de Alvalade', note: null }, requested_at: ago(1.15) });
   p('demo-carla', 'Carla', { status: 'pending', created_at: ago(0.02) });
   const t = (by: string, kind: string, body: string, screen: string, status: string, d: number, reply: string | null = null, shot: string | null = null) =>
@@ -345,12 +345,67 @@ function seed() {
   db.hk_messages.push({ id: uid(), household_id: H, author_id: M, body: 'Combinado. Falta detergente da loiça e sacos do lixo, já pus na lista.', created_at: ago(0.06) });
   db.shopping_items.push({ id: uid(), household_id: H, name: 'Detergente da loiça', aisle: 'Limpeza e casa', done: false, done_by: null, created_by: M, created_at: ago(0.07) });
   db.shopping_items.push({ id: uid(), household_id: H, name: 'Sacos do lixo', aisle: 'Limpeza e casa', done: false, done_by: null, created_by: M, created_at: ago(0.07) });
+  persona(db, today);
   return db;
 }
 
-export function createDemoClient() {
+/**
+ * A casa de demonstração: o Tiago (31) e a Marta (29), um casal português de classe média em Almada — T2 arrendado,
+ * um carro, a Dona Rosa às quartas, os 30 da Marta a preparar e umas férias no Algarve. Afina o que o seed escreveu.
+ */
+function persona(db: Record<string, Row[]>, today: string) {
+  const gone = (t: string, f: (r: Row) => boolean) => { db[t] = (db[t] ?? []).filter((r) => !f(r)); };
+  // Nomes.
+  const NAMES: [RegExp, string][] = [[/Rodrigo/g, 'Tiago'], [/Inês/g, 'Marta'], [/\bMaria\b/g, 'Rosa']];
+  const fix = (v: unknown): unknown => typeof v === 'string' ? NAMES.reduce((t, [a, b]) => t.replace(a, b), v) : v;
+  // Uma casa só (T2 arrendado em Almada): sem a casa da praia nem a casa própria no património.
+  const praiaBills = new Set(db.bills.filter((b) => b.home_id === 'demo-praia').map((b) => b.id));
+  gone('homes', (h) => h.id === 'demo-praia');
+  gone('bills', (b) => praiaBills.has(b.id));
+  gone('bill_payments', (b) => praiaBills.has(b.bill_id));
+  gone('chores', (c) => c.home_id === 'demo-praia');
+  gone('deadlines', (d) => d.home_id === 'demo-praia');
+  for (const h of db.homes) if (h.id === 'demo-casa') h.name = 'T2 em Almada';
+  // Um carro só (o Golf do Tiago): sem o Mini nem o elétrico.
+  const cars = new Set(['demo-mini', 'demo-zoe']);
+  const carExp = new Set(db.expenses.filter((e) => cars.has(e.car_id)).map((e) => e.id));
+  gone('cars', (c) => cars.has(c.id)); gone('car_logs', (l) => cars.has(l.car_id)); gone('deadlines', (d) => cars.has(d.car_id));
+  gone('expenses', (e) => carExp.has(e.id));
+  // Património à medida de quem tem 30 anos: poupanças e investimentos a começar, sem casa própria.
+  const VAL: Record<string, number> = { 'Conta à ordem': 1.0, 'Certificados de Aforro': 0.45, 'Conta poupança': 0.7, 'ETF S&P 500': 0.25, 'ETF MSCI World': 0.16, 'PPR': 0.22 };
+  const dropA = new Set(db.assets.filter((a) => !(a.name in VAL)).map((a) => a.id));
+  gone('assets', (a) => dropA.has(a.id)); gone('asset_snapshots', (s) => dropA.has(s.asset_id));
+  const byId = new Map(db.assets.map((a) => [a.id, VAL[a.name]]));
+  for (const sn of db.asset_snapshots) { const k = byId.get(sn.asset_id); if (k) sn.value = (Number(sn.value) * k).toFixed(2); }
+  // Salários líquidos (14 meses) e subsídio de alimentação.
+  for (const i of db.incomes) {
+    if (i.kind === 'salario') i.amount = i.profile_id === 'demo-rodrigo' ? '1450.00' : '1250.00';
+    if (i.kind === 'complemento' && i.label === 'Isenção de horário') i.amount = '90.00';
+  }
+  // Housekeeping: a Dona Rosa, às quartas, 160 € por mês.
+  for (const h of db.housekeeping) { h.weekdays = [3]; h.monthly_pay = '160.00'; h.name = 'Dona Rosa'; }
+  for (const b of db.bills) if (b.id === 'demo-hk') { b.expected = '160.00'; b.keywords = 'housekeeping, rosa'; }
+  for (const b of db.bill_payments) if (b.bill_id === 'demo-hk') b.amount = '160.00';
+  for (const e of db.expenses) if (/housekeeping|maria/i.test(e.note ?? '') && Number(e.amount) > 200) e.amount = '160.00';
+  // O evento a preparar: os 30 anos da Marta (em vez do batizado).
+  for (const o of db.occasions ?? []) if (o.id === 'demo-batizado') Object.assign(o, { name: 'Os 30 da Marta', kind: 'aniversario', place: 'Quinta em Azeitão', budget: '1200.00' });
+  const TXT: [string, string][] = [['Vestido de batizado', 'Vestido'], ['Marcar a cerimónia na igreja', 'Reservar a quinta'], ['Velas e toalha de batismo', 'Velas e decoração'], ['Marta e Rui', 'Rui e Sara'], ['Avós Fernandes', 'Pais do Tiago'], ['Fotógrafo (sinal)', 'DJ (sinal)']];
+  for (const t of ['expenses', 'occasion_items', 'occasion_guests', 'occasion_gifts']) for (const r of db[t] ?? []) for (const [a, b] of TXT) for (const k of ['note', 'title', 'name', 'from_name']) if (r[k] === a) r[k] = b;
+  // Férias no Algarve (agosto passado): alojamento, jantares, combustível e portagens.
+  const ALG = 'demo-algarve', R = 'demo-rodrigo', I = 'demo-ines';
+  const d0 = addDays(today, -95);
+  db.occasions.push({ id: ALG, household_id: 'demo-casa', name: 'Férias no Algarve', kind: 'viagem', on_date: d0, place: 'Tavira', budget: '1400.00', archived: true, purchase: false, car_id: null, created_by: I, created_at: ago(140) });
+  for (const [d, v, c, n, by] of [[-130, '480.00', 'Viagens', 'Alojamento (sinal)', I], [-96, '560.00', 'Viagens', 'Alojamento (resto)', R], [-94, '72.40', 'Restaurantes', 'Marisqueira', R], [-92, '38.60', 'Restaurantes', 'Jantar em Tavira', I], [-91, '45.00', 'Lazer', 'Passeio de barco', I], [-89, '64.80', 'Supermercado', 'Compras para a casa', R]] as const)
+    db.expenses.push({ id: uid(), household_id: 'demo-casa', created_by: by, paid_by: by, other_id: by === R ? I : R, amount: v, split: 'shared', payer_share: 0.5, spent_on: addDays(today, d), category: c, note: n, car_id: null, occasion_id: ALG, source: 'manual', created_at: `${addDays(today, d)}T12:00:00Z` });
+  // Os nomes de pessoas em tudo (Rodrigo → Tiago, Inês → Marta, Maria → Rosa).
+  for (const rows of Object.values(db)) for (const r of rows) for (const k of Object.keys(r)) { const v = r[k]; if (typeof v === 'string' && !k.endsWith('_id') && k !== 'id') r[k] = fix(v); }
+  for (const pr of db.profiles) if (pr.id === 'demo-rodrigo') pr.email = 'tiago@exemplo.pt'; else if (pr.id === 'demo-ines') pr.email = 'marta@exemplo.pt'; else if (pr.id === 'demo-maria') pr.email = 'rosa@exemplo.pt';
+}
+
+/** opts.visit: aberta pela administração da app real — já com a sessão do Tiago e sem a administração. */
+export function createDemoClient(opts: { visit?: boolean } = {}) {
   const db = seed();
-  let me: string | null = null;
+  let me: string | null = opts.visit ? R : null;
   let pendingName = '', pendingEmail = '';
   const files = new Map<string, string>([['demo-ines/compras.svg', SHOT], [`${H}/talao-maquina.svg`, RECEIPT(addDays(todayStr(), 40 - 3 * 365 - 1))]]); // Storage: caminho → endereço
   const authListeners = new Set<(e: string, s: any) => void>();
@@ -607,7 +662,7 @@ export function createDemoClient() {
         if (me !== R) return err('só para a administração da app');
         try { return { data: admin[name](args ?? {}) ?? null, error: null }; } catch (e) { return err((e as Error).message); }
       }
-      if (name === 'is_app_admin') return { data: me === R, error: null };
+      if (name === 'is_app_admin') return { data: !opts.visit && me === R, error: null };
       if (name === 'house_month_totals') {
         // Só totais por mês, sem o investimento; inclui as «só minhas» de cada um (como a função da base).
         if (!db.memberships.some((m) => m.profile_id === me && m.household_id === args.h)) return { data: [], error: null };

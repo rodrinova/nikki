@@ -180,7 +180,7 @@ function Celebrations({ w, k, onCheer }: { w: W; k: string; onCheer: (s: { k: st
   const now = queue[0];
   if (!now) return null;
   const next = () => setQueue((q) => q.slice(1));
-  if (now === 'level') return <Poster lines={[w.score.level.toUpperCase() + '.', `${w.score.total} PONTOS`]} band="Saúde financeira: subiram de nível. Isto merece um brinde" foot={w.score.next ? `Faltam ${w.score.next.need} ${w.score.next.need === 1 ? 'ponto' : 'pontos'} para ${w.score.next.name}.` : 'O nível mais alto.'} share={`Saúde financeira ${w.score.level.toLowerCase()} na NIKKI: ${w.score.total} pontos.`} onClose={next} />;
+  if (now === 'level') return <Poster lines={[w.score.level.toUpperCase() + '.', `${w.score.total} PONTOS`]} band="Saúde financeira: subiram de nível. Isto merece um brinde" foot={w.score.next ? `${w.score.next.need === 1 ? 'Falta 1 ponto' : `Faltam ${w.score.next.need} pontos`} para «${w.score.next.name}».` : 'O nível mais alto.'} share={`Saúde financeira ${w.score.level.toLowerCase()} na NIKKI: ${w.score.total} pontos.`} onClose={next} />;
   const won = WON[now];
   return <Poster key={now} lines={won.lines} band={won.band} foot={`Conquista ${w.badges.filter((b) => b.got).length} de ${w.badges.length}.`} share={`${won.lines.join(' ')} ${won.band}. Na NIKKI.`} onClose={next} />;
 }
@@ -191,7 +191,7 @@ function Score({ w, cheer }: { w: W; cheer: { k: string; label: string } | null 
     <section className="tile pane hs" aria-label="Saúde financeira">
       <div className="pane-top"><span className="s">Saúde financeira{w.casa ? '' : ' · tu'}</span><span className="lvl">{s.level}</span></div>
       <Arc value={s.total} label={`Saúde financeira: ${s.total} de 100, ${s.level}`} />
-      <p className="s">{s.next ? `Faltam ${s.next.need} ${s.next.need === 1 ? 'ponto' : 'pontos'} para ${s.next.name}.` : 'O nível mais alto. Agora é só manter (e não contar a ninguém).'}</p>
+      <p className="s">{s.next ? `${s.next.need === 1 ? 'Falta 1 ponto' : `Faltam ${s.next.need} pontos`} para «${s.next.name}».` : 'O nível mais alto. Agora é só manter (e não contar a ninguém).'}</p>
       {cheer && <p className="s why"><span className="dot" aria-hidden="true" /><span>{cheer.label}</span></p>}
       <How>
         {s.parts.map((p) => <p key={p.k} className="s">{p.label}: {p.pts} de {p.max}{p.known ? '' : ' (por indicar)'}</p>)}

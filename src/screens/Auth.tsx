@@ -89,7 +89,7 @@ export function Login() {
         : <button className="back press" onClick={() => { setMode('in'); setErr(''); }}>Já tenho conta</button>}
       <FromDevice />
       <Link className="back press" to="/historia"><span>A história da NIKKI</span><Icon n="arrow" s={18} /></Link>
-      {DEMO && <p className="demo"><span>Demonstração:</span><button onClick={() => (supabase.auth as any).demoSignIn('R')}>entrar como Rodrigo</button><button onClick={() => (supabase.auth as any).demoSignIn('I')}>entrar como Inês</button><button onClick={() => (supabase.auth as any).demoSignIn('M')}>entrar como Maria (housekeeping)</button></p>}
+      {DEMO && <p className="demo"><span>Demonstração:</span><button onClick={() => (supabase.auth as any).demoSignIn('R')}>entrar como Tiago</button><button onClick={() => (supabase.auth as any).demoSignIn('I')}>entrar como Marta</button><button onClick={() => (supabase.auth as any).demoSignIn('M')}>entrar como Rosa (housekeeping)</button></p>}
     </section>
   );
 }

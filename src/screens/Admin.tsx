@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
+import { startDemo, supabase } from '@/lib/supabase';
 import { useSession } from '@/data/session';
 import { useOverlays } from '@/ui/overlays';
 import { Icon } from '@/ui/Icon';
@@ -74,6 +74,11 @@ export function Admin() {
     <>
       <Top title="Administração" />
       <Hint>Contas, casas, módulos e tickets. Aqui nunca aparece o que está dentro das casas: dinheiro, agendas, listas.</Hint>
+      <button className="tile salv-link press" onClick={startDemo} aria-label="Abrir a casa de demonstração">
+        <span className="ic"><Icon n="people" s={20} /></span>
+        <span className="st2"><span>Casa de demonstração</span><span className="s">Tiago e Marta, em Almada. Tudo a funcionar, nada a sério.</span></span>
+        <Icon n="chev" s={16} />
+      </button>
       <div className="chips" role="tablist" aria-label="Secções">{TABS.map((t) => <button key={t} role="tab" className="press" aria-pressed={cur === t} aria-selected={cur === t} onClick={() => setTab(t)}>{label[t]}</button>)}</div>
       {err && <p className="err">{err === 'só para a administração da app' ? 'Este painel é só para a administração da app.' : err}</p>}
       {!d && !err && <Loading />}
