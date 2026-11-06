@@ -1410,3 +1410,4 @@ body::before{content:"";position:fixed;left:0;right:0;top:0;height:env(safe-area
 .salv-why > summary::after{content:"Ver";color:var(--accent)}
 .salv-why[open] > summary::after{content:"Fechar"}
 .salv-why[open] > summary{margin-bottom:10px}
+.dl-edit{border:0;background:transparent;color:inherit;text-align:left;padding:0;flex:1;min-width:0;cursor:pointer}

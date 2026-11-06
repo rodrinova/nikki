@@ -189,7 +189,7 @@ function Deadlines({ list }: { list: DeadlineRow[] }) {
       <div className="wbar"><span className="s">Avisam um mês antes (IMI, seguros, contratos)</span><button className="tb press" onClick={() => open(<DeadlineSheet />)}>Novo prazo</button></div>
       {list.length ? <div className="tile card rows">{list.map((d) => (
         <div key={d.id}>
-          <span className="st2"><span>{d.title}</span><span className="s">{d.kind === 'insurance' ? 'renova ' : d.kind === 'contract' ? 'acaba ' : 'até '}{when(d.due_on)}{d.amount ? ` · ${eur(toU(d.amount))} €` : ''}{d.kind === 'insurance' || d.kind === 'contract' ? ' · um mês antes: pedir propostas e renegociar' : d.recurrence === 'yearly' ? ' · todos os anos' : ''}</span></span>
+          <button type="button" className="st2 dl-edit press" onClick={() => open(<DeadlineSheet d={d} />)} aria-label={`Editar ${d.title}`}><span>{d.title}</span><span className="s">{d.kind === 'insurance' ? 'renova ' : d.kind === 'contract' ? 'acaba ' : 'até '}{when(d.due_on)}{d.amount ? ` · ${eur(toU(d.amount))} €` : ''}{d.kind === 'insurance' || d.kind === 'contract' ? ' · um mês antes: pedir propostas e renegociar' : d.recurrence === 'yearly' ? ' · todos os anos' : ''}</span></button>
           {d.kind === 'contract' ? <button className="tb press" onClick={() => open(<ContractSheet d={d} />)}>Tratado</button> : <button className="tb press" onClick={() => open(<PaidSheet d={d} />)}>Paguei</button>}
         </div>
       ))}</div> : <p className="s">Sem prazos. Junta o IMI, o seguro ou uma fidelização: avisamos um mês antes.</p>}
@@ -491,28 +491,38 @@ function PaySheet({ bill, expense }: { bill: BillRow; expense?: ExpenseRow }) {
 
 const DL: [string, NonNullable<DeadlineRow['kind']>][] = [['IMI', 'imi'], ['Seguro', 'insurance'], ['Contrato', 'contract'], ['Outro', 'other']];
 
-function DeadlineSheet() {
+/** Um prazo da casa: novo, ou (com d) para mudar ou apagar. */
+function DeadlineSheet({ d }: { d?: DeadlineRow }) {
   const { me, house } = useSession();
   const { deadlines } = useHouse();
   const { close, toast } = useOverlays();
-  const [kind, setKind] = useState<NonNullable<DeadlineRow['kind']>>('other');
-  const [title, setTitle] = useState('');
-  const [due, setDue] = useState(addDays(todayStr(), 30));
-  const [amt, setAmt] = useState('');
-  const [yearly, setYearly] = useState(true);
+  const [kind, setKind] = useState<NonNullable<DeadlineRow['kind']>>(d?.kind ?? 'other');
+  const [title, setTitle] = useState(d?.title ?? '');
+  const [due, setDue] = useState(d?.due_on ?? addDays(todayStr(), 30));
+  const [amt, setAmt] = useState(d?.amount ? String(d.amount).replace('.', ',') : '');
+  const [yearly, setYearly] = useState(d ? d.recurrence !== 'none' : true);
+  const [sure, setSure] = useState(false);
   const [err, setErr] = useState('');
   async function save(e: FormEvent) {
     e.preventDefault(); setErr('');
     const t = title.trim() || DL.find(([, k]) => k === kind)![0];
     const a = amt.trim() ? parseAmount(amt) : null;
     if (amt.trim() && !a) return setErr('O valor escreve-se assim: 148,37.');
-    const { error } = await supabase.from('deadlines').insert({ household_id: house!.id, title: t.slice(0, 60), due_on: due, amount: a, recurrence: yearly ? 'yearly' : 'none', kind, remind_days: kind === 'other' ? 7 : 30, created_by: me!.id });
+    const row = { title: t.slice(0, 60), due_on: due, amount: a, recurrence: yearly ? (d?.recurrence === 'monthly' ? 'monthly' : 'yearly') : 'none', kind, remind_days: kind === 'other' ? 7 : 30 };
+    const { error } = d ? await supabase.from('deadlines').update(row).eq('id', d.id) : await supabase.from('deadlines').insert({ ...row, household_id: house!.id, created_by: me!.id });
     if (error) return setErr(error.message);
     deadlines.reload(); close(); toast(`${t}: ${when(due)}.`, { ok: true });
   }
+  async function remove() {
+    if (!d) return;
+    if (!sure) return setSure(true);
+    const { error } = await supabase.from('deadlines').delete().eq('id', d.id);
+    if (error) return setErr(error.message);
+    deadlines.reload(); close(); toast(`${d.title}: apagado.`, { ok: true });
+  }
   return (
     <form onSubmit={save} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <p className="l">Novo prazo · Casa</p>
+      <p className="l">{d ? d.title : 'Novo prazo · Casa'}</p>
       <div className="chips" role="group" aria-label="O quê">{DL.map(([l, k]) => <button key={k} type="button" className="press" aria-pressed={kind === k} onClick={() => { setKind(k); setYearly(k !== 'contract'); }}>{l}</button>)}</div>
       <div className="form">
         <label>O quê<input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={kind === 'contract' ? 'ex.: fim da fidelização MEO' : kind === 'insurance' ? 'ex.: seguro da casa' : kind === 'imi' ? 'IMI' : 'ex.: revisão da caldeira'} maxLength={60} /></label>
@@ -524,6 +534,7 @@ function DeadlineSheet() {
       </div>
       <p className="s why"><span className="dot" aria-hidden="true" /><span>{err || (kind === 'other' ? 'A NIKKI avisa uma semana antes.' : 'A NIKKI avisa um mês antes.')}</span></p>
       <button className="btn wide press">Guardar <Icon n="check" s={20} /></button>
+      {d && <button type="button" className="back press" onClick={remove}>{sure ? 'Toca outra vez para apagar' : 'Apagar este prazo'}</button>}
     </form>
   );
 }
