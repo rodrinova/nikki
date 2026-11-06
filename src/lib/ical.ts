@@ -41,7 +41,7 @@ const weekdayOf = (d: string) => ((new Date(`${d}T12:00:00Z`).getUTCDay() + 6) %
 const daysIn = (y: number, m: number) => new Date(Date.UTC(y, m, 0)).getUTCDate();
 
 /** Texto escapado (\\ ; , e mudanças de linha). */
-export const esc = (s: string) => s.replace(/\\/g, '\\\\').replace(/;/g, '\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
+export const esc = (s: string) => s.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
 
 /** Linhas com mais de 75 octetos dobram-se (continuação começa com um espaço). */
 export function fold(line: string): string {

@@ -6,8 +6,17 @@ import {
   open, seal, visibleTo, type SyncEvent,
 } from '../../../src/lib/calsync.ts';
 
-export const KEY = Deno.env.get('CALENDAR_KEY')!; // 32 bytes em base64 (supabase secrets set CALENDAR_KEY=…)
 export const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { db: { schema: 'nikki' }, auth: { persistSession: false } });
+// A chave que encripta os acessos guardados (32 bytes em base64): o segredo CALENDAR_KEY, se existir; senão, a da
+// tabela nikki.calendar_config (criada pela migração, só a chave de serviço a lê).
+let cachedKey: string | null = Deno.env.get('CALENDAR_KEY') ?? null;
+export async function calKey(): Promise<string> {
+  if (cachedKey) return cachedKey;
+  const { data, error } = await admin.from('calendar_config').select('key').eq('id', true).single();
+  if (error || !data?.key) throw new Error('Falta a chave do calendário.');
+  cachedKey = data.key as string;
+  return cachedKey;
+}
 export const cors = { 'access-control-allow-origin': '*', 'access-control-allow-headers': 'authorization, content-type, apikey, x-client-info', 'access-control-allow-methods': 'GET, POST, OPTIONS' };
 export const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status, headers: { ...cors, 'content-type': 'application/json' } });
 
@@ -68,7 +77,7 @@ export async function googleCreateCalendar(token: string): Promise<string> {
 
 /** Põe (ou tira) um evento no calendário de uma ligação, consoante a pessoa o deve ver. */
 export async function syncOne(link: Link, e: SyncEvent | null, eventId: string, cache: Map<string, string>) {
-  const secret = await open(link.secret_enc, KEY);
+  const secret = await open(link.secret_enc, await calKey());
   const show = e !== null && visibleTo(e, link.profile_id);
   if (link.provider === 'icloud') {
     const { u, p } = JSON.parse(secret) as { u: string; p: string };
