@@ -1429,3 +1429,5 @@ body::before{content:"";position:fixed;left:0;right:0;top:0;height:env(safe-area
 @keyframes page-fwd{from{opacity:0}}
 @keyframes page-back{from{opacity:0}}
 @keyframes page-fade{from{opacity:0}}
+/* A casa de demonstração aberta pela administração: um selo discreto, com a saída. */
+.demo-pill{position:fixed;z-index:45;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top,0px) + 6px);border:1px solid rgba(var(--glow),.45);background:color-mix(in srgb,var(--ground) 82%,transparent);color:var(--ink);font-size:12px;letter-spacing:.02em;padding:6px 12px;border-radius:999px}
