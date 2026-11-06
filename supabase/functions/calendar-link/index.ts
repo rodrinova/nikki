@@ -38,9 +38,10 @@ Deno.serve(async (req) => {
   if (body.action === 'icloud') {
     try {
       const cal = await icloudConnect(String(body.apple_id).trim(), String(body.app_password).replace(/\s/g, ''));
-      const { data } = await admin.from('calendar_links').upsert({ profile_id: uid, household_id: body.household, provider: 'icloud', account_hint: hint(String(body.apple_id)), calendar_ref: cal, secret_enc: await seal(JSON.stringify({ u: String(body.apple_id).trim(), p: String(body.app_password).replace(/\s/g, '') }), await calKey()), status: 'ok' }, { onConflict: 'profile_id,household_id,provider' }).select('id').single();
+      const { data, error } = await admin.from('calendar_links').upsert({ profile_id: uid, household_id: body.household, provider: 'icloud', account_hint: hint(String(body.apple_id)), calendar_ref: cal, secret_enc: await seal(JSON.stringify({ u: String(body.apple_id).trim(), p: String(body.app_password).replace(/\s/g, '') }), await calKey()), status: 'ok' }, { onConflict: 'profile_id,household_id,provider' }).select('id').single();
+      if (error) throw new Error(`Não consegui guardar a ligação (${error.message}).`);
       return json({ ok: true, ...(await syncHousehold(body.household, undefined, data?.id)) });
-    } catch (e) { return json({ error: (e as Error).message }, 400); }
+    } catch (e) { console.error('icloud', (e as Error).message); return json({ error: (e as Error).message }); } // 200: a app mostra a razão (com outro código, o supabase-js esconde-a)
   }
   if (body.action === 'google') {
     if (!Deno.env.get('GOOGLE_CLIENT_ID')) return json({ error: 'O Google ainda não está configurado.' }, 400);
