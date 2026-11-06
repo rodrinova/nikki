@@ -44,15 +44,17 @@ async function dav(url: string, method: string, auth: string, body?: string, dep
 export async function icloudConnect(appleId: string, appPassword: string): Promise<string> {
   const auth = basic(appleId, appPassword);
   const r1 = await dav(CALDAV_ROOT, 'PROPFIND', auth, PROPFIND_PRINCIPAL);
-  if (r1.status === 401) throw new Error('O iCloud não aceitou o e-mail ou a palavra-passe de app.');
-  const principal = hrefIn(await r1.text(), 'current-user-principal');
-  if (!principal) throw new Error('O iCloud não respondeu como esperado.');
+  if (r1.status === 401 || r1.status === 403) throw new Error('O iCloud não aceitou o e-mail ou a palavra-passe de app. Confirma o e-mail do Apple ID (o de iniciar sessão no iPhone) e cria uma palavra-passe de app nova.');
+  const t1 = await r1.text();
+  const principal = hrefIn(t1, 'current-user-principal');
+  if (!principal) { console.error('icloud principal', r1.status, t1.slice(0, 400)); throw new Error(`O iCloud não respondeu como esperado (${r1.status}).`); }
   const r2 = await dav(absolute(principal, CALDAV_ROOT), 'PROPFIND', auth, PROPFIND_HOME);
-  const home = hrefIn(await r2.text(), 'calendar-home-set');
-  if (!home) throw new Error('Não encontrei os calendários do iCloud.');
+  const t2 = await r2.text();
+  const home = hrefIn(t2, 'calendar-home-set');
+  if (!home) { console.error('icloud home', r2.status, t2.slice(0, 400)); throw new Error(`Não encontrei os calendários do iCloud (${r2.status}).`); }
   const cal = absolute(home, absolute(principal, CALDAV_ROOT)).replace(/\/?$/, '/') + 'nikki/';
   const r3 = await dav(cal, 'MKCALENDAR', auth, MKCALENDAR);
-  if (!r3.ok && r3.status !== 405) throw new Error(`O iCloud não deixou criar o calendário (${r3.status}).`); // 405: já existe
+  if (!r3.ok && r3.status !== 405) { console.error('icloud mkcalendar', r3.status, cal, (await r3.text()).slice(0, 400)); throw new Error(`O iCloud não deixou criar o calendário (${r3.status}).`); } // 405: já existe
   return cal;
 }
 
