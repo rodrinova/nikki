@@ -19,3 +19,6 @@
 - Tickets: `src/screens/Tickets.tsx`; capturas no bucket privado `tickets`, em `<id da pessoa>/<ficheiro>`, lidas por link assinado.
 - Património: contas em `src/lib/wealth.ts` (testes em `__tests__/wealth.test.ts`), juntas por `useWealth(view)` em `src/data/wealth.ts`; a despesa do casal só por `rpc('house_month_totals')` (totais por mês). Liquidez decide-se pelo tipo do ativo (`KINDS`), nunca por pergunta.
 - O protótipo foi abandonado (28 out 2026): mudanças só na app real.
+- Navegação: cinco destinos (`src/lib/nav.ts`): Hoje `/` · Dinheiro · Agenda · Casa (`/espacos`, os módulos) · Nós. Destinos sem «Voltar». Barra de baixo: Hoje · Dinheiro · + · Agenda · Casa; «Nós» pelas caras no topo do Hoje.
+- Letra: Albert Sans 400 e 500 (ficheiros reais); tamanhos só pelos tokens `--t-xs 11 · --t-s 13 · --t-r 15 · --t-m 17 · --t-l 22 · --t-n 28 · --t-h 34 · --t-xl 52` (a app do housekeeping tem a sua escala maior). Cartões laranja: texto escuro (`--hero-ink`).
+- Transições partilhadas: `withVT` (`src/ui/vt.ts`) + `view-transition-name` no CSS (ex.: `.vt-total`).

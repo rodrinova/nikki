@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase, DEMO, url as base } from '@/lib/supabase';
 import { useSession } from '@/data/session';
 import { useHouse, type EventRow } from '@/data/house';
@@ -41,25 +42,30 @@ export function openPlace(place: string) {
  * com um toque no título ou a deslizar para baixo, como no iPhone; deslizar para o lado muda de semana ou de mês.
  * Por baixo, a lista do dia escolhido, «Novo» e a ligação ao calendário do telemóvel.
  */
-export function AgendaPane({ defaultOpen = false }: { defaultOpen?: boolean }) {
+export function AgendaPane({ defaultOpen = false, home = false }: { defaultOpen?: boolean; home?: boolean }) {
   const today = todayStr();
+  const go = useNavigate();
   const { house: h } = useSession();
   useEffect(() => { if (h) pullFromPhones(h.id); }, [h]);
   // Aberta no mês inteiro por omissão; fica como a pessoa a deixou da última vez.
-  const [open, setOpen] = useState(() => { const v = store.get('nikki_agenda_open'); return v === null ? defaultOpen : v === '1'; });
+  // No Hoje fica sempre na semana: o mês inteiro abre na Agenda.
+  const [openPref, setOpen] = useState(() => { const v = store.get('nikki_agenda_open'); return v === null ? defaultOpen : v === '1'; });
+  const open = !home && openPref;
   const [sel, setSel] = useState(today);
   const [mk, setMk] = useState(monthKey(today));
   const { open: sheet } = useOverlays();
   const month = monthWeeks(open ? mk : monthKey(sel));
   const weeks = open ? month : [weekOf(sel)];
-  const items = useAgendaItems(weeks[0][0], weeks[weeks.length - 1][6]);
+  const last = weeks[weeks.length - 1][6], tmw = addDays(today, 1);
+  // Até amanhã, pelo menos (ao domingo, amanhã já é da semana seguinte).
+  const items = useAgendaItems(weeks[0][0], last < tmw ? tmw : last);
   const by = useMemo(() => { const m = new Map<string, AgendaItem[]>(); for (const it of items) m.set(it.day, [...(m.get(it.day) ?? []), it]); return m; }, [items]);
   const t0 = useRef<{ x: number; y: number } | null>(null);
   const shift = (dir: 1 | -1) => {
     if (open) { const k = dir > 0 ? nextMonth(mk) : prevMonth(mk); setMk(k); setSel(k === monthKey(today) ? today : `${k}-01`); }
     else setSel(addDays(sel, 7 * dir));
   };
-  const toggle = (v: boolean) => { setOpen(v); store.set('nikki_agenda_open', v ? '1' : '0'); if (v) setMk(monthKey(sel)); };
+  const toggle = (v: boolean) => { if (home) { if (v) go('/agenda'); return; } setOpen(v); store.set('nikki_agenda_open', v ? '1' : '0'); if (v) setMk(monthKey(sel)); };
   const shown = open ? mk : monthKey(sel);
   const list = by.get(sel) ?? [];
   const next = by.get(addDays(today, 1)) ?? [];
@@ -73,7 +79,7 @@ export function AgendaPane({ defaultOpen = false }: { defaultOpen?: boolean }) {
         else if (Math.abs(dy) > 50 && (e.target as HTMLElement).closest('.ag-grid')) toggle(dy > 0);
       }}>
       <div className="ag-top">
-        <button className="ag-month press" aria-expanded={open} onClick={() => toggle(!open)}>{cap(monthName(shown))}{shown.slice(0, 4) !== today.slice(0, 4) ? ` ${shown.slice(0, 4)}` : ''} <span className={`ag-chev${open ? ' up' : ''}`} aria-hidden="true"><Icon n="chev" s={14} /></span></button>
+        <button className="ag-month press" aria-expanded={home ? undefined : open} aria-label={home ? 'Abrir a agenda' : undefined} onClick={() => toggle(!open)}>{cap(monthName(shown))}{shown.slice(0, 4) !== today.slice(0, 4) ? ` ${shown.slice(0, 4)}` : ''} <span className={`ag-chev${open ? ' up' : ''}${home ? ' go' : ''}`} aria-hidden="true"><Icon n="chev" s={14} /></span></button>
         <span style={{ display: 'flex', gap: 6 }}>
           {(sel !== today || (open && mk !== monthKey(today))) && <button className="tb quiet press" onClick={() => { setSel(today); setMk(monthKey(today)); }}>Hoje</button>}
           <button className="tb press" onClick={() => sheet(<EventSheet day={sel} />)}>Novo</button>

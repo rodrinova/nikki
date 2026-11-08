@@ -17,10 +17,12 @@ export const statusClass = (s: TicketStatus) => `st st-${s.replace(' ', '')}`;
 export const lastPlace = { path: '/' };
 const PLACES = ['Início', 'Dinheiro', 'Entre nós', 'Compras', 'Agenda', 'Pessoas', 'Outro'];
 function placeOf(path: string): string {
-  if (path === '/') return 'Início';
+  if (path === '/') return 'Hoje';
   if (path.startsWith('/dinheiro')) return 'Dinheiro';
   if (path === '/pessoas') return 'Pessoas';
-  if (path === '/espacos') return 'Espaços';
+  if (path === '/espacos') return 'Casa';
+  if (path === '/agenda') return 'Agenda';
+  if (path === '/nos') return 'Nós';
   const m = moduleOf(path);
   return m ? moduleName(m) : 'Outro';
 }

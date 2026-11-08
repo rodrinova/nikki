@@ -304,7 +304,7 @@ function seed() {
   ev(-6, '15:00', 'Dentista', I, false, { location: 'Clínica Dentária da Graça, Lisboa' }); ev(-4, '20:00', 'Jantar fora', null, false, { mins: 120 });
   ev(-21, '18:45', 'Pilates', I, false, { repeat: 'weekly', weekdays: [wd(0), wd(2)], location: 'Estúdio Pilates Graça, Lisboa' });
   ev(-30, '19:30', 'Treino', R, false, { repeat: 'weekly', weekdays: [1, 3, 5], location: 'Holmes Place Saldanha' });
-  ev(3, '09:30', 'Oficina: revisão do Clio', R, true, { ask_share: true, ext_uid: 'APPLE-DEMO-1' }); // criado no iPhone, à espera de «de quem é?»
+  ev(3, '09:30', 'Oficina: revisão do Golf', R, true, { ask_share: true, ext_uid: 'APPLE-DEMO-1' }); // criado no iPhone, à espera de «de quem é?»
   ev(1, '10:00', 'Reunião de equipa', I, true); ev(1, '13:00', 'Almoço com a Rita', R, true, { location: 'Time Out Market, Lisboa' });
   { const d = parseDate(addDays(today, 4)); db.events.push({ id: uid(), household_id: H, title: 'Aniversário da mãe', starts_at: new Date(1966, d.getMonth(), d.getDate()).toISOString(), ends_at: null, all_day: true, owner_id: null, private: false, created_by: R, created_at: today, location: null, kind: 'birthday', repeat: 'yearly', weekdays: null, month_mode: 'day', until_on: null, skip_dates: [], remind_days: 7 }); }
   { const k = today.slice(0, 7), first = [1, 2, 3, 4, 5, 6, 7].map((n) => `${k}-0${n}`).find((d) => parseDate(d).getDay() === 5)!;

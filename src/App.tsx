@@ -12,7 +12,7 @@ import { Pull } from '@/ui/Pull';
 import { store } from '@/lib/store';
 import { todayStr } from '@/lib/dates';
 import { InviteLanding, Login, NoAccess, Onboarding, Waiting, usePendingInvite } from '@/screens/Auth';
-import { Hub, Soon, Spaces, Story } from '@/screens/Home';
+import { AgendaScreen, Hub, Nos, Soon, Spaces, Story } from '@/screens/Home';
 import { Cats, Money } from '@/screens/Money';
 import { Shop } from '@/screens/Shop';
 import { People, Profile } from '@/screens/People';
@@ -22,7 +22,8 @@ import { useAdminBadge } from '@/data/adminBadge';
 import { Loading, later } from '@/ui/lazy';
 import { QuickAdd } from '@/screens/QuickAdd';
 import { Goals } from '@/screens/Goals';
-import { MODULES, moduleOf } from '@/lib/modules';
+import { DESTS, isRoot, under } from '@/lib/nav';
+import { moduleOf } from '@/lib/modules';
 
 // Ecrãs menos usados (ou só de algumas pessoas): só se carregam quando se abrem.
 const Wealth = later(() => import('@/screens/Wealth'), 'Wealth');
@@ -46,63 +47,85 @@ const Salvage = later(() => import('@/screens/Salvage'), 'Salvage');
 const SalvageCarScreen = later(() => import('@/screens/Salvage'), 'SalvageCarScreen');
 const SalvageLinkPage = later(() => import('@/screens/Salvage'), 'SalvageLinkPage');
 
+/** As caras dos dois (ou só a tua), sobrepostas: abrem o «Nós». */
+function Pair({ big }: { big?: boolean }) {
+  const { me, partner } = useSession();
+  return (
+    <span className={`pair${big ? ' big' : ''}`} aria-hidden="true">
+      <span className="avatar" style={{ ['--c' as any]: me?.color }}>{me?.name?.[0]}</span>
+      {partner && <span className="avatar" style={{ ['--c' as any]: partner.color }}>{partner.name?.[0]}</span>}
+    </span>
+  );
+}
+
 /**
- * Só o início tem barra de topo: a marca e o perfil. Os outros ecrãs começam no «Voltar».
+ * Só o Hoje tem barra de topo: a marca e as vossas caras. Os outros ecrãs começam no título (ou no «Voltar»).
  * Depois da abertura a marca é só a cara (olhos e bigodes); um toque leva à história.
  */
 function TopBar() {
-  const { me } = useSession();
+  const { partner } = useSession();
   const adm = useAdminBadge(); // pedidos de conta e tickets: na administração, não no início da casa
   return (
     <header className="status" aria-label="NIKKI">
       <div className="left" style={{ color: 'var(--ink)' }}><Link className="press" to="/historia" aria-label="NIKKI: a história"><Face h={18} /></Link></div>
-      <div className="right"><Link className="avatar press" to="/perfil" style={{ ['--c' as any]: me?.color }} aria-label={`Perfil de ${me?.name ?? ''}${adm.pending + adm.novo ? ` (${adm.pending + adm.novo} na administração)` : ''}`}>{me?.name?.[0]}{adm.pending + adm.novo > 0 && <span className="av-dot" aria-hidden="true" />}</Link></div>
+      <div className="right"><Link className="press pair-link" to="/nos" aria-label={`Nós${partner ? `: tu e ${partner.name}` : ''}${adm.pending + adm.novo ? ` (${adm.pending + adm.novo} na administração)` : ''}`}><Pair />{adm.pending + adm.novo > 0 && <span className="av-dot" aria-hidden="true" />}</Link></div>
     </header>
   );
 }
 
 /**
- * No iPad deitado e no computador: uma barra lateral de vidro com a marca, os espaços em uso, o «Juntar» e o
+ * No iPad deitado e no computador: uma barra lateral de vidro com a marca, os cinco destinos, o «Registar» e o
  * perfil. Substitui a barra de topo e a de baixo (o CSS mostra uma ou outra pela largura do ecrã).
  */
 function SideBar() {
   const { pathname } = useLocation();
-  const { me, appAdmin } = useSession();
-  const { on } = useHouse();
+  const { me } = useSession();
   const { open, isOpen, close } = useOverlays();
-  const at = (to: string) => (to === '/' ? pathname === '/' : pathname === to || pathname.startsWith(`${to}/`));
-  const item = (to: string, ic: string, n: string) => (
-    <Link key={to} className="side-i press" to={to} aria-current={at(to) ? 'page' : undefined}><Icon n={ic as any} s={20} /><span>{n}</span></Link>
-  );
+  const at = (to: string) => under(pathname, to);
   return (
     <nav className="side" aria-label="Principal">
       <Link className="side-brand press" to="/historia" aria-label="NIKKI: a história"><span className="side-tok"><Face h={18} /></span><span>NIKKI</span></Link>
-      <button className="side-add press" aria-expanded={isOpen} onClick={() => (isOpen ? close() : open(<QuickAdd />))}><Icon n="plus" s={20} w={1.6} /><span>Juntar</span></button>
+      <button className="side-add press" aria-expanded={isOpen} aria-label="Registar: despesa, evento, compra, a fazer…" onClick={() => (isOpen ? close() : open(<QuickAdd />))}><Icon n="plus" s={20} w={1.6} /><span>Registar</span></button>
       <div className="side-list">
-        {item('/', 'home', 'Início')}
-        {item('/dinheiro', 'coins', 'Dinheiro')}
-        {MODULES.filter((m) => on(m.k)).map((m) => item(m.to, m.ic, m.name))}
-        {appAdmin && item('/salvados', 'wrench', 'Salvados')}
-        {item('/espacos', 'grid', 'Espaços')}
+        {DESTS.map((d) => <Link key={d.to} className="side-i press" to={d.to} aria-current={at(d.to) ? 'page' : undefined}><Icon n={d.ic as any} s={20} /><span>{d.n}</span></Link>)}
       </div>
       <Link className="side-me press" to="/perfil" aria-current={at('/perfil') ? 'page' : undefined}><span className="avatar" style={{ ['--c' as any]: me?.color }}>{me?.name?.[0]}</span><span>{me?.name}</span></Link>
     </nav>
   );
 }
 
-/** Barra de baixo: só ícones. Início · + · Espaços. */
+/**
+ * Barra de baixo: Hoje · Dinheiro · + · Agenda · Casa. Esconde-se ao descer a página (para não tapar o que se lê) e
+ * volta ao subir ou no fim.
+ */
 function BottomBar() {
   const { pathname } = useLocation();
   const { open, isOpen, close } = useOverlays();
+  const [hide, setHide] = useState(false);
+  useEffect(() => {
+    let y = scrollY;
+    const on = () => {
+      const ny = scrollY, end = ny + innerHeight >= document.documentElement.scrollHeight - 8;
+      if (Math.abs(ny - y) < 6) return;
+      setHide(ny > y && ny > 80 && !end);
+      y = ny;
+    };
+    addEventListener('scroll', on, { passive: true });
+    return () => removeEventListener('scroll', on);
+  }, []);
+  useEffect(() => setHide(false), [pathname]);
+  const tab = (d: (typeof DESTS)[number]) => {
+    const cur = under(pathname, d.to);
+    return <Link key={d.to} className="press" to={d.to} aria-label={d.n} aria-current={cur ? 'page' : undefined}><Icon n={d.ic as any} /></Link>;
+  };
   return (
-    <nav className="bottom" aria-label="Principal"><div className="in">
-      <Link className="press" to="/" aria-label="Início" aria-current={pathname === '/' ? 'page' : undefined}><Icon n="home" /></Link>
-      <button className="press add" aria-label="Juntar: despesa, evento, a fazer…" aria-expanded={isOpen} onClick={() => (isOpen ? close() : open(<QuickAdd />))}><Icon n="plus" s={24} w={1.6} /></button>
-      <Link className="press" to="/espacos" aria-label="Espaços" aria-current={pathname === '/espacos' ? 'page' : undefined}><Icon n="grid" /></Link>
+    <nav className={`bottom${hide && !isOpen ? ' away' : ''}`} aria-label="Principal"><div className="in">
+      {tab(DESTS[0])}{tab(DESTS[1])}
+      <button className="press add" aria-label="Registar: despesa, evento, compra, a fazer…" aria-expanded={isOpen} onClick={() => (isOpen ? close() : open(<QuickAdd />))}><Icon n="plus" s={24} w={1.6} /></button>
+      {tab(DESTS[2])}{tab(DESTS[3])}
     </div></nav>
   );
 }
-
 
 function SoonRoute() {
   const { k = '' } = useParams();
@@ -121,7 +144,7 @@ function usePageDir(pathname: string): 'fwd' | 'back' | 'fade' {
   const prev = useRef(pathname), dir = useRef<'fwd' | 'back' | 'fade'>('fade');
   if (prev.current !== pathname) {
     // O Início e os Espaços são o nível de cima (os separadores da barra); cada espaço é um nível abaixo.
-    const depth = (p: string) => (p === '/' || p === '/espacos' ? 0 : p.split('/').filter(Boolean).length);
+    const depth = (p: string) => (isRoot(p) ? 0 : p.split('/').filter(Boolean).length);
     const a = depth(prev.current), b = depth(pathname);
     dir.current = nav === 'POP' ? 'back' : b > a ? 'fwd' : b < a ? 'back' : 'fade';
     prev.current = pathname;
@@ -175,6 +198,8 @@ function Shell() {
         <Routes>
           <Route path="/" element={<Hub />} />
           <Route path="/espacos" element={<Spaces />} />
+          <Route path="/agenda" element={<AgendaScreen />} />
+          <Route path="/nos" element={<Nos />} />
           <Route path="/dinheiro" element={<Money />} />
           <Route path="/dinheiro/categorias" element={<Cats />} />
           <Route path="/contas" element={<Navigate to="/dinheiro?ver=entre-nos" replace />} />
