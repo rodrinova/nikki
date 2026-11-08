@@ -1598,3 +1598,34 @@ body.story-open{overflow:hidden}
 .story-door .s{color:rgba(255,255,255,.7)}
 .story-door .ring{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;flex-shrink:0;background:conic-gradient(#FF7A1F,#FFD2AE,#FF7A1F);padding:2px}
 .story-door .ring > span{width:100%;height:100%;border-radius:50%;background:#141414;display:grid;place-items:center;color:#fff}
+
+/* ───────────── Next gen · fase 6: ecrãs grandes e microtexto ───────────── */
+/* «A NIKKI lembra» no telemóvel: o botão de ação passa para baixo do texto, em vez de o espremer em 3 linhas. */
+@media (max-width:1023px){
+  .now-row{flex-wrap:wrap;row-gap:0}
+  .now-row .now-main{flex:1 1 calc(100% - 48px)}
+  .now-row .x-btn{order:2}
+  .now-row .now-act{order:3;margin:-6px 0 12px 22px}
+  .now-row .tick ~ .now-main{flex-basis:calc(100% - 90px)}
+  .now-row .tick ~ .now-act{margin-left:40px}
+}
+/* Repetição de um evento: só um sinal (o resto vê-se ao abrir). */
+.ag-row .rep{color:var(--sub)}
+
+/* Computador: o Hoje e a Agenda ocupam a largura toda (o limite de 980 px do iPad ao alto deixava um vazio à direita). */
+@media (min-width:1024px){.app.is-hub{max-width:none;width:auto}}
+/* Computador largo: o Hoje em três colunas (agenda · dinheiro e objetivo · o que a NIKKI lembra). */
+@media (min-width:1560px){
+  .app.is-hub > .screen{max-width:1480px}
+  .hub{grid-template-columns:minmax(0,1.1fr) minmax(0,1fr) minmax(0,1fr);grid-template-areas:"a m n" "a g n";gap:24px}
+  .hub-a{grid-area:a}
+  .hub-b{display:contents}
+  .hub-b > .money-line{grid-area:m}
+  .hub-b > .goal-line{grid-area:g;align-self:start}
+  .hub-b > .now{grid-area:n}
+}
+/* A Agenda no computador: o mês com os títulos inteiros (até duas linhas por coisa). */
+@media (min-width:1024px){
+  .app.is-hub .ag.open .ag-d{min-height:112px;padding:4px 4px 6px}
+  .app.is-hub .ag.open .ag-d .mt{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;padding:1px 4px;margin-bottom:2px}
+}

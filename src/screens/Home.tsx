@@ -133,7 +133,8 @@ function Now() {
     const ha = it.kind === 'chore' ? hkAsk({ id: it.id, title: it.title }) : {};
     items.push({
       key: `td:${it.kind}:${it.id}:${today}`, rank: it.late > 0 ? 1 : 2, t: it.title,
-      s: cap1([maint ? 'manutenção' : '', it.owner === null ? (partner ? 'de quem puder' : '') : it.chore?.assign === 'rotate' ? 'a tua vez' : '', late(it.late), 'note' in ha ? ha.note : ''].filter(Boolean).join(' · ') || 'para hoje'),
+      // Dois factos no máximo: o atraso (se houver) passa à frente.
+      s: cap1([late(it.late), 'note' in ha ? ha.note : '', it.owner === null ? (partner ? 'de quem puder' : '') : it.chore?.assign === 'rotate' ? 'a tua vez' : '', maint ? 'manutenção' : ''].filter(Boolean).slice(0, 2).join(' · ') || 'para hoje'),
       tick: async () => { const u = await tickIt(it); if (u) setUndo({ t: it.title, verb: 'feito', run: u }); },
       ...('act' in ha ? { act: ha.act } : {}),
     });

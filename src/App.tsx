@@ -193,7 +193,7 @@ function Shell() {
       <HousePull />
       <DraftWatcher />
       {onHub && <TopBar />}
-      <div className={`app${pathname === '/' ? ' is-hub' : ''}`}><main className={`screen enter pg-${dir}`} key={pathname}>
+      <div className={`app${pathname === '/' || pathname === '/agenda' ? ' is-hub' : ''}`}><main className={`screen enter pg-${dir}`} key={pathname}>
         <Suspense fallback={<Loading label="A abrir" />}>
         <Routes>
           <Route path="/" element={<Hub />} />
