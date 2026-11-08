@@ -105,7 +105,7 @@ function GeminiKey() {
   return (
     <section className="tile card" style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: 16 }} aria-label="Leitura de faturas">
       <span className="l" style={{ fontSize: 'var(--t-m)' }}>Leitura de faturas</span>
-      <span className="s">{ready === null ? 'A ver…' : ready ? 'Ligada (Gemini). Para trocar, cola outra chave.' : 'Desligada. Cria uma chave grátis em aistudio.google.com (Get API key) e cola-a aqui.'}</span>
+      <span className="s">{ready === null ? 'A ver…' : ready ? 'Ligada (Gemini). Para trocar, cola outra chave.' : 'Desligada. Cola aqui a chave do Gemini: a do Google AI Studio (AIza…) ou a do Vertex AI (AQ.…).'}</span>
       <div style={{ display: 'flex', gap: 8 }}>
         <input className="field" style={{ flex: 1, minWidth: 0 }} value={k} onChange={(e) => setK(e.target.value)} placeholder="AIza…" autoComplete="off" aria-label="Chave do Gemini" />
         <button type="button" className="tb press" onClick={save} disabled={!k.trim() && !ready}>{k.trim() ? 'Guardar' : 'Tirar'}</button>

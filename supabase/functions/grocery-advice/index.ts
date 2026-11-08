@@ -7,6 +7,10 @@ const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE
 const cors = { 'access-control-allow-origin': '*', 'access-control-allow-headers': 'authorization, content-type, apikey, x-client-info', 'access-control-allow-methods': 'POST, OPTIONS' };
 const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status, headers: { ...cors, 'content-type': 'application/json' } });
 const MODEL = Deno.env.get('GEMINI_MODEL') ?? 'gemini-2.5-flash';
+// A chave do Google AI Studio («AIza…») fala com a Gemini API; a do Vertex AI («AQ.…», modo express) com o Vertex.
+const endpoint = (key: string) => key.startsWith('AQ.')
+  ? `https://aiplatform.googleapis.com/v1/publishers/google/models/${MODEL}:generateContent?key=${key}`
+  : `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${key}`;
 
 const PROMPT = `És um conselheiro de poupança doméstica em Portugal, prático e simpático, que fala com um casal (tratamento por «vocês»).
 Recebes o resumo do supermercado da casa nos últimos meses: gasto médio por mês, lojas e a parte de cada uma, e o consumo
@@ -27,11 +31,11 @@ Deno.serve(async (req) => {
   const { summary } = await req.json().catch(() => ({}));
   const text = JSON.stringify(summary ?? {});
   if (text.length > 12000) return json({ error: 'Resumo grande demais.' }, 400);
-  const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${key}`, {
+  const r = await fetch(endpoint(key), {
     method: 'POST', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ contents: [{ parts: [{ text: PROMPT }, { text: `Resumo: ${text}` }] }], generationConfig: { responseMimeType: 'application/json', responseSchema: SCHEMA, temperature: 0.4 } }),
+    body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: PROMPT }, { text: `Resumo: ${text}` }] }], generationConfig: { responseMimeType: 'application/json', responseSchema: SCHEMA, temperature: 0.4 } }),
   });
-  if (!r.ok) return json({ error: `O Gemini não respondeu (${r.status}).` });
+  if (!r.ok) { console.error('gemini', r.status, (await r.text()).slice(0, 500)); return json({ error: r.status === 400 || r.status === 401 || r.status === 403 ? 'O Gemini não aceitou a chave. Confirma-a em Administração → Números.' : `O Gemini não respondeu (${r.status}).` }); }
   const out = await r.json();
   try {
     const tips = JSON.parse(out?.candidates?.[0]?.content?.parts?.[0]?.text ?? '{}').tips ?? [];
