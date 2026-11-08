@@ -10,7 +10,7 @@ export interface ModuleInfo { k: ModuleKey; name: string; ic: string; to: string
 
 export const MODULES: ModuleInfo[] = [
   { k: 'compras', name: 'Compras', ic: 'basket', to: '/compras', what: 'A lista por corredores. Em direto quando estão os dois no supermercado: acabaram-se os dois pacotes de leite.' },
-  { k: 'casa', name: 'Casa', ic: 'house', to: '/casa', what: 'Contas fixas sem sustos: consumos, faturas lidas da fotografia, IMI, seguros e fidelizações com aviso a tempo.' },
+  { k: 'casa', name: 'Contas da casa', ic: 'house', to: '/casa', what: 'Contas fixas sem sustos: consumos, faturas lidas da fotografia, IMI, seguros e fidelizações com aviso a tempo.' },
   { k: 'housekeeping', name: 'Housekeeping', ic: 'broom', to: '/housekeeping', what: 'Quem ajuda em casa bem tratado: a lista de cada visita, mensagens com fotografias e o pagamento sempre a tempo.' },
   { k: 'garagem', name: 'Garagem', ic: 'car', to: '/garagem', what: 'Quanto custa mesmo cada quilómetro, o consumo a sério e o IUC, a inspeção e o seguro com um mês de folga.' },
   { k: 'eventos', name: 'Eventos', ic: 'gift', to: '/eventos', what: 'Do batizado às bodas: orçamento, convidados, fornecedores e presentes. E as contas do mês ficam à parte.' },

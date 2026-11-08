@@ -29,13 +29,16 @@ import { warrantyState } from '@/lib/chores';
 import { CountUp } from '@/ui/CountUp';
 import { totals as salvageTotals } from '@/lib/salvage';
 import { useWealth } from '@/data/wealth';
+import { isRoot } from '@/lib/nav';
+import { withVT } from '@/ui/vt';
 
 export function Top({ title, right }: { title: string; right?: ReactNode }) {
   const nav = useNavigate();
   const loc = useLocation();
+  // Os cinco destinos chegam-se pela barra: sem «Voltar».
   return (
     <>
-      <button className="back press" onClick={() => (loc.key !== 'default' ? nav(-1) : nav('/'))}><Icon n="back" s={20} /><span>Voltar</span></button>
+      {!isRoot(loc.pathname) && <button className="back press" onClick={() => (loc.key !== 'default' ? nav(-1) : nav('/'))}><Icon n="back" s={20} /><span>Voltar</span></button>}
       <div className="titlebar"><h1 className="l">{title}</h1>{right}</div>
     </>
   );
@@ -197,13 +200,14 @@ export const heat = (p: { fresh?: boolean; pct?: number }) => (p.fresh || p.pct 
 /** Dinheiro numa frase: o mês comparado com o habitual e, a dois, como estão entre vocês. */
 function MoneyLine() {
   const { partner } = useSession();
+  const go = useNavigate();
   const m = useMonth(), L = useLedger();
   const pace = m.pace.fresh ? '' : `, ${Math.abs(m.pace.pct)}% ${m.pace.pct >= 0 ? 'acima' : 'abaixo'} do habitual`;
   const us = partner && L ? (L.even ? 'Entre nós: estão quites.' : L.v > 0 ? `Entre nós: adiantaste ${eur(Math.abs(L.v))} € a mais.` : `Entre nós: ${partner.name} adiantou ${eur(Math.abs(L.v))} € a mais.`) : '';
   return (
-    <Link className="tile money-line hero press" style={{ ['--heat' as any]: heat(m.pace) }} to="/dinheiro" aria-label={`${cap1(monthName(m.key))}${partner ? ', a tua parte' : ''}: ${eur(m.total, 0)} €${pace}. ${us}`}>
+    <Link className="tile money-line hero press" style={{ ['--heat' as any]: heat(m.pace) }} to="/dinheiro" onClick={(e) => { if (e.metaKey || e.ctrlKey) return; e.preventDefault(); withVT(() => go('/dinheiro')); }} aria-label={`${cap1(monthName(m.key))}${partner ? ', a tua parte' : ''}: ${eur(m.total, 0)} €${pace}. ${us}`}>
       <span className="hero-top"><span className="s">{cap1(monthName(m.key))}{partner ? ' · a tua parte' : ''}</span><span className="ic" aria-hidden="true"><Icon n="chev" s={16} /></span></span>
-      <span className="hero-n"><CountUp to={m.total} fmt={(v) => eur(v, 0)} /><small>€</small></span>
+      <span className="hero-n vt-total"><CountUp to={m.total} fmt={(v) => eur(v, 0)} /><small>€</small></span>
       {!m.pace.fresh && <span className="pill">{m.pace.pct >= 0 ? '↗\uFE0E' : '↘\uFE0E'} {m.pace.pct === 0 ? 'no ritmo habitual' : `${Math.abs(m.pace.pct)}% ${m.pace.pct > 0 ? 'acima' : 'abaixo'} do habitual`}</span>}
       {us && <span className="s">{us}</span>}
     </Link>
@@ -247,9 +251,27 @@ const cap1 = (t: string) => t[0].toUpperCase() + t.slice(1);
 
 
 
+/** A seguir, numa frase: a próxima coisa de hoje com hora (ou a primeira de amanhã). */
+function NextLine() {
+  const today = todayStr(), tomorrow = addDays(today, 1);
+  const items = useAgendaItems(today, tomorrow);
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => { const t = setInterval(() => setNow(new Date()), 60_000); return () => clearInterval(t); }, []);
+  const hhmm = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  const timed = (d: string) => items.filter((x) => x.day === d && x.time && x.kind !== 'due').sort((a, b) => a.time!.localeCompare(b.time!));
+  const nxt = timed(today).find((x) => (x.endTime ?? x.time!) > hhmm);
+  const on = nxt && nxt.time! <= hhmm;
+  const tm = timed(tomorrow)[0];
+  const txt = nxt ? (on ? <>Agora: <b>{nxt.title}</b>, até às {nxt.endTime}.</> : <>A seguir: <b>{nxt.title}</b> às {nxt.time}.</>)
+    : tm ? <>{timed(today).length ? 'Por hoje, já está.' : 'Hoje está livre.'} Amanhã: <b>{tm.title}</b> às {tm.time}.</>
+      : timed(today).length ? <>Por hoje, já está. Amanhã sem nada marcado.</> : <>Hoje e amanhã sem nada marcado.</>;
+  return <p className="next-line">{txt}</p>;
+}
+
 /**
- * O início responde a três perguntas: o que tenho (a semana, com hoje e amanhã), o que precisa de mim (no máximo
- * três coisas, cada uma com o que a resolve) e como estamos de dinheiro (uma frase). O resto está em Espaços.
+ * O Hoje responde ao que importa agora: o que vem a seguir, a semana (com hoje e amanhã), o que precisa de vocês
+ * (no máximo três coisas, cada uma com o que a resolve) e o mês em dinheiro. Muda com a hora: de manhã e à tarde
+ * a agenda vem primeiro; ao fim do dia (e à noite), o dinheiro e o que ficou por fazer. O mês inteiro está na Agenda.
  */
 export function Hub() {
   const { toast } = useOverlays();
@@ -268,16 +290,64 @@ export function Hub() {
     open(<ExpenseSheet />);
   }, [open]);
   const { me } = useSession();
+  const h = new Date().getHours(), eve = h >= 18 || h < 4;
   return (
     <>
-      <p className="l hello" style={{ paddingTop: 8 }}>{hello()}, {me?.name}.</p>
+      <div className="hello-wrap">
+        <p className="l hello">{hello()}, {me?.name}.</p>
+        <NextLine />
+      </div>
       {/* Em ecrãs largos, uma grelha: a agenda ao lado do dinheiro e dos avisos. */}
-      <div className="hub">
-        <div className="hub-a"><AgendaPane defaultOpen /></div>
+      <div className={`hub${eve ? ' eve' : ''}`}>
+        <div className="hub-a"><AgendaPane home /></div>
         <div className="hub-b"><MoneyLine /><Now /><GoalLine /></div>
       </div>
       <MonthClose />
       <FirstSteps />
+    </>
+  );
+}
+
+/** A Agenda: o mês inteiro (ou a semana, como a pessoa a deixar), a lista do dia e a ligação ao telemóvel. */
+export function AgendaScreen() {
+  return (<><Top title="Agenda" /><AgendaPane defaultOpen /></>);
+}
+
+/** As caras dos dois, sobrepostas. */
+function Pair() {
+  const { me, partner } = useSession();
+  return (
+    <span className="pair big" aria-hidden="true">
+      <span className="avatar" style={{ ['--c' as any]: me?.color }}>{me?.name?.[0]}</span>
+      {partner && <span className="avatar" style={{ ['--c' as any]: partner.color }}>{partner.name?.[0]}</span>}
+    </span>
+  );
+}
+
+/** Nós: vocês os dois. Como estão as contas entre vocês, o objetivo principal, as pessoas da casa e o perfil. */
+export function Nos() {
+  const { me, partner, members, house } = useSession();
+  const L = useLedger();
+  return (
+    <>
+      <Top title="Nós" />
+      <section className="nos-head">
+        <Pair />
+        <div className="st2"><span className="l">{partner ? `${me?.name} e ${partner.name}` : me?.name}</span><span className="s">{house?.name}</span></div>
+      </section>
+      {partner && L && (
+        <Link className="tile nos-us press" to="/dinheiro?ver=entre-nos" aria-label={`Entre nós: ${L.even ? 'em equilíbrio' : `${L.lead}, ${eur(Math.abs(L.v))} €`}`}>
+          <span className="st2"><span className="s">Entre nós</span><span className="nos-lead">{L.even ? 'Em equilíbrio' : L.lead}</span></span>
+          {!L.even && <span className="nos-v">{eur(Math.abs(L.v), 0)}<small>€</small></span>}
+          <Icon n="chev" s={16} />
+        </Link>
+      )}
+      <GoalLine />
+      <div className="tile card rows">
+        <Link className="press" to="/pessoas"><span className="k">Pessoas da casa</span><span className="v">{members.length}<Icon n="arrow" s={16} /></span></Link>
+        <Link className="press" to="/perfil"><span className="k">O teu perfil</span><span className="v"><Icon n="arrow" s={16} /></span></Link>
+        <Link className="press" to="/melhorar"><span className="k">Ideias e problemas</span><span className="v"><Icon n="arrow" s={16} /></span></Link>
+      </div>
     </>
   );
 }
@@ -317,20 +387,20 @@ function Space({ to, ic, n, v, u, more }: { to: string; ic: string; n: string; v
   return (
     <Link className={`tile press sp${more ? ' more' : ''}`} to={to} aria-label={`${n}: ${v}${u ? ` ${u}` : ''}`}>
       <span className="sp-head"><span className="sp-ic"><Icon n={ic} s={18} /></span><span className="sp-n">{n}</span></span>
-      <span className="sp-v"><span className="sp-num">{v}</span>{u && <span className="s sp-u">{u}</span>}</span>
+      <span className="sp-v"><span className={`sp-num${v.length > 7 ? ' long' : ''}`}>{v}</span>{u && <span className="s sp-u">{u}</span>}</span>
     </Link>
   );
 }
 
 /**
- * Espaços: Dinheiro, os módulos ligados nesta casa e Pessoas, cada um com o número que importa. Os que não estão em
+ * Casa (os espaços): os módulos ligados nesta casa, cada um com o número que importa. Os que não estão em
  * uso ficam no fim, mais discretos: abrir é ligar.
  */
 export function Spaces() {
-  const { members, appAdmin } = useSession();
+  const { appAdmin } = useSession();
   const { on, modules, shop, events, busy, deadlines, cars, goals, hk, gym, occasions, salvage } = useHouse();
   const hkc = hk.rows.find((r) => !r.archived);
-  const m = useMonth(), w = useWealth('casa'), casaV = useCasa();
+  const w = useWealth('casa'), casaV = useCasa();
   const today = todayStr();
   const left = shop.rows.filter((i) => !i.done).length;
   const todayN = [...events.rows, ...busy.rows].filter((e) => toDateStr(new Date(e.starts_at)) === today).length;
@@ -354,12 +424,10 @@ export function Spaces() {
   const off = MODULES.filter((x) => !on(x.k));
   return (
     <>
-      <Top title="Espaços" />
+      <Top title="Casa" />
       <div className="lib">
-        <Space to="/dinheiro" ic="coins" n="Dinheiro" v={`${eur(m.total, 0)} €`} u={monthName(m.key)} />
         {lit.map((x) => <Space key={x.k} to={x.to} ic={x.ic} n={x.name} v={val[x.k]?.[0] ?? '—'} u={val[x.k]?.[1]} />)}
         {appAdmin && <Space to="/salvados" ic="wrench" n="Salvados" v={sv ? `${eur(sv.myProfit, 0)} €` : '—'} u={sv ? 'lucro, a tua metade' : 'por começar'} />}
-        <Space to="/pessoas" ic="people" n="Pessoas" v={String(members.length)} u={members.length === 1 ? 'pessoa' : 'pessoas'} />
       </div>
       {!modules.loading && off.length > 0 && <>
         <p className="s">Por ligar</p>

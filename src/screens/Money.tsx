@@ -111,8 +111,9 @@ function Spend() {
   const vsAvg = !m.current && m.normal && m.everyday > 0 ? Math.round((m.everyday / m.normal - 1) * 100) : null;
   // Score do mês face ao teu normal: 100 no normal ou abaixo, menos um ponto por cada 1% acima. No mês a decorrer, pelo
   // ritmo (o mês projetado); nos fechados, pelo que se gastou no dia a dia.
-  // (nos primeiros 10 dias, só o que já se gastou face ao normal do mês: a renda do dia 1 não estraga o score.)
-  const ratio = !m.normal ? null : m.current ? (p.fresh ? null : p.day < 10 ? m.everyday / m.normal : 1 + p.pct / 100) : m.everyday / m.normal;
+  // O ritmo já segue a curva normal de um mês (a renda do dia 1 conta como no início de qualquer mês): o score e o
+  // ritmo dizem sempre o mesmo.
+  const ratio = !m.normal ? null : m.current ? (p.fresh ? null : 1 + p.pct / 100) : m.everyday / m.normal;
   const score = ratio === null ? null : Math.max(0, Math.min(100, Math.round(100 - Math.max(0, ratio - 1) * 100)));
   const catN = useMemo(() => catNormals(spendRows, me?.id ?? '', todayStr()), [spendRows, me?.id]);
   return (
@@ -123,7 +124,7 @@ function Spend() {
         <button type="button" className="tb press" aria-label="Mês seguinte" disabled={m.current} onClick={() => setKey(nextMonth(key))}><Icon n="arrow" s={16} /></button>
       </div>
       <div className="money-hero">
-        <div className="swap" key={key} style={{ ['--heat' as any]: m.current ? heat(p) : 0.5 }}><p className="xl"><CountUp to={m.total} fmt={(v) => eur(v, 0)} /><small>€</small></p><div className="with-hint" style={{ marginTop: 8 }}><p className="s">{partner ? `A tua parte em ${monthName(m.key)}` : monthTitle(m.key)}{vsAvg !== null ? ` · ${vsAvg === 0 ? 'no teu normal' : `${Math.abs(vsAvg)}% ${vsAvg > 0 ? 'acima' : 'abaixo'}`}` : ''}</p>
+        <div className="swap" key={key} style={{ ['--heat' as any]: m.current ? heat(p) : 0.5 }}><p className="xl vt-total"><CountUp to={m.total} fmt={(v) => eur(v, 0)} /><small>€</small></p><div className="with-hint" style={{ marginTop: 8 }}><p className="s">{partner ? `A tua parte em ${monthName(m.key)}` : monthTitle(m.key)}{vsAvg !== null ? ` · ${vsAvg === 0 ? 'no teu normal' : `${Math.abs(vsAvg)}% ${vsAvg > 0 ? 'acima' : 'abaixo'}`}` : ''}</p>
           <Hint>{partner ? 'A tua parte: o que é só teu mais a tua fatia das partilhadas, pague quem pagar. ' : ''}Eventos e compras extraordinárias contam no mês, mas à parte: ficam fora do ritmo e do teu normal. O score do mês: 100 no teu normal ou abaixo; desce um ponto por cada 1% acima.</Hint></div></div>
         {score !== null && <div className="month-score"><Arc value={score} label={`Score do mês: ${score} de 100`} unit="" /><span className="s">score do mês</span></div>}
       </div>

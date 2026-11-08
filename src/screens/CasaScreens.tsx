@@ -54,7 +54,7 @@ export function Casa() {
   const c = useCasa(sel);
   const { chores, warranties, expenses, receiptItems } = useHouse();
   const grocery = useMemo(() => groceryReport(expenses.rows, receiptItems.rows, todayStr()), [expenses.rows, receiptItems.rows]);
-  if (!c.ready) return <><Top title="Casa" /><Loading /></>;
+  if (!c.ready) return <><Top title="Contas da casa" /><Loading /></>;
   if (!c.places.length) return <CasaSetup />;
   const here = sel === 'all' ? null : sel;
   const today = todayStr();
@@ -75,7 +75,7 @@ export function Casa() {
   ];
   return (
     <>
-      <Top title="Casa" />
+      <Top title="Contas da casa" />
       <HomeChips c={c0} sel={sel} setSel={setSel} />
       <div className="swap">
         <p className="xl">{eur(c.total, 0)}<small>€</small></p>
@@ -96,8 +96,8 @@ export function CasaPart() {
   const sel = sel0 === 'all' || c0.places.some((h) => h.id === sel0) ? sel0 : 'all';
   const c = useCasa(sel);
   const { open } = useOverlays();
-  if (!PARTS.includes(part as Part)) return <><Top title="Casa" /><p className="s">Esta parte não existe.</p></>;
-  if (!c.ready) return <><Top title="Casa" /><Loading /></>;
+  if (!PARTS.includes(part as Part)) return <><Top title="Contas da casa" /><p className="s">Esta parte não existe.</p></>;
+  if (!c.ready) return <><Top title="Contas da casa" /><Loading /></>;
   const here = sel === 'all' ? null : sel, many = c.places.length > 1;
   const homeOf = (h: string | null) => (h && c.places.some((p) => p.id === h) ? h : c.first);
   const chips = part !== 'casas' && <HomeChips c={c0} sel={sel} setSel={setSel} />;
@@ -211,7 +211,7 @@ export function BillScreen() {
   const s = useMemo(() => (b ? billStats(b, billPayments.rows, todayStr()) : null), [b, billPayments.rows]);
   const [sel, setSel] = useState(11);
   const [all, setAll] = useState(false);
-  if (!b || !s) return <><Top title="Casa" />{bills.loading ? <Loading /> : <p className="s">Esta conta já não existe.</p>}</>;
+  if (!b || !s) return <><Top title="Contas da casa" />{bills.loading ? <Loading /> : <p className="s">Esta conta já não existe.</p>}</>;
   const ps = billPayments.rows.filter((p) => p.bill_id === b.id).sort((x, y) => y.period_to.localeCompare(x.period_to) || y.created_at.localeCompare(x.created_at));
   const unit = b.unit === 'm3' ? 'm³' : 'kWh';
   const cur = s.series[sel];
