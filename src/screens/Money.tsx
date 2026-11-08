@@ -42,9 +42,10 @@ export function useMonth(at?: string) {
     // Os eventos (casamento, batizado…) contam no total do mês, mas à parte: o ritmo, o normal e as comparações
     // são só com o dia a dia (senão um casamento faria qualquer mês parecer fora do normal).
     const daily = spend.filter((e) => !e.occasion_id);
-    const everyday = monthSpend(daily, me?.id ?? '', key).total;
+    const dm = monthSpend(daily, me?.id ?? '', key);
+    const everyday = dm.total;
     const normal = normalMonth(daily, me?.id ?? '', today);
-    return { key, today, current: key === monthKey(today), ...m, everyday, events: m.total - everyday, normal, pace: pace(everyday, normal, today, monthCurve(daily, me?.id ?? '', today)) };
+    return { key, today, current: key === monthKey(today), ...m, everyday, dailyByCat: dm.byCat, events: m.total - everyday, normal, pace: pace(everyday, normal, today, monthCurve(daily, me?.id ?? '', today)) };
   }, [spendRows, me?.id, at]);
 }
 
@@ -149,7 +150,7 @@ function Spend() {
 }
 
 /** O normal de cada categoria: a média dos últimos meses completos (até 12, desde o primeiro registo). */
-function catNormals(rows: ExpenseRow[], who: string, today: string): Record<string, number> {
+export function catNormals(rows: ExpenseRow[], who: string, today: string): Record<string, number> {
   const mine = rows.filter((e) => partOf(e, who) !== 0);
   if (!mine.length) return {};
   const first = monthKey(mine.reduce((a, e) => (e.spent_on < a ? e.spent_on : a), mine[0].spent_on));

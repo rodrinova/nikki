@@ -191,7 +191,7 @@ export function pace(spent: number, normal: number | null, today: string, curve:
   const share = 0.8 * shaped + 0.2 * linear; // fração do mês que costuma estar gasta até hoje
   const expected = Math.max(normal * share, normal * 0.03);
   return {
-    fresh: false as const, days, day,
+    fresh: false as const, days, day, share,
     pct: Math.round((spent / expected - 1) * 100), // % acima (+) ou abaixo (−) do habitual até este dia
     forecast: spent + normal * (1 - share), // o que falta costuma ser o resto do mês habitual
     blocks: Math.round(spent / daily), // dias de um mês normal já gastos
