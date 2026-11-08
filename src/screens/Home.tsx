@@ -10,9 +10,13 @@ import { Wordmark } from '@/brand/Wordmark';
 import { Poster } from '@/ui/Poster';
 import { How, Year } from '@/ui/Year';
 import { eur, monthClose, toU } from '@/lib/money';
-import { addDays, dayLabel, monthName, toDateStr, todayStr } from '@/lib/dates';
+import { addDays, dayLabel, monthKey, monthName, toDateStr, todayStr } from '@/lib/dates';
 import { MODULES } from '@/lib/modules';
-import { ExpenseSheet, INVEST, useLedger, useMonth } from './Money';
+import { ExpenseSheet, INVEST, catLabel, catNormals, useLedger, useMonth } from './Money';
+import { driver, expected } from '@/lib/forecast';
+import { suggestions, qtyText } from '@/lib/pantry';
+import { aisleOf } from './Shop';
+import { supabase } from '@/lib/supabase';
 import { InviteForm } from './People';
 import { arrange, parseHidden, prune, type Hidden, type NowItem } from '@/lib/now';
 import { ContractSheet, PaidSheet, useCasa } from './Casa';
@@ -103,8 +107,8 @@ type Need = NowItem & { act?: { label: string; run: () => void }; tick?: () => P
 
 function Now() {
   const { partner, me, house } = useSession();
-  const { deadlines, on, chores, warranties, hk, hkMessages, cars, todos, gym, events } = useHouse();
-  const { open } = useOverlays();
+  const { deadlines, on, chores, warranties, hk, hkMessages, cars, todos, gym, events, expenses, receiptItems, shop } = useHouse();
+  const { open, toast } = useOverlays();
   const casa = useCasa();
   const tickIt = useTick();
   const hkPay = useHkPay();
@@ -162,6 +166,24 @@ function Now() {
   // Ginásio: a próxima avaliação (de n em n semanas desde a última).
   const gnext = on('ginasio') && gym.prefs ? nextCheck(gym.rows, gym.prefs.every_weeks, today) : null;
   if (gnext && gnext.late >= 0) items.push({ key: `gym:${gnext.due}`, rank: 3, due: gnext.due, t: 'Avaliação no ginásio', s: gnext.late > 0 ? `Era ${dayLabel(gnext.due)}. Os números são só teus.` : 'Hoje é dia. Os números são só teus.', to: '/ginasio' });
+  // Um passo à frente (lib/forecast.ts): o que costuma aparecer e ainda não apareceu, com a despesa já escrita.
+  const plain = (u: number) => (u / 100_000).toFixed(2).replace('.', ',');
+  for (const x of me ? expected(expenses.rows.filter((e) => e.category !== INVEST && !e.occasion_id), me.id, today) : []) {
+    const reg = { label: 'Registar', run: () => open(<ExpenseSheet init={{ text: `${plain(x.amount)} ${x.note}${partner ? (x.split === 'shared' ? ' partilhada' : x.split === 'mine' ? ' minha' : '') : ''}`, day: x.day <= today ? x.day : today }} />) };
+    if (x.kind === 'monthly') items.push({ key: `fc:${x.key}:${monthKey(today)}`, rank: 3, t: `${x.note} ainda não apareceu`, s: `Costuma ser a ${Number(x.day.slice(8))}, ${eur(x.amount)} €. Já está escrita, é só confirmar.`, act: reg });
+    else items.push({ key: `fc:${x.key}:${x.day}`, rank: 3, due: x.day, t: x.note, s: `${cap1(dayLabel(x.day))}, como no ano passado (${eur(x.amount, 0)} €). Se der para comparar preços, é agora.`, ...(x.day <= addDays(today, 3) ? { act: reg } : {}) });
+  }
+  // O que costuma estar a acabar, pelas faturas do supermercado: junta-se à lista com um toque.
+  const low = on('compras') && house && me ? suggestions(receiptItems.rows, shop.rows.filter((i) => !i.done).map((i) => i.name), today).filter((x) => x.due >= 1).slice(0, 3) : [];
+  if (low.length) items.push({
+    key: `pan:${low.map((x) => x.product).sort().join(',')}`, rank: 4, t: `A acabar: ${low.map((x) => x.product.toLowerCase()).join(', ')}`,
+    s: `Pelas vossas faturas: ${low[0].product.toLowerCase()} costuma durar ${low[0].every} dias${low.length > 1 ? ', mais ou menos' : ''}.`,
+    act: { label: 'Juntar à lista', run: async () => {
+      const { error } = await supabase.from('shopping_items').insert(low.map((x) => ({ household_id: house!.id, name: x.product, aisle: aisleOf(x.product), created_by: me!.id })));
+      if (error) return toast(error.message);
+      shop.reload(); toast(`Na lista: ${low.map((x) => `${x.product} (${qtyText(x.qty, x.unit)})`).join(', ')}.`, { ok: true });
+    } },
+  });
   const hkSeen = store.get(seenKey(house?.id, me?.id)) ?? '';
   const hkNew = hkCard ? hkMessages.rows.filter((m) => m.author_id === hkCard.profile_id && m.created_at > hkSeen) : [];
   if (hkNew.length) items.push({ key: `hkmsg:${hkNew.at(-1)!.id}`, rank: 0.5, urgent: true, // mensagem nova: logo a seguir ao que está atrasado
@@ -202,13 +224,22 @@ function MoneyLine() {
   const { partner } = useSession();
   const go = useNavigate();
   const m = useMonth(), L = useLedger();
+  const { me } = useSession();
+  const { spendRows } = useHouse();
+  // Porque é que o mês vai acima: a categoria que mais passa do seu normal até hoje.
+  const why = useMemo(() => {
+    if (m.pace.fresh || m.pace.pct < 10 || !me) return null;
+    const catN = catNormals(spendRows.filter((e) => e.category !== INVEST && !e.occasion_id), me.id, todayStr());
+    const c = driver(m.dailyByCat, catN, m.pace.share);
+    return c ? catLabel(c) : null;
+  }, [m, spendRows, me]);
   const pace = m.pace.fresh ? '' : `, ${Math.abs(m.pace.pct)}% ${m.pace.pct >= 0 ? 'acima' : 'abaixo'} do habitual`;
   const us = partner && L ? (L.even ? 'Entre nós: estão quites.' : L.v > 0 ? `Entre nós: adiantaste ${eur(Math.abs(L.v))} € a mais.` : `Entre nós: ${partner.name} adiantou ${eur(Math.abs(L.v))} € a mais.`) : '';
   return (
     <Link className="tile money-line hero press" style={{ ['--heat' as any]: heat(m.pace) }} to="/dinheiro" onClick={(e) => { if (e.metaKey || e.ctrlKey) return; e.preventDefault(); withVT(() => go('/dinheiro')); }} aria-label={`${cap1(monthName(m.key))}${partner ? ', a tua parte' : ''}: ${eur(m.total, 0)} €${pace}. ${us}`}>
       <span className="hero-top"><span className="s">{cap1(monthName(m.key))}{partner ? ' · a tua parte' : ''}</span><span className="ic" aria-hidden="true"><Icon n="chev" s={16} /></span></span>
       <span className="hero-n vt-total"><CountUp to={m.total} fmt={(v) => eur(v, 0)} /><small>€</small></span>
-      {!m.pace.fresh && <span className="pill">{m.pace.pct >= 0 ? '↗\uFE0E' : '↘\uFE0E'} {m.pace.pct === 0 ? 'no ritmo habitual' : `${Math.abs(m.pace.pct)}% ${m.pace.pct > 0 ? 'acima' : 'abaixo'} do habitual`}</span>}
+      {!m.pace.fresh && <span className="pill">{m.pace.pct >= 0 ? '↗\uFE0E' : '↘\uFE0E'} {m.pace.pct === 0 ? 'no ritmo habitual' : `${Math.abs(m.pace.pct)}% ${m.pace.pct > 0 ? 'acima' : 'abaixo'} do habitual`}{why ? `, sobretudo ${why}` : ''}</span>}
       {us && <span className="s">{us}</span>}
     </Link>
   );
