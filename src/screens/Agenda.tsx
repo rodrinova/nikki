@@ -132,20 +132,22 @@ function DayRow({ it, day }: { it: AgendaItem; day: string }) {
 
 const WD_SHORT = ['S', 'T', 'Q', 'Q', 'S', 'S', 'D'];
 const WD_NAME = ['segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado', 'domingo'];
+/** Uma hora depois («23:30» → «00:30»). */
+export const plusHour = (t: string) => `${String((Number(t.slice(0, 2)) + 1) % 24).padStart(2, '0')}${t.slice(2)}`;
 const hm = (iso: string) => { const x = new Date(iso); return `${String(x.getHours()).padStart(2, '0')}:${String(x.getMinutes()).padStart(2, '0')}`; };
 
 /** Novo evento ou ver/editar: o quê, dia e horas (ou dia inteiro), de quem, «só para mim», sítio e repetição. */
-export function EventSheet({ ev, day }: { ev?: EventRow; day: string }) {
+export function EventSheet({ ev, day, init }: { ev?: EventRow; day: string; init?: { title?: string; time?: string | null; end?: string | null } }) {
   const { me, partner, house } = useSession();
   const { events } = useHouse();
   const { close, toast } = useOverlays();
   const mine = !ev || ev.created_by === me?.id;
   const [kind, setKind] = useState<'event' | 'birthday'>(ev?.kind ?? 'event');
-  const [title, setTitle] = useState(ev?.title ?? '');
+  const [title, setTitle] = useState(ev?.title ?? init?.title ?? '');
   const [date, setDate] = useState(ev ? toDateStr(new Date(ev.starts_at)) : day);
-  const [allDay, setAllDay] = useState(ev?.all_day ?? false);
-  const [t0, setT0] = useState(ev && !ev.all_day ? hm(ev.starts_at) : '20:00');
-  const [t1, setT1] = useState(ev?.ends_at && !ev.all_day ? hm(ev.ends_at) : '21:00');
+  const [allDay, setAllDay] = useState(ev?.all_day ?? (init ? !init.time : false));
+  const [t0, setT0] = useState(ev && !ev.all_day ? hm(ev.starts_at) : init?.time ?? '20:00');
+  const [t1, setT1] = useState(ev?.ends_at && !ev.all_day ? hm(ev.ends_at) : init?.end ?? (init?.time ? plusHour(init.time) : '21:00'));
   const [owner, setOwner] = useState<string | null>(ev ? ev.owner_id : null);
   const [priv, setPriv] = useState(ev?.private ?? false);
   const [place, setPlace] = useState(ev?.location ?? '');

@@ -22,3 +22,4 @@
 - Navegação: cinco destinos (`src/lib/nav.ts`): Hoje `/` · Dinheiro · Agenda · Casa (`/espacos`, os módulos) · Nós. Destinos sem «Voltar». Barra de baixo: Hoje · Dinheiro · + · Agenda · Casa; «Nós» pelas caras no topo do Hoje.
 - Letra: Albert Sans 400 e 500 (ficheiros reais); tamanhos só pelos tokens `--t-xs 11 · --t-s 13 · --t-r 15 · --t-m 17 · --t-l 22 · --t-n 28 · --t-h 34 · --t-xl 52` (a app do housekeeping tem a sua escala maior). Cartões laranja: texto escuro (`--hero-ink`).
 - Transições partilhadas: `withVT` (`src/ui/vt.ts`) + `view-transition-name` no CSS (ex.: `.vt-total`).
+- Campo único do «+»: `readIntent` (`src/lib/intent.ts`, testes em `__tests__/intent.test.ts`) decide despesa · evento · compras · a fazer; a despesa segue para `ExpenseSheet` (que lê o resto com `parseQuick`).
