@@ -11,6 +11,7 @@ const P: Record<string, string> = {
   arrow: '<path d="M5 12h14M14.84 5.5 19 12l-4.16 6.5"/>',
   chev: '<path d="M9.94 5.5 14.1 12l-4.16 6.5"/>',
   check: '<path d="M6 12.5l4 4 8-9"/>',
+  mic: '<rect x="9" y="3.5" width="6" height="11" rx="3"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v2.5"/>',
   coins: '<ellipse cx="12" cy="7" rx="7" ry="3"/><path d="M5 7v5c0 1.7 3.1 3 7 3s7-1.3 7-3V7M5 12v5c0 1.7 3.1 3 7 3s7-1.3 7-3v-5"/>',
   gift: '<rect x="4" y="9" width="16" height="11" rx="1.2"/><path d="M3.5 9h17M12 9v11M12 9c-1.5-3.5-5.5-4-5.5-1.5S10 9 12 9zM12 9c1.5-3.5 5.5-4 5.5-1.5S14 9 12 9z"/>',
   heart: '<path d="M12 19.5s-7-4.4-7-9.6A3.9 3.9 0 0 1 12 7.7a3.9 3.9 0 0 1 7 2.2c0 5.2-7 9.6-7 9.6z"/>',
