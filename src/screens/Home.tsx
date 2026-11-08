@@ -34,6 +34,8 @@ import { CountUp } from '@/ui/CountUp';
 import { totals as salvageTotals } from '@/lib/salvage';
 import { useWealth } from '@/data/wealth';
 import { isRoot } from '@/lib/nav';
+import { useShopPresence } from '@/data/presence';
+import { Balance } from '@/ui/Balance';
 import { withVT } from '@/ui/vt';
 
 export function Top({ title, right }: { title: string; right?: ReactNode }) {
@@ -328,6 +330,7 @@ export function Hub() {
         <p className="l hello">{hello()}, {me?.name}.</p>
         <NextLine />
       </div>
+      <LiveShop />
       {/* Em ecrãs largos, uma grelha: a agenda ao lado do dinheiro e dos avisos. */}
       <div className={`hub${eve ? ' eve' : ''}`}>
         <div className="hub-a"><AgendaPane home /></div>
@@ -336,6 +339,33 @@ export function Hub() {
       <MonthClose />
       <FirstSteps />
     </>
+  );
+}
+
+/**
+ * Alguém da casa está nas compras (com o ecrã das Compras aberto): aparece no Hoje, com o corredor onde está e a
+ * lista a encher-se pela cor de cada um. Um toque abre as Compras (em direto).
+ */
+function LiveShop() {
+  const { me, house, members } = useSession();
+  const { shop, on } = useHouse();
+  const { here } = useShopPresence(on('compras') ? house?.id : undefined, me?.id, true);
+  const company = members.filter((m) => m.id !== me?.id && here[m.id]);
+  if (!company.length) return null;
+  const total = shop.rows.length, left = shop.rows.filter((i) => !i.done).length;
+  const by = members.map((m) => ({ m, n: shop.rows.filter((i) => i.done && i.done_by === m.id).length })).filter((x) => x.n);
+  const names = company.map((m) => m.name).join(' e ');
+  const aisle = here[company[0].id].aisle;
+  return (
+    <Link className="tile live-shop press" to="/compras" aria-label={`${names} nas compras. ${left ? `Faltam ${left}.` : 'Já está tudo.'} Abrir as compras.`}>
+      <span className="top">
+        <span className="dot" aria-hidden="true" />
+        <span className="st2"><span>{names} {company.length > 1 ? 'estão' : 'está'} nas compras</span><span className="s">{aisle ? `Agora em ${aisle.toLowerCase()} · ` : ''}{left ? `falta${left === 1 ? '' : 'm'} ${left}` : 'já está tudo'}</span></span>
+        <Icon n="chev" s={16} />
+      </span>
+      {total > 0 && <span className="live-prog" aria-hidden="true">{by.map((x) => <i key={x.m.id} style={{ width: `${(x.n / total) * 100}%`, ['--c' as any]: x.m.color }} />)}</span>}
+      {by.length > 0 && <span className="live-key s" aria-hidden="true">{by.map((x) => <span key={x.m.id}><b style={{ ['--c' as any]: x.m.color }} />{x.m.id === me?.id ? 'Tu' : x.m.name} · {x.n}</span>)}</span>}
+    </Link>
   );
 }
 
@@ -368,8 +398,8 @@ export function Nos() {
       </section>
       {partner && L && (
         <Link className="tile nos-us press" to="/dinheiro?ver=entre-nos" aria-label={`Entre nós: ${L.even ? 'em equilíbrio' : `${L.lead}, ${eur(Math.abs(L.v))} €`}`}>
-          <span className="st2"><span className="s">Entre nós</span><span className="nos-lead">{L.even ? 'Em equilíbrio' : L.lead}</span></span>
-          {!L.even && <span className="nos-v">{eur(Math.abs(L.v), 0)}<small>€</small></span>}
+          <span className="st2"><span className="s">Entre nós</span><span className="nos-lead">{L.even ? 'Em equilíbrio' : L.lead}</span>{!L.even && <span className="nos-v">{eur(Math.abs(L.v), 0)}<small>€</small></span>}</span>
+          <Balance small lean={L.lean} me={{ name: me!.name, color: me!.color }} other={{ name: partner.name, color: partner.color }} label="" />
           <Icon n="chev" s={16} />
         </Link>
       )}

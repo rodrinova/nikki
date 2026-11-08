@@ -9,7 +9,7 @@ import { readQr } from '@/lib/qrread';
 import { KINDS, type Occasion, type OccasionKind } from '@/lib/occasions';
 import { useOverlays } from '@/ui/overlays';
 import { Icon } from '@/ui/Icon';
-import { Whiskers } from '@/ui/Whiskers';
+import { Balance } from '@/ui/Balance';
 import { GIFTS, abates, partOf, abatingKind, eur, monthCurve, monthSpend, monthlySeries, normalMonth, openingOf, pace, pairBalance, parseAmount, toU, type EntryKind, type Split, whiskerLean } from '@/lib/money';
 import { addDays, dayLabel, monthKey, monthName, nextMonth, prevMonth, todayStr } from '@/lib/dates';
 import { store } from '@/lib/store';
@@ -946,8 +946,8 @@ export function Ledger({ embedded }: { embedded?: boolean }) {
       <div className="swap"><p className="xl"><CountUp to={Math.abs(L.v)} fmt={(v) => eur(v)} /><small>€</small></p><p className="s" style={{ marginTop: 8 }}>{L.even ? 'Estão quites' : L.v > 0 ? `Adiantaste a mais (o combinado é ${Math.round(myShare * 100)}/${100 - Math.round(myShare * 100)})` : `${partner.name} adiantou a mais (o combinado é ${Math.round(myShare * 100)}/${100 - Math.round(myShare * 100)})`}</p></div>
       <Hint show={seen < 3}>{`Quanto cada um adiantou face ao combinado (${pct}/${100 - pct}). Não é uma dívida: é só para o esforço ficar bem repartido.`}</Hint>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <div style={{ display: 'grid', placeItems: 'center', padding: '8px 0 4px', color: 'var(--ink)' }}>
-          <Whiskers h={112} lean={L.lean} label={L.even ? 'Em equilíbrio: os bigodes estão iguais, como no logótipo. Paz.' : `${L.lead}: os bigodes do lado de ${L.v > 0 ? 'ti' : partner.name} estão maiores e a laranja.`} />
+        <div style={{ display: 'grid', placeItems: 'center', padding: '4px 0 0', color: 'var(--ink)' }}>
+          <Balance lean={L.lean} me={{ name: me.name, color: me.color }} other={{ name: partner.name, color: partner.color }} label={L.even ? 'Em equilíbrio: a balança está direita. Paz.' : `${L.lead}: o prato de ${L.v > 0 ? 'ti' : partner.name} está mais em baixo.`} />
         </div>
         <div className="s" style={{ display: 'flex', justifyContent: 'space-between' }}><span>Tu {Math.round(a)}%</span><span>combinado {pct}/{100 - pct}</span><span>{partner.name} {100 - Math.round(a)}%</span></div>
       </div>
