@@ -4,6 +4,8 @@ import { supabase } from '@/lib/supabase';
 import { useSession } from '@/data/session';
 import { useHouse, type CarRow, type ExpenseRow, type IncomeEntryRow } from '@/data/house';
 import { attachReceipt, readReceipt } from '@/data/receipts';
+import { parseAtQr } from '@/lib/atqr';
+import { readQr } from '@/lib/qrread';
 import { KINDS, type Occasion, type OccasionKind } from '@/lib/occasions';
 import { useOverlays } from '@/ui/overlays';
 import { Icon } from '@/ui/Icon';
@@ -434,7 +436,10 @@ function ExpenseEdit({ e }: { e: ExpenseRow }) {
 }
 
 /** Despesa: valor, categoria, Minha · Partilhada · Do outro, dia e nota. Quem paga é quem regista. */
-export function ExpenseSheet() {
+/** Para abrir a folha já preenchida: de um QR de fatura ou de um pagamento com o Apple Pay (rascunho). */
+export interface ExpenseInit { text?: string; day?: string; file?: File; nif?: string; draftId?: string }
+
+export function ExpenseSheet({ init }: { init?: ExpenseInit } = {}) {
   const learn = useLearnFromPayment();
   const saveLog = useSaveCarLog();
   const { me, partner, house, myShare } = useSession();
@@ -454,7 +459,10 @@ export function ExpenseSheet() {
   // «para a Inês», «pagou a Inês», «60/40», «lazer», o carro, o evento). O que não se escreve adivinha-se pelo que
   // fizeste antes. O que se escreve manda; tudo se pode mudar em «Mudar».
   const garage = on('garagem') ? cars.rows.filter((c) => !c.archived) : [];
-  const [text, setText] = useState('');
+  const [text, setText] = useState(init?.text ?? '');
+  const [nif, setNif] = useState<string | null>(init?.nif ?? null); // o NIF da loja (do QR da fatura)
+  const [draftId] = useState(init?.draftId ?? null);
+  const [qrBusy, setQrBusy] = useState(false);
   const q = parseQuick(text, todayStr(), { partner: partner?.name, cats: CATEGORIES, cars: garage, occasions: allOccs });
   const note = q.note;
   const incoming = (modeSet ?? (entryKindOf(text) ? 'in' : 'out')) === 'in';
@@ -466,9 +474,9 @@ export function ExpenseSheet() {
   const [paidSet, setPaid] = useState<'me' | 'partner' | null>(null);
   const paidBy = partner ? paidSet ?? q.paidBy ?? 'me' : 'me';
   const [splitSet, setSplit] = useState<Split | null>(null);
-  const [daySet, setDay] = useState<'hoje' | 'ontem' | 'outro' | null>(null);
+  const [daySet, setDay] = useState<'hoje' | 'ontem' | 'outro' | null>(init?.day && init.day !== todayStr() ? 'outro' : null);
   const day = daySet ?? (q.day && q.day !== todayStr() ? 'outro' : 'hoje');
-  const [dateSet, setDate] = useState<string | null>(null);
+  const [dateSet, setDate] = useState<string | null>(init?.day ?? null);
   const date = dateSet ?? q.day ?? todayStr();
   const [more, setMore] = useState(false);
   // Na dúvida, a NIKKI pergunta antes de gravar: «Abastecimento do Golf?», «Supermercado, partilhada?».
@@ -476,7 +484,7 @@ export function ExpenseSheet() {
   const [noKm, setNoKm] = useState(false);
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
-  const [rfile, setRfile] = useState<File | null>(null); // a fatura (foto ou PDF), se houver
+  const [rfile, setRfile] = useState<File | null>(init?.file ?? null); // a fatura (foto ou PDF), se houver
   // «Guardar e outra»: a folha fica aberta, com a mesma categoria, divisão e dia, para registar várias seguidas.
   const [done, setDone] = useState<{ n: number; total: number; last: string } | null>(null);
   const amtRef = useRef<HTMLInputElement>(null);
@@ -524,6 +532,28 @@ export function ExpenseSheet() {
     ? `Partilhada ${mp}/${100 - mp}${q.share === undefined ? '' : ' (escrito)'}: ${eur(sv * mineShare)} € na tua parte, ${eur(sv * (1 - mineShare))} € na parte de ${partner.name}.${partnerPaid ? ` Pagou ${partner.name}.` : ''}${q.share === undefined && pct === mp ? ' A percentagem muda-se em Pessoas.' : ''}`
     : split === 'other' ? `Toda na parte de ${partner.name}. ${partnerPaid ? `Pagou ${partner.name}.` : 'Pagaste tu.'}` : partnerPaid ? `Só tua. Pagou ${partner.name}.` : 'Só tua.';
 
+  // Ler o QR da fatura (fotografia): valor, dia e NIF; a loja e o resto vêm do que se fez antes com o mesmo NIF.
+  async function fromQr(file: File | null) {
+    if (!file) return;
+    setQrBusy(true); setErr('');
+    const raw = await readQr(file).catch(() => null);
+    setQrBusy(false);
+    const inv = raw ? parseAtQr(raw) : null;
+    setRfile(file);
+    if (!inv) return setErr(raw ? 'Este código não é de uma fatura. A foto fica junta; escreve o valor.' : 'Não encontrei o código QR. A foto fica junta; escreve o valor.');
+    const prev = expenses.rows.filter((x) => x.merchant_nif === inv.nif && x.note).sort((a, b) => (a.created_at < b.created_at ? 1 : -1))[0];
+    const shop = (prev?.note ?? '').split(' · ')[0];
+    setNif(inv.nif);
+    setText(`${inv.total.replace('.', ',')}${shop ? ` ${shop}` : ''}`);
+    if (inv.date !== todayStr()) { setDay(inv.date === addDays(todayStr(), -1) ? 'ontem' : 'outro'); setDate(inv.date); } else { setDay('hoje'); setDate(null); }
+    if (inv.credit) { setMode('in'); setKind('reembolso'); }
+    if (!shop) { setErr('Fatura lida. Junta o nome da loja a seguir ao valor (a NIKKI fica a saber para a próxima).'); setTimeout(() => amtRef.current?.focus(), 30); }
+  }
+  async function discardDraft() {
+    if (draftId) await supabase.from('expense_drafts').delete().eq('id', draftId);
+    close();
+  }
+
   async function save(e: FormEvent) {
     e.preventDefault();
     const again = ((e.nativeEvent as SubmitEvent).submitter as HTMLElement | null)?.dataset.again === '1';
@@ -537,7 +567,7 @@ export function ExpenseSheet() {
     if (car && f && (f.kind === 'fuel' || f.kind === 'charge') && !f.odo.trim() && !noKm) return setErr('E os km do conta-quilómetros? Sem eles, este depósito fica fora do consumo.');
     setBusy(true);
     const { data, error } = await supabase.from('expenses').insert({
-      household_id: house.id, created_by: me.id, amount: v, category: cat, spent_on, car_id: car?.id ?? null, occasion_id: allOccs.some((o) => o.id === occ) ? occ : null,
+      household_id: house.id, created_by: me.id, amount: v, category: cat, spent_on, car_id: car?.id ?? null, merchant_nif: nif, occasion_id: allOccs.some((o) => o.id === occ) ? occ : null,
       // Quem pagou: tu, ou a outra pessoa (escrito «pagou a Inês» ou escolhido em «Mudar»).
       ...(partnerPaid
         ? { paid_by: partner!.id, split: split === 'shared' ? 'shared' : split === 'mine' ? 'other' : 'mine', other_id: split === 'other' ? null : me.id, payer_share: split === 'shared' ? payerShare : null }
@@ -559,9 +589,11 @@ export function ExpenseSheet() {
       else if (r.reading) { toast('A ler a fatura…'); r.reading.then((why) => { toast(why ?? 'Fatura lida: as Compras já sabem o que compraram.', why ? undefined : { ok: true }); receiptItems.reload(); }); }
       setRfile(null);
     }
+    // O pagamento do Apple Pay ficou registado: sai dos rascunhos.
+    if (draftId) await supabase.from('expense_drafts').delete().eq('id', draftId);
     if (again) {
       setDone((d) => ({ n: (d?.n ?? 0) + 1, total: (d?.total ?? 0) + sv, last: `${eur(sv)} € · ${car ? car.name : note.trim() || cat}` }));
-      setText(''); setCat(null); setSplit(null); setDay(null); setDate(null); setMore(false); setOk(false); setNoKm(false); setErr(''); setEntry(null); setBf(billEntry()); setPaid(null); setCarId(null); setKind(null); setInCat(undefined); // o evento escolhido mantém-se (várias despesas do mesmo casamento)
+      setNif(null); setText(''); setCat(null); setSplit(null); setDay(null); setDate(null); setMore(false); setOk(false); setNoKm(false); setErr(''); setEntry(null); setBf(billEntry()); setPaid(null); setCarId(null); setKind(null); setInCat(undefined); // o evento escolhido mantém-se (várias despesas do mesmo casamento)
       setTimeout(() => amtRef.current?.focus(), 30);
     } else close();
     if (billErr) toast(`A despesa ficou guardada, mas não se ligou à conta: ${billErr}`);
@@ -602,7 +634,15 @@ export function ExpenseSheet() {
         {chip(!incoming, 'Despesa', () => setMode('out'))}{chip(incoming, 'Entrada', () => setMode('in'))}
       </div>
       <label className="sr" htmlFor="amt">Valor e onde (ex.: 45 pingo doce)</label>
-      <input id="amt" ref={amtRef} className="field quick" placeholder={incoming ? '1500 salário' : '45 pingo doce ontem partilhada'} autoFocus value={text} onChange={(e) => { setText(e.target.value); setErr(''); }} enterKeyHint="done" />
+      <div className="amt-row">
+        <input id="amt" ref={amtRef} className="field quick" placeholder={incoming ? '1500 salário' : '45 pingo doce ontem partilhada'} autoFocus={!init?.text} value={text} onChange={(e) => { setText(e.target.value); setErr(''); }} enterKeyHint="done" />
+        {!incoming && <label className="qr-btn press" aria-label="Ler o QR da fatura" aria-busy={qrBusy}>
+          <input type="file" accept="image/*" capture="environment" hidden onChange={(e) => { fromQr(e.target.files?.[0] ?? null); e.target.value = ''; }} />
+          <Icon n="cam" s={20} />
+        </label>}
+      </div>
+      {draftId && <p className="s why" style={{ marginTop: -8 }}><span className="dot" aria-hidden="true" /><span>Pago com o Apple Pay. Confirma (ou muda) e guarda.</span></p>}
+      {nif && <p className="s" style={{ marginTop: -8 }}>Fatura lida pelo QR · NIF {nif}</p>}
       {v && !sure ? <div className="ask-card" role="group" aria-label="Confirmar">
         <span className="l">{sign}{eur(sv)} €</span>
         <p className="ask-q">{ask}</p>
@@ -649,6 +689,7 @@ export function ExpenseSheet() {
         <button className="btn press" disabled={busy}>{done ? 'Guardar e fechar' : incoming ? 'Guardar entrada' : `Guardar · ${me?.name}`} <Icon n="arrow" s={20} /></button>
       </div>
       {done && <button type="button" className="back press" onClick={close}>Fechar ({done.n} {done.n === 1 ? 'guardada' : 'guardadas'})</button>}
+      {draftId && !done && <button type="button" className="back press" onClick={discardDraft}>Não registar este pagamento</button>}
     </form>
   );
 }

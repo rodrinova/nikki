@@ -1431,3 +1431,14 @@ body::before{content:"";position:fixed;left:0;right:0;top:0;height:env(safe-area
 @keyframes page-fade{from{opacity:0}}
 /* A casa de demonstração aberta pela administração: um selo discreto, com a saída. */
 .demo-pill{position:fixed;z-index:45;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top,0px) + 6px);border:1px solid rgba(var(--glow),.45);background:color-mix(in srgb,var(--ground) 82%,transparent);color:var(--ink);font-size:12px;letter-spacing:.02em;padding:6px 12px;border-radius:999px}
+/* Registo rápido: o QR da fatura ao lado do valor; os passos do atalho do Apple Pay. */
+.amt-row{display:flex;gap:8px;align-items:stretch}
+.amt-row .field{flex:1;min-width:0}
+.qr-btn{flex-shrink:0;width:56px;display:grid;place-items:center;border-radius:var(--r-field,14px);background:var(--glass);border:1px solid var(--glass-line);color:var(--ink);cursor:pointer}
+.qr-btn[aria-busy="true"]{opacity:.5}
+.ap-steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.ap-steps button{display:flex;gap:12px;align-items:flex-start;width:100%;border:0;background:transparent;color:var(--sub);text-align:left;padding:8px 0}
+.ap-steps b{flex-shrink:0;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;border:1px solid var(--glass-line);font-weight:500;font-size:13px}
+.ap-steps .on button{color:var(--ink)}
+.ap-steps .on b{background:var(--accent);border-color:var(--accent);color:var(--on-accent,#111)}
+.ap-steps .done b{opacity:.5}

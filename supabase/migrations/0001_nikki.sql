@@ -1972,3 +1972,53 @@ begin
   return exists (select 1 from nikki.ai_config where id and gemini_key is not null);
 end $$;
 grant execute on function nikki.admin_set_gemini_key(text), nikki.admin_gemini_ready() to authenticated;
+
+-- ───────────────────────── registo rápido: QR das faturas e Apple Pay ─────────────────────────
+-- O NIF da loja (lido do QR da fatura): a NIKKI aprende por ele a nota, a categoria e a partilha.
+alter table nikki.expenses add column if not exists merchant_nif text check (merchant_nif ~ '^[0-9]{9}$');
+-- Apple Pay: um atalho do iPhone envia o valor e a loja para a função «capture» com a ligação secreta da pessoa; fica
+-- um rascunho que a app abre preenchido para confirmar. Nada conta para as contas sem ser confirmado.
+create table if not exists nikki.capture_tokens (
+  token text primary key default encode(extensions.gen_random_bytes(18), 'hex'),
+  profile_id uuid not null references nikki.profiles (id) on delete cascade,
+  household_id uuid not null references nikki.households (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  unique (profile_id, household_id)
+);
+create table if not exists nikki.expense_drafts (
+  id uuid primary key default gen_random_uuid(),
+  household_id uuid not null references nikki.households (id) on delete cascade,
+  profile_id uuid not null references nikki.profiles (id) on delete cascade,
+  amount numeric(12, 2) not null check (amount > 0),
+  merchant text check (length(merchant) <= 80),
+  card text check (length(card) <= 60),
+  created_at timestamptz not null default now()
+);
+create index if not exists expense_drafts_me on nikki.expense_drafts (profile_id, created_at);
+alter table nikki.capture_tokens enable row level security;
+alter table nikki.expense_drafts enable row level security;
+grant select on nikki.capture_tokens to authenticated;
+grant select, delete on nikki.expense_drafts to authenticated;
+grant all on nikki.capture_tokens, nikki.expense_drafts to service_role;
+do $$ begin
+  if not exists (select 1 from pg_policies where schemaname = 'nikki' and tablename = 'capture_tokens' and policyname = 'capture_tokens_own') then
+    create policy capture_tokens_own on nikki.capture_tokens for select to authenticated using (profile_id = auth.uid());
+  end if;
+  if not exists (select 1 from pg_policies where schemaname = 'nikki' and tablename = 'expense_drafts' and policyname = 'expense_drafts_own') then
+    create policy expense_drafts_own on nikki.expense_drafts for all to authenticated using (profile_id = auth.uid()) with check (profile_id = auth.uid());
+  end if;
+end $$;
+-- A ligação de cada pessoa (criada ou trocada pela app).
+create or replace function nikki.capture_token(h uuid, renew boolean default false) returns text
+language plpgsql security definer set search_path = '' as $$
+declare t text;
+begin
+  if not nikki.is_member(h) then raise exception 'sem acesso'; end if;
+  if renew then
+    update nikki.capture_tokens set token = encode(extensions.gen_random_bytes(18), 'hex'), created_at = now() where profile_id = auth.uid() and household_id = h;
+  end if;
+  insert into nikki.capture_tokens (profile_id, household_id) values (auth.uid(), h) on conflict (profile_id, household_id) do nothing;
+  select token into t from nikki.capture_tokens where profile_id = auth.uid() and household_id = h;
+  return t;
+end $$;
+grant execute on function nikki.capture_token(uuid, boolean) to authenticated;

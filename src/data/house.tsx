@@ -15,7 +15,7 @@ import type { Repeat } from '@/lib/agenda';
 import type { HkLog, HkTask } from '@/lib/hk';
 import type { Assessment, GymField } from '@/lib/gym';
 
-export interface ExpenseRow extends Expense { created_by: string; note: string | null; created_at: string; car_id?: string | null; source?: string; occasion_id?: string | null; receipt_path?: string | null; receipt_read_at?: string | null }
+export interface ExpenseRow extends Expense { created_by: string; note: string | null; created_at: string; car_id?: string | null; source?: string; occasion_id?: string | null; receipt_path?: string | null; receipt_read_at?: string | null; merchant_nif?: string | null }
 export interface ReceiptItemRow { product: string; qty: number | string | null; unit: 'kg' | 'l' | 'un' | null; bought_on: string; expense_id: string }
 export interface TransferRow extends Transfer { id: string; created_by: string }
 /** Saldo de abertura do par (vindo da app antiga): amount_a > 0 = profile_a adiantou mais até ao corte. */
@@ -141,7 +141,7 @@ function useHouseData() {
   const eh = on('eventos') ? h : null;
   const d = {
     modules,
-    expenses: useLive<ExpenseRow>('expenses', h, 'id, paid_by, other_id, amount, split, payer_share, spent_on, category, created_by, note, created_at, car_id, source, occasion_id, receipt_path, receipt_read_at', { column: 'spent_on', ascending: false }),
+    expenses: useLive<ExpenseRow>('expenses', h, 'id, paid_by, other_id, amount, split, payer_share, spent_on, category, created_by, note, created_at, car_id, source, occasion_id, receipt_path, receipt_read_at, merchant_nif', { column: 'spent_on', ascending: false }),
     transfers: useLive<TransferRow>('transfers', h, 'id, from_id, to_id, amount, made_on, created_by', { column: 'made_on', ascending: false }),
     openings: useLive<OpeningRow>('ledger_openings', h, 'profile_a, profile_b, cutover, amount_a'),
     // O que se comprou (das faturas do supermercado lidas): para as sugestões das Compras.

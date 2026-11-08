@@ -67,7 +67,7 @@ function seed() {
     share_ratios: [{ household_id: H, profile_a: R, profile_b: I, ratio_a: 0.5 }],
     invites: [], tickets: [], goals: [], assets: [], asset_snapshots: [], incomes: [], cars: [], car_logs: [], homes: [], bills: [], bill_payments: [], chores: [], chore_logs: [], todos: [], warranties: [], calendar_links: [], housekeeping: [], hk_tasks: [], hk_log: [], hk_messages: [], hk_paid: [], gym_fields: [], gym_prefs: [], gym_assessments: [],
     expenses: [], transfers: [], deadlines: [], shopping_items: [], events: [],
-    salvage_cars: [], salvage_logs: [], salvage_links: [], salvage_settings: [], receipt_items: [],
+    salvage_cars: [], salvage_logs: [], salvage_links: [], salvage_settings: [], receipt_items: [], expense_drafts: [], capture_tokens: [],
   };
   others(db);
   // O que se comprou (como se as faturas do supermercado tivessem sido lidas): limões, leite, ovos, café.
@@ -397,6 +397,8 @@ function persona(db: Record<string, Row[]>, today: string) {
   db.occasions.push({ id: ALG, household_id: 'demo-casa', name: 'Férias no Algarve', kind: 'viagem', on_date: d0, place: 'Tavira', budget: '1400.00', archived: true, purchase: false, car_id: null, created_by: I, created_at: ago(140) });
   for (const [d, v, c, n, by] of [[-130, '480.00', 'Viagens', 'Alojamento (sinal)', I], [-96, '560.00', 'Viagens', 'Alojamento (resto)', R], [-94, '72.40', 'Restaurantes', 'Marisqueira', R], [-92, '38.60', 'Restaurantes', 'Jantar em Tavira', I], [-91, '45.00', 'Lazer', 'Passeio de barco', I], [-89, '64.80', 'Supermercado', 'Compras para a casa', R]] as const)
     db.expenses.push({ id: uid(), household_id: 'demo-casa', created_by: by, paid_by: by, other_id: by === R ? I : R, amount: v, split: 'shared', payer_share: 0.5, spent_on: addDays(today, d), category: c, note: n, car_id: null, occasion_id: ALG, source: 'manual', created_at: `${addDays(today, d)}T12:00:00Z` });
+  // Um pagamento com o Apple Pay à espera de confirmação (abre ao entrar).
+  db.expense_drafts.push({ id: 'demo-draft-1', household_id: 'demo-casa', profile_id: 'demo-rodrigo', amount: '4.60', merchant: 'PASTELARIA VERSAILLES 0123', card: 'Visa', created_at: new Date(Date.now() - 40 * 60_000).toISOString() });
   // Os nomes de pessoas em tudo (Rodrigo → Tiago, Inês → Marta, Maria → Rosa).
   for (const rows of Object.values(db)) for (const r of rows) for (const k of Object.keys(r)) { const v = r[k]; if (typeof v === 'string' && !k.endsWith('_id') && k !== 'id') r[k] = fix(v); }
   for (const pr of db.profiles) if (pr.id === 'demo-rodrigo') pr.email = 'tiago@exemplo.pt'; else if (pr.id === 'demo-ines') pr.email = 'marta@exemplo.pt'; else if (pr.id === 'demo-maria') pr.email = 'rosa@exemplo.pt';
@@ -423,6 +425,7 @@ export function createDemoClient(opts: { visit?: boolean } = {}) {
     if (r.household_id && staffIn.includes(r.household_id)) return ['hk_tasks', 'hk_log', 'hk_messages', 'shopping_items', 'memberships'].includes(t) || (t === 'housekeeping' && r.profile_id === me);
     if (t === 'tickets') return r.created_by === me;
     if (t === 'calendar_links') return r.profile_id === me;
+    if (t === 'expense_drafts' || t === 'capture_tokens') return r.profile_id === me;
     if (t === 'gym_fields') return true;
     if (t === 'gym_prefs' || t === 'gym_assessments') return r.profile_id === me; // só o próprio
     if (t === 'goals') return houses.includes(r.household_id) && (!r.owner_id || r.owner_id === me);
@@ -754,6 +757,7 @@ export function createDemoClient(opts: { visit?: boolean } = {}) {
         return { data, error: null };
       }
       if (name === 'calendar_token') return { data: 'demo' + '0'.repeat(44), error: null };
+      if (name === 'capture_token') return { data: 'd'.repeat(36), error: null };
       return { data: null, error: { message: 'função desconhecida' } };
     },
     channel(_topic: string, opts?: { config?: { presence?: { key: string } } }) {
