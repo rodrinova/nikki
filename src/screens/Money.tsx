@@ -264,6 +264,8 @@ function Movements({ monthKey: key }: { monthKey: string }) {
     .sort((a, b) => (a.spent_on !== b.spent_on ? (a.spent_on < b.spent_on ? 1 : -1) : a.created_at < b.created_at ? 1 : -1));
   const name = (id: string | null) => members.find((m) => m.id === id)?.name ?? '';
   const lbl = (e: ExpenseRow) => e.split === 'mine' ? (e.paid_by === me?.id ? 'Minha' : name(e.paid_by)) : e.split === 'shared' ? `Partilhada · pagou ${e.paid_by === me?.id ? 'tu' : name(e.paid_by)}` : e.other_id === me?.id ? `Tua · pagou ${name(e.paid_by)}` : ofName(name(e.other_id));
+  // Na lista, dois factos no máximo (o dia e um): o resto está no detalhe.
+  const short = (e: ExpenseRow) => e.split === 'shared' ? (e.paid_by === me?.id || !partner ? 'Partilhada' : `pagou ${name(e.paid_by)}`) : e.split === 'mine' ? (e.paid_by === me?.id ? 'Minha' : name(e.paid_by)) : e.other_id === me?.id ? `pagou ${name(e.paid_by)}` : ofName(name(e.other_id));
   const paidMe = month.filter((e) => e.paid_by === me?.id).length;
   // As entradas do mês que te dizem respeito (recebidas por ti, ou partilhadas contigo).
   const ins = incomeEntries.rows.filter((x) => monthKey(x.received_on) === key && (x.received_by === me?.id || x.other_id === me?.id))
@@ -279,7 +281,7 @@ function Movements({ monthKey: key }: { monthKey: string }) {
         ? <p className="s">{who === 'me' && month.length ? `Em ${monthName(key)} não pagaste nada. Alguém pagou por ti.` : `Nada em ${monthName(key)}. Ou foi um mês muito zen.`}</p>
         : <div className="tile card rows">{list.slice(0, n).map((e) => (
           <button key={e.id} className={`press${partner && e.paid_by === me?.id ? ' paid-me' : ''}`} onClick={() => open(<ExpenseDetail e={e} label={lbl(e)} />)}>
-            <span className="k" style={{ color: 'var(--ink)' }}>{e.note || catLabel(e.category)}<span className="s" style={{ display: 'block' }}>{dayLabel(e.spent_on)} · {lbl(e)}</span></span>
+            <span className="k" style={{ color: 'var(--ink)' }}>{e.note || catLabel(e.category)}<span className="s" style={{ display: 'block' }}>{dayLabel(e.spent_on)} · {short(e)}</span></span>
             <span className="v">{eur(toU(e.amount))} €</span>
           </button>
         ))}</div>}
@@ -291,7 +293,7 @@ function Movements({ monthKey: key }: { monthKey: string }) {
           const whoL = x.split === 'mine' ? (x.received_by === me?.id ? 'Minha' : name(x.received_by)) : x.split === 'shared' ? `Partilhada · recebeu ${x.received_by === me?.id ? 'tu' : name(x.received_by)}` : x.other_id === me?.id ? `Tua · recebeu ${name(x.received_by)}` : ofName(name(x.other_id));
           return (
             <button key={x.id} className="press" onClick={() => open(<EntryDetail x={x} label={whoL} />)}>
-              <span className="k" style={{ color: 'var(--ink)' }}>{x.note || k}<span className="s" style={{ display: 'block' }}>{dayLabel(x.received_on)} · {k}{x.category ? ` · ${catLabel(x.category)}` : ''} · {whoL}</span></span>
+              <span className="k" style={{ color: 'var(--ink)' }}>{x.note || k}<span className="s" style={{ display: 'block' }}>{dayLabel(x.received_on)} · {x.received_by === me?.id || !partner ? k : `recebeu ${name(x.received_by)}`}</span></span>
               <span className="v">+{eur(toU(x.amount))} €</span>
             </button>
           );
