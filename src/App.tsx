@@ -1,6 +1,7 @@
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { BrowserRouter, Link, MemoryRouter, Navigate, Route, Routes, useLocation, useNavigationType, useParams } from 'react-router-dom';
 import { DEMO, DEMO_VISIT, stopDemo } from '@/lib/supabase';
+import { DraftWatcher } from '@/screens/Capture';
 import { SessionProvider, useSession } from '@/data/session';
 import { HouseProvider, useHouse } from '@/data/house';
 import { OverlayProvider, SheetHost, useOverlays } from '@/ui/overlays';
@@ -167,6 +168,7 @@ function Shell() {
   return (
     <HouseProvider>
       <HousePull />
+      <DraftWatcher />
       {onHub && <TopBar />}
       <div className={`app${pathname === '/' ? ' is-hub' : ''}`}><main className={`screen enter pg-${dir}`} key={pathname}>
         <Suspense fallback={<Loading label="A abrir" />}>

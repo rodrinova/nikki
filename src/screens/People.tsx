@@ -16,6 +16,7 @@ import { usePush, type PushState } from '@/data/push';
 import { usePaid } from './Housekeeping';
 import { morning } from '@/lib/digest';
 import { todayStr } from '@/lib/dates';
+import { ApplePaySheet } from './Capture';
 
 const inviteUrl = (token: string) => `${location.origin}${import.meta.env.BASE_URL}convite/${token}`;
 
@@ -120,7 +121,7 @@ export function People() {
 export function Profile() {
   const { me, members, appAdmin, reload } = useSession();
   const adm = useAdminBadge();
-  const { toast } = useOverlays();
+  const { toast, open } = useOverlays();
   const [name, setName] = useState(me?.name ?? '');
   async function save(e: FormEvent) {
     e.preventDefault();
@@ -135,6 +136,7 @@ export function Profile() {
       <Notifications />
       <div className="tile card rows">
         <Link className="press" to="/pessoas"><span className="k">Casa</span><span className="v">{members.length} {members.length === 1 ? 'pessoa' : 'pessoas'}<Icon n="arrow" s={16} /></span></Link>
+        <button type="button" className="press" onClick={() => open(<ApplePaySheet />)}><span className="k">Apple Pay → NIKKI</span><span className="v"><Icon n="arrow" s={16} /></span></button>
         <Link className="press" to="/modulos"><span className="k">Módulos</span><span className="v"><Icon n="arrow" s={16} /></span></Link>
         <Link className="press" to="/melhorar"><span className="k">Ideias e problemas</span><span className="v"><Icon n="arrow" s={16} /></span></Link>
         <Link className="press" to="/historia"><span className="k">A história da NIKKI</span><span className="v"><Icon n="arrow" s={16} /></span></Link>
