@@ -148,15 +148,52 @@ export function normalMonth(expenses: Expense[], who: string, today: string, max
   return Math.round(sum / months.length);
 }
 
-/** Ritmo do mês: gasto até hoje vs. o habitual até este dia; e o fecho previsto. */
-export function pace(spent: number, normal: number | null, today: string) {
+/**
+ * Como costumam crescer os gastos ao longo de um mês (a curva da pessoa): para cada dia (1 a 31), a fração do mês que
+ * já costuma estar gasta até esse dia, em média nos últimos meses completos. Um mês com a renda no dia 1 e as contas
+ * no início sobe depressa nos primeiros dias; o supermercado e os jantares enchem o resto. Os meses curtos esticam-se
+ * para 31 dias (o dia 15 de fevereiro conta como o meio do mês). Null com menos de 2 meses (fica a linha reta).
+ */
+export function monthCurve(expenses: Expense[], who: string, today: string, max = 12): number[] | null {
+  const mine = expenses.filter((e) => partOf(e, who) > 0);
+  if (!mine.length) return null;
+  const first = mine.reduce((m, e) => (e.spent_on < m ? e.spent_on : m), mine[0].spent_on);
+  const sums = new Array(32).fill(0);
+  let n = 0;
+  for (let k = prevMonth(monthKey(today)); k >= monthKey(first) && n < max; k = prevMonth(k)) {
+    const days = daysInMonth(k), byDay = new Array(32).fill(0);
+    let total = 0;
+    for (const e of mine) if (e.spent_on.startsWith(k)) { const v = partOf(e, who); total += v; byDay[Number(e.spent_on.slice(8, 10))] += v; }
+    if (total <= 0) continue;
+    let acc = 0;
+    const cum = byDay.map((v, d) => (d === 0 ? 0 : (acc += v) / total)); // fração gasta até ao dia d deste mês
+    for (let d = 1; d <= 31; d++) {
+      const x = (d / 31) * days, lo = Math.max(1, Math.floor(x)), hi = Math.min(days, Math.ceil(x)); // o mesmo ponto do mês
+      sums[d] += lo === hi ? cum[lo] : cum[lo] + (cum[hi] - cum[lo]) * (x - lo);
+    }
+    n++;
+  }
+  if (n < 2) return null;
+  return sums.map((v, d) => (d === 0 ? 0 : d === 31 ? 1 : v / n));
+}
+
+/**
+ * Ritmo do mês: gasto até hoje vs. o habitual até este dia; e o fecho previsto. Com a curva da pessoa (monthCurve),
+ * o habitual até hoje segue a forma dos meses dela (20% linha reta, para não exagerar nos primeiros dias); sem curva,
+ * reparte o mês por igual.
+ */
+export function pace(spent: number, normal: number | null, today: string, curve: number[] | null = null) {
   const days = daysInMonth(monthKey(today)), day = Number(today.slice(8, 10));
   if (!normal) return { fresh: true as const, days, day };
   const daily = normal / days;
+  const linear = day / days;
+  const shaped = curve ? curve[Math.max(1, Math.min(31, Math.round((day / days) * 31)))] : linear;
+  const share = 0.8 * shaped + 0.2 * linear; // fração do mês que costuma estar gasta até hoje
+  const expected = Math.max(normal * share, normal * 0.03);
   return {
     fresh: false as const, days, day,
-    pct: Math.round((spent / (daily * day) - 1) * 100), // % acima (+) ou abaixo (−) do ritmo habitual
-    forecast: spent + daily * (days - day),
+    pct: Math.round((spent / expected - 1) * 100), // % acima (+) ou abaixo (−) do habitual até este dia
+    forecast: spent + normal * (1 - share), // o que falta costuma ser o resto do mês habitual
     blocks: Math.round(spent / daily), // dias de um mês normal já gastos
   };
 }

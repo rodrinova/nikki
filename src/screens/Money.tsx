@@ -10,7 +10,7 @@ import { KINDS, type Occasion, type OccasionKind } from '@/lib/occasions';
 import { useOverlays } from '@/ui/overlays';
 import { Icon } from '@/ui/Icon';
 import { Whiskers } from '@/ui/Whiskers';
-import { GIFTS, abates, partOf, abatingKind, eur, monthSpend, monthlySeries, normalMonth, openingOf, pace, pairBalance, parseAmount, toU, type EntryKind, type Split, whiskerLean } from '@/lib/money';
+import { GIFTS, abates, partOf, abatingKind, eur, monthCurve, monthSpend, monthlySeries, normalMonth, openingOf, pace, pairBalance, parseAmount, toU, type EntryKind, type Split, whiskerLean } from '@/lib/money';
 import { addDays, dayLabel, monthKey, monthName, nextMonth, prevMonth, todayStr } from '@/lib/dates';
 import { store } from '@/lib/store';
 import { useZoom } from '@/ui/zoom';
@@ -44,7 +44,7 @@ export function useMonth(at?: string) {
     const daily = spend.filter((e) => !e.occasion_id);
     const everyday = monthSpend(daily, me?.id ?? '', key).total;
     const normal = normalMonth(daily, me?.id ?? '', today);
-    return { key, today, current: key === monthKey(today), ...m, everyday, events: m.total - everyday, normal, pace: pace(everyday, normal, today) };
+    return { key, today, current: key === monthKey(today), ...m, everyday, events: m.total - everyday, normal, pace: pace(everyday, normal, today, monthCurve(daily, me?.id ?? '', today)) };
   }, [spendRows, me?.id, at]);
 }
 

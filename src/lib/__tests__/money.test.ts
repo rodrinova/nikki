@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { abates, entryAsExpense, eur, lit, openingOf, monthClose, monthSpend, monthlySeries, normalMonth, pace, pairBalance, parseAmount, partOf, toU, whiskerLean, yearFill, type Expense, type MoneyIn, type Transfer } from '../money';
+import { abates, entryAsExpense, eur, lit, openingOf, monthClose, monthCurve, monthSpend, monthlySeries, normalMonth, pace, pairBalance, parseAmount, partOf, toU, whiskerLean, yearFill, type Expense, type MoneyIn, type Transfer } from '../money';
 import { addDays, daysInMonth, monthWeeks, nextMonth, prevMonth, toDateStr, weekOf, weekdayName } from '../dates';
 
 const R = 'rodrigo', I = 'ines';
@@ -258,5 +258,31 @@ describe('entradas de dinheiro', () => {
   });
   it('mostra-se com o sinal', () => {
     expect(eur(toU('-363.72'))).toBe('−363,72');
+  });
+});
+
+describe('ritmo do mês com a curva habitual', () => {
+  const R = 'r';
+  const e = (spent_on: string, amount: string): Expense => ({ id: spent_on + amount, paid_by: R, other_id: null, amount, split: 'mine', payer_share: null, spent_on, category: 'Casa' });
+  // Três meses iguais: renda de 800 € no dia 1 e 200 € espalhados no resto do mês (1 000 € por mês).
+  const hist: Expense[] = [];
+  for (const k of ['2026-07', '2026-08', '2026-09']) { hist.push(e(`${k}-01`, '800.00')); for (const d of ['10', '20', '28']) hist.push(e(`${k}-${d}`, '66.67')); }
+  it('a curva sobe logo no dia 1 (a renda) e chega a 1 no fim', () => {
+    const c = monthCurve(hist, R, '2026-10-05')!;
+    expect(c[1]).toBeCloseTo(0.8, 2);
+    expect(c[31]).toBe(1);
+    expect(c[15]).toBeGreaterThan(0.8);
+  });
+  it('a 5 de outubro, com a renda paga, está no ritmo (e não 400% acima, como na linha reta)', () => {
+    const spent = toU(800), normal = toU(1000);
+    const curve = monthCurve(hist, R, '2026-10-05');
+    const p = pace(spent, normal, '2026-10-05', curve), lin = pace(spent, normal, '2026-10-05');
+    if (p.fresh || lin.fresh) throw new Error('sem histórico');
+    expect(lin.pct).toBeGreaterThan(300);
+    expect(Math.abs(p.pct)).toBeLessThan(25);
+    expect(Math.round(p.forecast / 100_000)).toBeGreaterThan(950); // fecha perto dos 1 000 €
+  });
+  it('com menos de dois meses, fica a linha reta', () => {
+    expect(monthCurve(hist.slice(0, 4), R, '2026-08-10')).toBeNull();
   });
 });
