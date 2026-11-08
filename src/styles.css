@@ -1538,3 +1538,28 @@ body::before{content:"";position:fixed;left:0;right:0;top:0;height:env(safe-area
 @media (prefers-reduced-motion: reduce){.say-card,.say-mic.on{animation:none}}
 /* Enquanto se escreve, só a frase e o que a NIKKI percebeu (as opções voltam com o campo vazio). */
 div:has(> .say .say-card) > .qa-main,div:has(> .say .say-card) > .qa-grid{display:none}
+
+/* ───────────── Next gen · fase 4: a balança e a presença ───────────── */
+.balance{width:100%;max-width:340px;height:auto;overflow:visible}
+.balance.small{max-width:150px}
+.bal-post{fill:none;stroke:var(--line);stroke-width:3;stroke-linecap:round}
+.bal-beam line{stroke:var(--ink);stroke-width:3.5;stroke-linecap:round}
+.bal-beam,.bal-pan{transition:transform 1100ms cubic-bezier(.34,1.45,.5,1)}
+.bal-pivot{fill:var(--accent)}
+.bal-str{fill:none;stroke:var(--sub);stroke-width:1.4}
+.bal-dish{fill:var(--tile-2);stroke:var(--line);stroke-width:1.5;transition:fill 400ms ease,stroke 400ms ease}
+.bal-pan.heavy .bal-dish{fill:var(--accent-soft);stroke:var(--accent)}
+.balance.even .bal-dish{stroke:color-mix(in srgb,var(--accent) 60%,var(--line))}
+.bal-av{stroke:var(--ground);stroke-width:2}
+.bal-ini{font:500 15px var(--font);fill:#0B0B0B}
+@media (prefers-reduced-motion: reduce){.bal-beam,.bal-pan{transition:none}}
+
+/* Alguém da casa está nas compras: uma faixa no Hoje, com a lista a encher-se pelas cores de cada um. */
+.live-shop{display:flex;flex-direction:column;gap:10px;padding:16px 18px;color:inherit;text-decoration:none;border:1px solid color-mix(in srgb,var(--accent) 40%,transparent)}
+.live-shop .top{display:flex;align-items:center;gap:10px}
+.live-shop .top .st2{flex:1;min-width:0}
+.live-prog{display:flex;height:6px;border-radius:99px;overflow:hidden;background:var(--tile-2)}
+.live-prog i{display:block;height:100%;background:var(--c);transition:width 600ms var(--ease-out)}
+.live-key{display:flex;gap:14px;flex-wrap:wrap}
+.live-key span{display:inline-flex;align-items:center;gap:6px}
+.live-key b{width:8px;height:8px;border-radius:50%;background:var(--c)}
