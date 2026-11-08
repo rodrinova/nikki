@@ -18,6 +18,8 @@ import { dt, EVERY, categoryOf, TENURE, useCasa, useBillDeadline, BillSheet, Bil
 
 const YearBlocks = later(() => import('./CasaYear'), 'YearBlocks');
 import { ChoresSection, WarrantiesSection } from './CasaCare';
+import { GroceryReport } from './Grocery';
+import { groceryReport } from '@/lib/grocery';
 
 // Casa: contas fixas (com consumos e faturas que cobrem vários meses), despesas por confirmar, prazos e contratos.
 // Regras em docs/CALCULOS.md, secção 6c.
@@ -41,7 +43,7 @@ function HomeChips({ c, sel, setSel }: { c: ReturnType<typeof useCasa>; sel: str
   );
 }
 
-const PARTS = ['contas', 'ano', 'prazos', 'tarefas', 'manutencao', 'garantias', 'casas'] as const;
+const PARTS = ['contas', 'ano', 'supermercado', 'prazos', 'tarefas', 'manutencao', 'garantias', 'casas'] as const;
 type Part = (typeof PARTS)[number];
 
 /** A Casa: o resumo, «Ler fatura» e um quadrado por cada parte (com um número vivo), em vez de uma página sem fim. */
@@ -50,7 +52,8 @@ export function Casa() {
   const c0 = useCasa('all');
   const sel = sel0 === 'all' || c0.places.some((h) => h.id === sel0) ? sel0 : 'all';
   const c = useCasa(sel);
-  const { chores, warranties } = useHouse();
+  const { chores, warranties, expenses, receiptItems } = useHouse();
+  const grocery = useMemo(() => groceryReport(expenses.rows, receiptItems.rows, todayStr()), [expenses.rows, receiptItems.rows]);
   if (!c.ready) return <><Top title="Casa" /><Loading /></>;
   if (!c.places.length) return <CasaSetup />;
   const here = sel === 'all' ? null : sel;
@@ -63,6 +66,7 @@ export function Casa() {
   const tiles: [Part, string, string, string, boolean][] = [
     ['contas', 'coins', 'Contas fixas', c.pending.length ? `${c.pending.length} por confirmar` : `${c.active.length} ${c.active.length === 1 ? 'conta' : 'contas'}`, c.pending.length > 0],
     ['ano', 'bars', 'Por ano', yearTotal ? `${eur(yearTotal, 0)} €` : 'sem contas', false],
+    ['supermercado', 'basket', 'Supermercado', grocery ? `${eur(grocery.perMonth, 0)} € por mês` : 'sem compras', false],
     ['prazos', 'bell', 'Prazos', c.deadlines.length ? `${c.deadlines.length} · ${dt(c.deadlines[0].due_on)}` : 'nenhum', c.deadlines.some((d) => d.due_on <= addDays(today, d.remind_days ?? 7))],
     ['tarefas', 'check', 'Tarefas', tasks.length ? `${tasks.filter((x) => x.next_on <= today).length} para hoje · ${tasks.length}` : 'nenhuma', false],
     ['manutencao', 'umbrella', 'Manutenção', maint.length ? `próxima ${dt(maint[0].next_on)}` : 'escolher', maint.some((x) => x.next_on <= addDays(today, 14))],
@@ -113,6 +117,7 @@ export function CasaPart() {
       </>
     );
     case 'ano': return <><Top title="Por ano" />{chips}<YearBlocks c={c} all={sel === 'all'} /></>;
+    case 'supermercado': return <><Top title="Supermercado" /><GroceryReport /></>;
     case 'prazos': return <><Top title="Prazos e contratos" />{chips}<Deadlines list={c.deadlines} /></>;
     case 'tarefas': return <><Top title="Tarefas" />{chips}<ChoresSection kind="task" home={here} homeOf={homeOf} /></>;
     case 'manutencao': return <><Top title="Manutenção" />{chips}<ChoresSection kind="maintenance" home={here} homeOf={homeOf} /></>;
