@@ -397,6 +397,15 @@ function persona(db: Record<string, Row[]>, today: string) {
   db.occasions.push({ id: ALG, household_id: 'demo-casa', name: 'Férias no Algarve', kind: 'viagem', on_date: d0, place: 'Tavira', budget: '1400.00', archived: true, purchase: false, car_id: null, created_by: I, created_at: ago(140) });
   for (const [d, v, c, n, by] of [[-130, '480.00', 'Viagens', 'Alojamento (sinal)', I], [-96, '560.00', 'Viagens', 'Alojamento (resto)', R], [-94, '72.40', 'Restaurantes', 'Marisqueira', R], [-92, '38.60', 'Restaurantes', 'Jantar em Tavira', I], [-91, '45.00', 'Lazer', 'Passeio de barco', I], [-89, '64.80', 'Supermercado', 'Compras para a casa', R]] as const)
     db.expenses.push({ id: uid(), household_id: 'demo-casa', created_by: by, paid_by: by, other_id: by === R ? I : R, amount: v, split: 'shared', payer_share: 0.5, spent_on: addDays(today, d), category: c, note: n, car_id: null, occasion_id: ALG, source: 'manual', created_at: `${addDays(today, d)}T12:00:00Z` });
+  // Faturas do supermercado lidas (as compras grandes; as pequenas ficam sem fatura, como na vida real).
+  { const BASKET: [string, number, 'kg' | 'l' | 'un', number][] = [['Leite meio-gordo', 6, 'l', 5.34], ['Bananas', 1.4, 'kg', 1.68], ['Iogurtes', 8, 'un', 3.2], ['Pão de forma', 1, 'un', 1.79], ['Peito de frango', 1, 'kg', 6.49], ['Arroz', 1, 'kg', 1.29], ['Massa', 2, 'un', 1.78], ['Ovos', 12, 'un', 2.99], ['Água', 9, 'l', 2.34], ['Tomate', 1, 'kg', 1.99], ['Café em cápsulas', 20, 'un', 5.4], ['Detergente da loiça', 1, 'un', 2.15], ['Queijo flamengo', 0.25, 'kg', 2.69], ['Salmão', 0.4, 'kg', 6.8], ['Cerveja', 6, 'un', 4.59]];
+    const big = db.expenses.filter((e) => e.category === 'Supermercado' && Number(e.amount) > 80).sort((x, y) => x.spent_on.localeCompare(y.spent_on));
+    big.forEach((e, k) => {
+      if (k % 3 === 2) return; // nem todas as faturas foram juntas
+      e.receipt_path = `demo-casa/despesas/${e.id}/fatura.jpg`; e.receipt_read_at = `${e.spent_on}T19:00:00Z`;
+      BASKET.forEach(([product, qty, unit, price], j) => { if ((j + k) % 4 === 3) return; db.receipt_items.push({ id: uid(), household_id: 'demo-casa', expense_id: e.id, bought_on: e.spent_on, product, qty: String(qty), unit, price: price.toFixed(2), raw: null, created_at: `${e.spent_on}T19:00:00Z` }); });
+    });
+  }
   // Um pagamento com o Apple Pay à espera de confirmação (abre ao entrar).
   db.expense_drafts.push({ id: 'demo-draft-1', household_id: 'demo-casa', profile_id: 'demo-rodrigo', amount: '4.60', merchant: 'PASTELARIA VERSAILLES 0123', card: 'Visa', created_at: new Date(Date.now() - 40 * 60_000).toISOString() });
   // Os nomes de pessoas em tudo (Rodrigo → Tiago, Inês → Marta, Maria → Rosa).
@@ -779,6 +788,12 @@ export function createDemoClient(opts: { visit?: boolean } = {}) {
         if (name === 'calendar-link' && b.action === 'icloud') { db.calendar_links.push({ id: uid(), profile_id: me, household_id: b.household, provider: 'icloud', account_hint: `${String(b.apple_id)[0]}•••@${String(b.apple_id).split('@')[1] ?? 'icloud.com'}`, status: 'ok', last_sync_at: new Date().toISOString(), last_error: null, created_at: new Date().toISOString() }); return { data: { ok: true }, error: null }; }
         if (name === 'calendar-link' && b.action === 'google') { db.calendar_links.push({ id: uid(), profile_id: me, household_id: b.household, provider: 'google', account_hint: 'r•••@gmail.com', status: 'ok', last_sync_at: new Date().toISOString(), last_error: null, created_at: new Date().toISOString() }); return { data: { url: '#' }, error: null }; }
         if (name === 'calendar-link' && b.action === 'unlink') { db.calendar_links = db.calendar_links.filter((l) => !(l.profile_id === me && l.provider === b.provider)); return { data: { ok: true }, error: null }; }
+        if (name === 'grocery-advice') return { data: { tips: [
+          { title: 'Leite em pack de 6', text: 'Vão ~14 l por mês; na marca da loja, em pack, poupam perto de 3 € por mês.', saving: 3 },
+          { title: 'Água da torneira com filtro', text: 'São ~25 l de água engarrafada por mês; um jarro com filtro paga-se em dois meses.', saving: 6 },
+          { title: 'Cápsulas: o café rende mais em grão', text: 'Com ~55 cápsulas por mês, o mesmo café em grão custa metade.', saving: 8 },
+          { title: 'Juntar compras no Lidl', text: 'O Pingo Doce leva metade do gasto; as compras grandes no Lidl costumam sair 10% mais baratas (estimativa: só 60% das compras têm fatura).', saving: 15 },
+        ] }, error: null };
         if (name === 'device-link' && b.action === 'create') return { data: { code: 'NIKK-2345', expires_at: new Date(Date.now() + 600_000).toISOString() }, error: null };
         if (name === 'device-link' && b.action === 'redeem') return String(b.code).toUpperCase().replace(/[^A-Z0-9]/g, '') === 'NIKK2345' ? { data: { token_hash: 'demo:R' }, error: null } : { data: { error: 'código inválido' }, error: null };
         if (name === 'receipt-read') { const e = db.expenses.find((x) => x.id === b.expense_id); if (e) e.receipt_read_at = new Date().toISOString(); return { data: { items: 0 }, error: null }; }
