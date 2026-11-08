@@ -9,7 +9,7 @@ const DEMO = import.meta.env.VITE_DEMO === '1';
 const CDN = 'https://cdn.jsdelivr.net/npm/';
 type Pdf = typeof import('pdfjs-dist');
 
-async function pdfLib(): Promise<Pdf> {
+export async function pdfLib(): Promise<Pdf> {
   if (DEMO) {
     const lib = (await import(/* @vite-ignore */ `${CDN}pdfjs-dist@4.10.38/build/pdf.min.mjs`)) as Pdf;
     lib.GlobalWorkerOptions.workerSrc = `${CDN}pdfjs-dist@4.10.38/build/pdf.worker.min.mjs`;

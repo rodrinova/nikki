@@ -369,7 +369,7 @@ function ExpenseDetail({ e, label }: { e: ExpenseRow; label: string }) {
       </div>
       {items.length > 0 && <p className="s">{items.slice(0, 8).map((r) => r.product).join(', ')}{items.length > 8 ? '…' : ''}</p>}
       <label className="rcpt-pick press" aria-busy={busyR}>
-        <input type="file" accept="image/*,application/pdf" capture="environment" hidden onChange={(ev) => attach(ev.target.files?.[0] ?? null)} />
+        <input type="file" accept="image/*,application/pdf" hidden onChange={(ev) => { attach(ev.target.files?.[0] ?? null); ev.target.value = ''; }} />
         <Icon n="cam" s={18} /><span>{busyR ? 'A tratar…' : e.receipt_path ? 'Trocar a fatura' : 'Juntar a fatura'}</span>
       </label>
       {e.receipt_path && e.category === 'Supermercado' && <button className="btn quiet wide press" disabled={busyR} onClick={reread}>{e.receipt_read_at ? 'Ler outra vez' : 'Ler os produtos'} <Icon n="arrow" s={20} /></button>}
@@ -398,7 +398,27 @@ function ExpenseEdit({ e }: { e: ExpenseRow }) {
   const [pct, setPct] = useState(String(Math.round(mine0 * 100)));
   const [day, setDay] = useState(e.spent_on);
   const [occ, setOcc] = useState<string | null>(e.occasion_id ?? null);
+  const [nif, setNif] = useState<string | null>(e.merchant_nif ?? null);
+  const [busyR, setBusyR] = useState(false);
+  const [hasR, setHasR] = useState(!!e.receipt_path);
   const [err, setErr] = useState('');
+  const { house } = useSession();
+  // A fatura (foto ou PDF) junta-se já à despesa; se tiver o QR, acerta o valor, o dia e a loja.
+  async function receipt(file: File | null) {
+    if (!file || !house) return;
+    setBusyR(true); setErr('');
+    const raw = await readQr(file).catch(() => null);
+    const inv = raw ? parseAtQr(raw) : null;
+    const r = await attachReceipt(house.id, e, file);
+    setBusyR(false);
+    if (r.error) return setErr(r.error);
+    setHasR(true); expenses.reload();
+    if (r.reading) r.reading.then((why) => toast(why ?? 'Fatura lida: as Compras já sabem o que compraram.', why ? undefined : { ok: true }));
+    if (inv) {
+      setAmt(inv.total.replace('.', ',')); setDay(inv.date); setNif(inv.nif);
+      toast(`Fatura junta e lida pelo QR: ${inv.total.replace('.', ',')} € a ${inv.date.split('-').reverse().join('/')}. Guarda para ficar.`, { ok: true });
+    } else toast('Fatura junta.', { ok: true });
+  }
   async function save(ev: FormEvent) {
     ev.preventDefault();
     const v = parseAmount(amt);
@@ -409,7 +429,7 @@ function ExpenseEdit({ e }: { e: ExpenseRow }) {
     const who = paid === 'partner' && partner
       ? { paid_by: partner.id, split: split === 'shared' ? 'shared' : split === 'mine' ? 'other' : 'mine', other_id: split === 'other' ? null : me.id, payer_share: split === 'shared' ? payerShare : null }
       : { paid_by: me.id, split, other_id: split === 'mine' || !partner ? null : partner.id, payer_share: split === 'shared' ? payerShare : null };
-    const { error } = await supabase.from('expenses').update({ amount: v, note: note.trim().slice(0, 120) || null, category: cat, spent_on: day, occasion_id: occ, ...who }).eq('id', e.id);
+    const { error } = await supabase.from('expenses').update({ amount: v, note: note.trim().slice(0, 120) || null, category: cat, spent_on: day, occasion_id: occ, merchant_nif: nif, ...who }).eq('id', e.id);
     if (error) return setErr(error.message);
     expenses.reload(); close(); close(); toast(`Despesa mudada: ${eur(toU(v))} €.`, { ok: true });
   }
@@ -417,6 +437,11 @@ function ExpenseEdit({ e }: { e: ExpenseRow }) {
   return (
     <form onSubmit={save} autoComplete="off" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <p className="l">Editar despesa</p>
+      <label className="rcpt-pick press" aria-busy={busyR}>
+        <input type="file" accept="image/*,application/pdf" hidden onChange={(x) => { receipt(x.target.files?.[0] ?? null); x.target.value = ''; }} />
+        <Icon n="cam" s={18} /><span>{busyR ? 'A tratar…' : hasR ? 'Trocar a fatura (foto ou PDF)' : 'Juntar a fatura: foto ou PDF (com QR, acerta tudo)'}</span>{hasR && !busyR && <Icon n="check" s={16} />}
+      </label>
+      {nif && <p className="s" style={{ marginTop: -6 }}>NIF da loja {nif}</p>}
       <div className="form">
         <div className="two">
           <label>Valor (€)<input inputMode="decimal" value={amt} onChange={(x) => { setAmt(x.target.value); setErr(''); }} /></label>
@@ -542,7 +567,8 @@ export function ExpenseSheet({ init }: { init?: ExpenseInit } = {}) {
     setRfile(file);
     if (!inv) return setErr(raw ? 'Este código não é de uma fatura. A foto fica junta; escreve o valor.' : 'Não encontrei o código QR. A foto fica junta; escreve o valor.');
     const prev = expenses.rows.filter((x) => x.merchant_nif === inv.nif && x.note).sort((a, b) => (a.created_at < b.created_at ? 1 : -1))[0];
-    const shop = (prev?.note ?? '').split(' · ')[0];
+    // A loja: a que se usou da última vez com este NIF; senão, o que já estava escrito.
+    const shop = (prev?.note ?? '').split(' · ')[0] || text.replace(/^[\d.,\s€]+/, '').trim();
     setNif(inv.nif);
     setText(`${inv.total.replace('.', ',')}${shop ? ` ${shop}` : ''}`);
     if (inv.date !== todayStr()) { setDay(inv.date === addDays(todayStr(), -1) ? 'ontem' : 'outro'); setDate(inv.date); } else { setDay('hoje'); setDate(null); }
@@ -637,7 +663,7 @@ export function ExpenseSheet({ init }: { init?: ExpenseInit } = {}) {
       <div className="amt-row">
         <input id="amt" ref={amtRef} className="field quick" placeholder={incoming ? '1500 salário' : '45 pingo doce ontem partilhada'} autoFocus={!init?.text} value={text} onChange={(e) => { setText(e.target.value); setErr(''); }} enterKeyHint="done" />
         {!incoming && <label className="qr-btn press" aria-label="Ler o QR da fatura" aria-busy={qrBusy}>
-          <input type="file" accept="image/*" capture="environment" hidden onChange={(e) => { fromQr(e.target.files?.[0] ?? null); e.target.value = ''; }} />
+          <input type="file" accept="image/*,application/pdf" hidden onChange={(e) => { fromQr(e.target.files?.[0] ?? null); e.target.value = ''; }} />
           <Icon n="cam" s={20} />
         </label>}
       </div>
@@ -680,9 +706,9 @@ export function ExpenseSheet({ init }: { init?: ExpenseInit } = {}) {
       </div>}
       {more && <div className="chips" role="group" aria-label="Dia">{chip(day === 'hoje', 'Hoje', () => setDay('hoje'))}{chip(day === 'ontem', 'Ontem', () => setDay('ontem'))}{chip(day === 'outro', 'Outro dia', () => setDay('outro'))}</div>}
       {more && day === 'outro' && <input className="field" type="date" aria-label="Dia da despesa" max={todayStr()} value={date} onChange={(e) => setDate(e.target.value)} />}
-      {v && !incoming && <label className="rcpt-pick press">
-        <input type="file" accept="image/*,application/pdf" capture="environment" hidden onChange={(e) => setRfile(e.target.files?.[0] ?? null)} />
-        <Icon n="cam" s={18} /><span>{rfile ? 'Fatura junta' : cat === 'Supermercado' ? 'Fotografar a fatura (lê os produtos)' : 'Fotografar a fatura'}</span>{rfile && <Icon n="check" s={16} />}
+      {!incoming && <label className="rcpt-pick press" aria-busy={qrBusy}>
+        <input type="file" accept="image/*,application/pdf" hidden onChange={(e) => { fromQr(e.target.files?.[0] ?? null); e.target.value = ''; }} />
+        <Icon n="cam" s={18} /><span>{qrBusy ? 'A ler…' : rfile ? 'Fatura junta · trocar' : cat === 'Supermercado' ? 'Juntar a fatura: foto ou PDF (lê os produtos)' : 'Juntar a fatura: foto ou PDF'}</span>{rfile && !qrBusy && <Icon n="check" s={16} />}
       </label>}
       <div className="save-two">
         <button className="btn quiet press" data-again="1" disabled={busy}>Guardar e outra</button>
