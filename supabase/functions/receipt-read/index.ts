@@ -7,6 +7,10 @@ const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE
 const cors = { 'access-control-allow-origin': '*', 'access-control-allow-headers': 'authorization, content-type, apikey, x-client-info', 'access-control-allow-methods': 'POST, OPTIONS' };
 const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status, headers: { ...cors, 'content-type': 'application/json' } });
 const MODEL = Deno.env.get('GEMINI_MODEL') ?? 'gemini-2.5-flash';
+// A chave do Google AI Studio («AIza…») fala com a Gemini API; a do Vertex AI («AQ.…», modo express) com o Vertex.
+const endpoint = (key: string) => key.startsWith('AQ.')
+  ? `https://aiplatform.googleapis.com/v1/publishers/google/models/${MODEL}:generateContent?key=${key}`
+  : `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${key}`;
 
 const PROMPT = `És um leitor de talões de supermercado portugueses. Lê o talão e devolve só JSON.
 Para cada linha de produto (ignora totais, IVA, descontos gerais, sacos, cartão, pagamentos):
@@ -48,14 +52,14 @@ Deno.serve(async (req) => {
   const file = await admin.storage.from('receipts').download(e.receipt_path);
   if (file.error || !file.data) return json({ error: 'não deu para abrir a fatura' }, 404);
   const mime = file.data.type || (e.receipt_path.endsWith('.pdf') ? 'application/pdf' : 'image/jpeg');
-  const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${key}`, {
+  const r = await fetch(endpoint(key), {
     method: 'POST', headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
-      contents: [{ parts: [{ text: PROMPT }, { inline_data: { mime_type: mime, data: b64(await file.data.arrayBuffer()) } }] }],
+      contents: [{ role: 'user', parts: [{ text: PROMPT }, { inlineData: { mimeType: mime, data: b64(await file.data.arrayBuffer()) } }] }],
       generationConfig: { responseMimeType: 'application/json', responseSchema: SCHEMA, temperature: 0 },
     }),
   });
-  if (!r.ok) return json({ error: `Gemini: ${r.status}` }, 502);
+  if (!r.ok) { console.error('gemini', r.status, (await r.text()).slice(0, 500)); return json({ error: r.status === 400 || r.status === 401 || r.status === 403 ? 'O Gemini não aceitou a chave. Confirma-a em Administração → Números.' : `O Gemini não respondeu (${r.status}).` }, 502); }
   const out = await r.json();
   let parsed: { items?: { raw?: string; product: string; qty: number; unit: string; price?: number | null }[] } = {};
   try { parsed = JSON.parse(out?.candidates?.[0]?.content?.parts?.[0]?.text ?? '{}'); } catch { return json({ error: 'não percebi a fatura' }, 422); }
