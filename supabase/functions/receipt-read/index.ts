@@ -6,7 +6,10 @@ import { createClient } from 'npm:@supabase/supabase-js@2.118.0';
 const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { db: { schema: 'nikki' }, auth: { persistSession: false } });
 const cors = { 'access-control-allow-origin': '*', 'access-control-allow-headers': 'authorization, content-type, apikey, x-client-info', 'access-control-allow-methods': 'POST, OPTIONS' };
 const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status, headers: { ...cors, 'content-type': 'application/json' } });
-const MODEL = Deno.env.get('GEMINI_MODEL') ?? 'gemini-2.5-flash';
+// O gemini-2.5-flash já não está disponível para chaves novas (nov. 2026); o 3.5 Flash responde bem com a resposta em JSON.
+const MODEL = Deno.env.get('GEMINI_MODEL') ?? 'gemini-3.5-flash';
+/** O texto da resposta (sem as partes de raciocínio, que os modelos novos às vezes mandam à parte). */
+const answer = (out: any): string => ((out?.candidates?.[0]?.content?.parts ?? []) as { text?: string; thought?: boolean }[]).filter((p) => !p.thought && p.text).map((p) => p.text).join('');
 // A chave do Google AI Studio («AIza…») fala com a Gemini API; a do Vertex AI («AQ.…», modo express) com o Vertex.
 const endpoint = (key: string) => key.startsWith('AQ.')
   ? `https://aiplatform.googleapis.com/v1/publishers/google/models/${MODEL}:generateContent?key=${key}`
@@ -62,7 +65,7 @@ Deno.serve(async (req) => {
   if (!r.ok) { console.error('gemini', r.status, (await r.text()).slice(0, 500)); return json({ error: r.status === 400 || r.status === 401 || r.status === 403 ? 'O Gemini não aceitou a chave. Confirma-a em Administração → Números.' : `O Gemini não respondeu (${r.status}).` }, 502); }
   const out = await r.json();
   let parsed: { items?: { raw?: string; product: string; qty: number; unit: string; price?: number | null }[] } = {};
-  try { parsed = JSON.parse(out?.candidates?.[0]?.content?.parts?.[0]?.text ?? '{}'); } catch { return json({ error: 'não percebi a fatura' }, 422); }
+  try { parsed = JSON.parse(answer(out) || '{}'); } catch { return json({ error: 'não percebi a fatura' }, 422); }
   const rows = (parsed.items ?? []).filter((i) => i.product?.trim() && i.qty > 0 && ['kg', 'l', 'un'].includes(i.unit)).slice(0, 120).map((i) => ({
     household_id: e.household_id, expense_id: e.id, bought_on: e.spent_on, product: i.product.trim().slice(0, 60),
     qty: Math.round(i.qty * 1000) / 1000, unit: i.unit, price: i.price ?? null, raw: (i.raw ?? '').slice(0, 120) || null,
