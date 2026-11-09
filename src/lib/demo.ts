@@ -424,6 +424,8 @@ export function createDemoClient(opts: { visit?: boolean } = {}) {
   const session = () => (me ? { user: { id: me, email: `${me}@exemplo.pt` }, access_token: 'demo' } : null);
   const emitAuth = (e: string) => authListeners.forEach((f) => f(e, session()));
   const changed = (t: string) => setTimeout(() => tableListeners.get(t)?.forEach((f) => f()), 30);
+  // Para as capturas (Playwright): mexer nos dados de exemplo e avisar quem os lê. Só existe na demonstração.
+  (globalThis as { __nikkiDemo?: unknown }).__nikkiDemo = { db, changed };
 
   // O que cada pessoa pode ver (resumo das regras de acesso do schema nikki).
   const prof = (id: string | null) => db.profiles.find((p) => p.id === id);
@@ -588,7 +590,7 @@ export function createDemoClient(opts: { visit?: boolean } = {}) {
       on(_e: string, _f: unknown, cb: Listener) { syncs.push(cb); return ch; },
       subscribe(cb?: (s: string) => void) {
         setTimeout(() => cb?.('SUBSCRIBED'), 20);
-        if (other) timers.push(setTimeout(() => { state[other] = [{ aisle: null }]; sync(); timers.push(setTimeout(partnerTick, 2500)); }, 2500));
+        if (other && !(globalThis as { __nikkiQuiet?: boolean }).__nikkiQuiet) timers.push(setTimeout(() => { state[other] = [{ aisle: null }]; sync(); timers.push(setTimeout(partnerTick, 2500)); }, 2500));
         return ch;
       },
       track(meta: { aisle: string | null }) { state[key] = [meta]; sync(); return Promise.resolve('ok'); },

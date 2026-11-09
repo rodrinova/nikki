@@ -37,6 +37,12 @@ body.n2::after{content:"";position:fixed;inset:0;z-index:60;pointer-events:none;
 /* A manchete: serifado, largura normal, sem apertar letras. */
 .lead{font-family:var(--serif);font-weight:500;font-size:clamp(34px,8.6vw,60px);line-height:1.06;letter-spacing:-0.012em;margin:4px 0 0;max-width:18ch;text-wrap:balance;font-variation-settings:"opsz" 72}
 .lead span{color:var(--sub);font-weight:400}
+a.lead{display:block;color:inherit;text-decoration:none}
+a.lead:hover{text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:.12em;text-decoration-color:var(--rule-2)}
+.front{display:flex;flex-direction:column;gap:12px}
+.lead-sub{margin:0;font-size:var(--t-l);line-height:1.35;color:var(--sub);max-width:36ch}
+.front.calm .lead{color:var(--sub)}
+.front.calm .lead-sub{color:var(--ink)}
 
 /* Números com rótulo e comparação. No telemóvel em lista com réguas; nos largos, lado a lado. */
 .figs{display:grid;grid-template-columns:1fr;border-top:1px solid var(--rule)}
@@ -48,6 +54,7 @@ body.n2::after{content:"";position:fixed;inset:0;z-index:60;pointer-events:none;
 .fig-n.up{color:var(--up)} .fig-n.down{color:var(--down)}
 @media (min-width:760px){
   .figs{grid-template-columns:repeat(3,1fr);border-bottom:1px solid var(--rule)}
+  .figs.n1{grid-template-columns:1fr} .figs.n2{grid-template-columns:repeat(2,1fr)}
   .fig{grid-template-columns:1fr;grid-template-areas:"l" "v" "n";row-gap:8px;padding:18px 20px 18px 0;border-bottom:0}
   .fig + .fig{border-left:1px solid var(--rule);padding-left:20px}
   .fig-v{font-size:clamp(40px,4.4vw,56px);align-self:start}
@@ -92,18 +99,6 @@ body.n2::after{content:"";position:fixed;inset:0;z-index:60;pointer-events:none;
 .plain .now-main .st2 > span:first-child{font-size:var(--t-m)}
 .plain .s{color:var(--faint)}
 .plain .tb,.plain .now-act{background:transparent!important;border:1px solid var(--rule-2)!important;color:var(--ink)}
-
-/* A capa do mês. */
-.cover{display:flex;gap:18px;align-items:flex-end;border:0;background:none;color:inherit;text-align:left;padding:0;cursor:pointer}
-.cover-c{display:flex;flex-direction:column;gap:10px;font-size:var(--t-s);color:var(--sub);max-width:34ch}
-.cover-c .more{align-self:flex-start}
-.n2-poster{margin:0;display:flex;flex-direction:column;align-items:center;gap:10px}
-.n2-poster svg{width:100%;height:auto;display:block;box-shadow:0 30px 80px rgba(0,0,0,.6)}
-.n2-poster.small svg{width:104px;box-shadow:0 12px 30px rgba(0,0,0,.5)}
-.n2-poster .n2-link{border:0;background:none;color:#A9A39A;font-size:var(--t-s);border-bottom:1px solid rgba(242,238,230,.28);padding:0;cursor:pointer}
-.over{position:fixed;inset:0;z-index:70;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:24px;background:rgba(18,17,16,.9);animation:n2-fade 240ms ease both}
-.over .n2-poster{width:min(84vw,420px)}
-@keyframes n2-fade{from{opacity:0}}
 
 /* Dinheiro: o mês, a tabela «Onde», doze meses e os movimentos. */
 .mnav{display:flex;align-items:center;justify-content:space-between;gap:12px}
@@ -172,7 +167,6 @@ body.n2::after{content:"";position:fixed;inset:0;z-index:60;pointer-events:none;
 .tb-row.now{border-bottom-color:var(--acc)}
 .tb-row.now .tb-l{color:var(--acc)}
 .tb-row.now .tb-bar{background:var(--acc)}
-.tb-m .n2-poster.small svg{width:54px}
 
 /* A cara como comando: tocar = escrever ou dizer; arrastar para cima = os destinos. Os destinos também estão no cabeçalho. */
 .orb-wrap{position:fixed;z-index:40;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 22px);transform:translateX(-50%);width:68px;height:68px}
@@ -197,3 +191,27 @@ body.n2::after{content:"";position:fixed;inset:0;z-index:60;pointer-events:none;
   .thread.z-in,.thread.z-out,.over{animation:none}
   .odo-s,.orb,.orb-dest,.mh-nav a{transition:none}
 }
+
+/* Breves: uma linha cada, com réguas. */
+.briefs{list-style:none;margin:0;padding:0;border-top:1px solid var(--rule)}
+.briefs li{padding:11px 0;border-bottom:1px solid var(--rule);font-size:var(--t-m);line-height:1.35}
+.briefs a{color:inherit;text-decoration:none}
+.briefs a::after{content:" ›";color:var(--faint)}
+
+/* O mês num relance: o calendário com o valor escrito em cada dia. */
+.gl{display:flex;flex-direction:column;gap:14px}
+.gl-say{margin:0;font-family:var(--serif);font-size:var(--t-l);line-height:1.3;font-variation-settings:"opsz" 24}
+.gl-cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:3px}
+.gl-wd{font-size:var(--t-xs);color:var(--faint);text-align:center;padding-bottom:4px}
+.gl-d{position:relative;display:flex;flex-direction:column;justify-content:space-between;min-height:48px;padding:4px 5px 5px;
+  background:color-mix(in srgb,var(--acc) calc(var(--a) * 34%),rgba(242,238,230,.04))}
+.gl-d small{font-size:10px;color:var(--faint);line-height:1}
+.gl-d sup{color:var(--acc);font-size:10px;margin-left:2px;vertical-align:top}
+.gl-d b{font-weight:400;font-size:var(--t-r);text-align:right;line-height:1;color:var(--ink)}
+.gl-d.fut{background:transparent;box-shadow:inset 0 0 0 1px var(--rule)}
+.gl-d.now{box-shadow:inset 0 0 0 1.5px var(--acc)}
+.gl-d.out b{color:#FFF;font-weight:500}
+.gl-d.neg b{color:var(--down)}
+.gl-notes{list-style:none;margin:0;padding:0;border-top:1px solid var(--rule)}
+.gl-notes li{display:grid;grid-template-columns:22px 1fr auto;gap:10px;padding:8px 0;border-bottom:1px solid var(--rule);font-size:var(--t-r);align-items:baseline}
+.gl-notes li > span:first-child{color:var(--acc)}
