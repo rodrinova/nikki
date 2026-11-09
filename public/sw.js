@@ -22,7 +22,7 @@ async function take(c, u) {
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then(async (c) => {
     // A página e o manifesto vêm sempre da rede (mudam sem mudar de nome).
-    await c.addAll([new Request(BASE, { cache: 'no-cache' }), new Request(at('manifest.webmanifest'), { cache: 'no-cache' })]);
+    await c.addAll([new Request(BASE, { cache: 'no-cache' }), new Request(at('manifest.webmanifest'), { cache: 'no-cache' }), new Request(at('boot.js'), { cache: 'no-cache' })]);
     await Promise.all([at('icons/icon-192.png'), ...PRECACHE.map(at)].map((u) => take(c, u)));
   }));
   self.skipWaiting();

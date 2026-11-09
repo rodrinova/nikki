@@ -79,6 +79,9 @@ export default defineConfig({
   base: process.env.VITE_BASE || '/',
   plugins: [react(), csp(), swManifest(), fontPreload()],
   build: {
+    // Para os iPads e iPhones antigos (iOS 12 e seguintes): o código sai sem a sintaxe que eles não percebem (?., ??, …).
+    // O que lhes falta em funções (Array.at, …) junta-o o public/boot.js, antes de a app arrancar.
+    target: ['es2018', 'safari12', 'chrome70', 'firefox68', 'edge79'],
     // A demonstração é uma página só: a letra vai lá dentro.
     assetsInlineLimit: process.env.VITE_DEMO === '1' ? 64_000 : 4096,
     rollupOptions: {
