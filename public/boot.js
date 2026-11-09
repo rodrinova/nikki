@@ -1,7 +1,7 @@
 /* NIKKI · arranque. Corre antes da app, como um script clássico (ES5), para os iPads e iPhones antigos:
    1) acrescenta o que falta aos browsers antigos (o resto do código é compilado para o Safari 12);
    2) guarda os erros do arranque;
-   3) se ao fim de 15 segundos a app não abriu, troca a cara a piscar por uma mensagem com o erro e duas saídas
+   3) se ao fim de 15 segundos a app não abriu (ou ficou em branco), troca a cara a piscar por uma mensagem com o erro e duas saídas
       (tentar outra vez; limpar a cópia guardada da app e tentar). Os dados e a sessão não se apagam. */
 (function () {
   var g = typeof globalThis !== 'undefined' ? globalThis : typeof self !== 'undefined' ? self : window;
@@ -23,6 +23,20 @@
     return out;
   });
   def(Object, 'fromEntries', function (it) { var o = {}; Array.from(it).forEach(function (p) { o[p[0]] = p[1]; }); return o; });
+  // O Vite carrega cada ecrã em separado com Promise.allSettled (iOS 13+): sem isto, no iOS 12 nenhum ecrã abria.
+  def(Promise, 'allSettled', function (ps) {
+    return Promise.all(Array.from(ps, function (p) {
+      return Promise.resolve(p).then(function (v) { return { status: 'fulfilled', value: v }; }, function (r) { return { status: 'rejected', reason: r }; });
+    }));
+  });
+  def(Promise, 'any', function (ps) {
+    var list = Array.from(ps);
+    return new Promise(function (ok, no) {
+      var left = list.length, errs = [];
+      if (!left) { no(new Error('Promise.any: nenhuma promessa')); return; }
+      list.forEach(function (p, i) { Promise.resolve(p).then(ok, function (e) { errs[i] = e; if (--left === 0) no(errs[0]); }); });
+    });
+  });
   if (typeof g.queueMicrotask !== 'function') g.queueMicrotask = function (f) { Promise.resolve().then(f); };
 
   var errs = [];
@@ -33,7 +47,8 @@
   function stuck() {
     var root = document.getElementById('root');
     if (!root) return;
-    var still = root.querySelector('.boot') || root.querySelector('.wait-page');
+    // Presa a carregar, ou em branco (um erro desfez a app).
+    var still = root.querySelector('.boot') || root.querySelector('.wait-page') || !root.children.length;
     if (!still || document.querySelector('.boot-fail')) return;
     var ios = /OS (\d+)_(\d+)/.exec(navigator.userAgent);
     var box = document.createElement('div');
@@ -48,7 +63,7 @@
     document.body.appendChild(box);
     // Se a app acabar por abrir (rede lenta), a mensagem sai sozinha.
     var watch = setInterval(function () {
-      if (!root.querySelector('.boot') && !root.querySelector('.wait-page')) { clearInterval(watch); if (box.parentNode) box.parentNode.removeChild(box); }
+      if (!root.querySelector('.boot') && !root.querySelector('.wait-page') && root.children.length) { clearInterval(watch); if (box.parentNode) box.parentNode.removeChild(box); }
     }, 1500);
     document.getElementById('boot-again').onclick = function () { location.reload(); };
     document.getElementById('boot-clean').onclick = function () {
