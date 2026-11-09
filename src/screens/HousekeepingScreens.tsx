@@ -1,6 +1,7 @@
 // Os ecrãs de Housekeeping que só se abrem pela rota: carregam-se à parte, quando se abrem.
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link, Navigate, useParams } from 'react-router-dom';
+import { hkLinkUrl, newHkLink } from '@/data/hkLink';
 import { supabase } from '@/lib/supabase';
 import { useSession } from '@/data/session';
 import { useHouse, type HkRow } from '@/data/house';
@@ -46,7 +47,8 @@ function HkMain({ h }: { h: HkRow }) {
     <>
       <Top title={h.name} />
       <p className="s" style={{ fontSize: 'var(--t-m)' }}>{daysLabel(h.weekdays, h.start_time)} · próxima visita {dayLabel(next)}</p>
-      {!her && <div className="tile read-card"><span className="st2"><span>{h.name} ainda não tem a NIKKI</span><span className="s">Com conta própria: a lista de cada visita, mensagens e compras.</span></span><div className="actions"><button className="btn press" onClick={() => open(<HkInvite h={h} />)}>Convidar <Icon n="arrow" s={18} /></button></div></div>}
+      {!her && <div className="tile read-card"><span className="st2"><span>{h.name} ainda não tem a NIKKI</span><span className="s">Um link por WhatsApp e entra logo: a lista de cada visita, mensagens e compras.</span></span><div className="actions"><button className="btn press" onClick={() => open(<HkLinkSheet h={h} />)}>Criar o link <Icon n="arrow" s={18} /></button><button className="tb quiet press" onClick={() => open(<HkInvite h={h} />)}>Por e-mail</button></div></div>}
+      {her && <button type="button" className="tb quiet press" style={{ alignSelf: 'flex-start' }} onClick={() => open(<HkLinkSheet h={h} />)}>Link de entrada da {h.name}</button>}
       <section className="stack" aria-label="Planear as visitas">
         <div className="wbar"><span className="s">Planear as visitas</span>{once > 0 && <span className="s">{once} {once === 1 ? 'pontual' : 'pontuais'} por fazer</span>}</div>
         <div className="hk-days">{days.map((d) => {
@@ -308,6 +310,42 @@ function HkForm({ h }: { h?: HkRow }) {
       </form>
       {h && <button className="back press" onClick={archive}>Deixou de vir</button>}
     </>
+  );
+}
+
+/**
+ * O link de entrada de quem faz o housekeeping: sem e-mail nem palavra-passe. Envia-se por WhatsApp (ou como quiser);
+ * quem o abre fica com a NIKKI dela nesse aparelho. Gerar um link novo anula o anterior (se o telemóvel se perder).
+ */
+function HkLinkSheet({ h }: { h: HkRow }) {
+  const { toast } = useOverlays();
+  const [url, setUrl] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const make = async () => {
+    setBusy(true); setErr('');
+    const r = await newHkLink(h.id);
+    setBusy(false);
+    if (!r.ok) return setErr('Não deu para criar o link agora. Tenta outra vez.');
+    setUrl(hkLinkUrl(r.v.token));
+  };
+  const msg = url ? `Olá ${h.name}! Este é o seu link para a NIKKI: ${url}\nAbre logo, sem palavra-passe: a lista de cada visita, as mensagens e as compras. Pode guardar no ecrã principal.` : '';
+  return (
+    <div className="form">
+      <p className="l">Link de entrada da {h.name}</p>
+      <p className="s">Sem e-mail nem palavra-passe: {h.name} abre o link e fica com a NIKKI dela (a lista de cada visita, as mensagens e as compras; nada mais). Serve em qualquer aparelho até criares um link novo, que anula este.</p>
+      {!url ? (
+        <button type="button" className="btn wide press" disabled={busy} onClick={() => void make()}>{busy ? 'A criar…' : 'Criar o link'} <Icon n="arrow" s={20} /></button>
+      ) : (
+        <>
+          <p className="hkl-url">{url}</p>
+          <a className="btn wide press" href={`https://wa.me/?text=${encodeURIComponent(msg)}`} target="_blank" rel="noopener noreferrer">Enviar por WhatsApp <Icon n="arrow" s={20} /></a>
+          {typeof navigator.share === 'function' && <button type="button" className="btn quiet wide press" onClick={() => navigator.share({ text: msg }).catch(() => {})}>Partilhar de outra forma</button>}
+          <button type="button" className="btn quiet wide press" onClick={() => navigator.clipboard?.writeText(url).then(() => toast('Link copiado.', { ok: true }), () => toast('Não deu para copiar.'))}>Copiar o link</button>
+        </>
+      )}
+      {err && <p className="err">{err}</p>}
+    </div>
   );
 }
 

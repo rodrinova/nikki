@@ -2022,3 +2022,20 @@ begin
   return t;
 end $$;
 grant execute on function nikki.capture_token(uuid, boolean) to authenticated;
+
+-- ───────────────────────── housekeeping: entrar por um link ─────────────────────────
+-- Para quem faz o housekeeping não precisar de e-mail nem de convite: um link único (por WhatsApp, por exemplo) que
+-- abre a NIKKI dela já com sessão, em qualquer aparelho, até se gerar um link novo (que anula o anterior). Na primeira
+-- vez, a função hk-link cria-lhe a conta (papel staff, ativa, ligada à ficha). Guarda-se só o resumo (sha-256) do
+-- link. Só a função hk-link (chave de serviço) lê e escreve aqui.
+create table if not exists nikki.hk_links (
+  hk_id uuid primary key references nikki.housekeeping (id) on delete cascade,
+  token_hash text not null unique,
+  created_by uuid references nikki.profiles (id) on delete set null,
+  created_at timestamptz not null default now(),
+  used_at timestamptz,
+  uses integer not null default 0
+);
+alter table nikki.hk_links enable row level security;
+revoke all on nikki.hk_links from anon, authenticated, public;
+grant all on nikki.hk_links to service_role;
