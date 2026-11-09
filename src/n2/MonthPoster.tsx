@@ -26,7 +26,7 @@ export function MonthPoster({ expenses, who, monthKey, me, other, small }: {
           <radialGradient id={`pg-a-${monthKey}`} cx="0" cy="1" r="1"><stop offset="0" stopColor={me ?? '#8EA6BD'} stopOpacity=".55" /><stop offset="1" stopColor={me ?? '#8EA6BD'} stopOpacity="0" /></radialGradient>
           <radialGradient id={`pg-b-${monthKey}`} cx="1" cy="0" r="1"><stop offset="0" stopColor={other ?? '#FF7A1F'} stopOpacity=".5" /><stop offset="1" stopColor={other ?? '#FF7A1F'} stopOpacity="0" /></radialGradient>
         </defs>
-        <rect width={W} height={H} fill="#0B0B0B" />
+        <rect width={W} height={H} fill="#121110" />
         <rect width={W} height={H} fill={`url(#pg-a-${monthKey})`} />
         <rect width={W} height={H} fill={`url(#pg-b-${monthKey})`} />
         {p.days.map((d, k) => {
@@ -39,7 +39,7 @@ export function MonthPoster({ expenses, who, monthKey, me, other, small }: {
             return <line key={`${k}-${j}`} x1={x1} y1={y1} x2={x2} y2={y2} stroke={col(c)} strokeWidth="3.2" strokeLinecap="round" />;
           });
         })}
-        <text x={x0} y={346} fill="#F4F4F4" fontFamily="Albert Sans, sans-serif" fontSize="34" fontWeight="500" letterSpacing="-1">{name[0].toUpperCase() + name.slice(1)}</text>
+        <text x={x0} y={346} fill="#F4F4F4" fontFamily="NIKKI Serif, Newsreader, Georgia, serif" fontSize="38" fontWeight="500">{name[0].toUpperCase() + name.slice(1)}</text>
         <text x={x0} y={374} fill="rgba(244,244,244,.7)" fontFamily="Albert Sans, sans-serif" fontSize="14">{monthKey.slice(0, 4)} · {eur(p.total, 0)} € · NIKKI</text>
         {!small && p.top.map((c, i) => <g key={c} transform={`translate(${W - 26} ${30 + i * 18})`}><circle r="4" fill={PAL[i]} /><text x="-10" y="4" textAnchor="end" fill="rgba(244,244,244,.75)" fontFamily="Albert Sans, sans-serif" fontSize="11">{c}</text></g>)}
       </svg>

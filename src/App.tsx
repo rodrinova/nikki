@@ -49,6 +49,7 @@ const SalvageLinkPage = later(() => import('@/screens/Salvage'), 'SalvageLinkPag
 // NIKKI 2 (protótipo à parte): só para quem administra a app e na demonstração.
 const N2Home = later(() => import('@/n2/N2'), 'N2Home');
 const N2Time = later(() => import('@/n2/N2'), 'N2Time');
+const N2Money = later(() => import('@/n2/N2'), 'N2Money');
 
 /** As caras dos dois (ou só a tua), sobrepostas: abrem o «Nós». */
 function Pair({ big }: { big?: boolean }) {
@@ -229,6 +230,7 @@ function Shell() {
           {appAdmin && <Route path="/admin" element={<Admin />} />}
           {(appAdmin || DEMO) && <Route path="/n2" element={<N2Home />} />}
           {(appAdmin || DEMO) && <Route path="/n2/tempo" element={<N2Time />} />}
+          {(appAdmin || DEMO) && <Route path="/n2/dinheiro" element={<N2Money />} />}
           {appAdmin && <Route path="/salvados" element={<Salvage />} />}
           {appAdmin && <Route path="/salvados/:id" element={<SalvageCarScreen />} />}
           <Route path="/pessoas" element={<People />} />

@@ -1,132 +1,199 @@
-/* NIKKI 2 · luz em vez de caixas. O ângulo dos bigodes (57,4°) é a geometria: lâminas, cortes e varrimentos.
-   skewX(-32.6deg) põe uma aresta vertical a 57,4° da horizontal. */
-@font-face{font-family:"NIKKI Nums";font-style:normal;font-weight:100 900;font-display:swap;src:url("./nikki-nums.woff2") format("woff2")}
+/* NIKKI 2 · «a revista da casa». Escuro e quente; um serifado de jornal para títulos e números; réguas e colunas
+   em vez de caixas; cada número com rótulo e comparação; nada animado atrás do texto. */
+@font-face{font-family:"NIKKI Serif";font-style:normal;font-weight:400 560;font-display:swap;src:url("./newsreader-nikki.woff2") format("woff2")}
 
 body.n2 .bottom,body.n2 .status,body.n2 .side,body.n2 .update-pill{display:none!important}
-body.n2{background:#0B0B0B}
+body.n2{background:#121110}
 body.n2 .app{max-width:none!important;width:auto;margin:0!important;padding:0!important}
 body.n2 .app > .screen{max-width:none!important;padding:0;gap:0}
 body.n2 .screen.enter,body.n2 .screen.enter > *{animation:none}
+/* Grão de papel, quase invisível: o escuro deixa de ser plástico. */
+body.n2::after{content:"";position:fixed;inset:0;z-index:60;pointer-events:none;opacity:.05;mix-blend-mode:screen;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>")}
 
-.n2-field{position:fixed;inset:0;width:100vw;height:100lvh;z-index:-1;display:block;pointer-events:none}
-.n2-field.still{transition:background 1.2s ease}
-.n2-page{position:relative;z-index:1;min-height:100svh;color:#F4F4F4;display:flex;flex-direction:column;gap:clamp(28px,6vh,56px);
-  padding:calc(env(safe-area-inset-top,0px) + 14px) clamp(20px,6vw,72px) calc(env(safe-area-inset-bottom,0px) + 140px);max-width:980px;margin:0 auto}
+.n2-page{
+  --paper:#121110; --ink:#F2EEE6; --sub:#A9A39A; --faint:#7D776F; --rule:rgba(242,238,230,.14); --rule-2:rgba(242,238,230,.28);
+  --acc:#FF7A1F; --up:#FF9A57; --down:#9CC5A1; --serif:"NIKKI Serif","Newsreader",Georgia,serif;
+  position:relative;min-height:100svh;color:var(--ink);background:var(--paper);display:flex;flex-direction:column;gap:36px;
+  padding:calc(env(safe-area-inset-top,0px) + 10px) clamp(20px,5vw,56px) calc(env(safe-area-inset-bottom,0px) + 132px);max-width:1120px;margin:0 auto}
+.num{font-family:var(--serif);font-variant-numeric:tabular-nums lining-nums}
+.note{margin:0;font-size:var(--t-s);color:var(--faint);line-height:1.45}
+.more{border:0;background:none;padding:0;color:var(--sub);font-size:var(--t-s);text-decoration:none;border-bottom:1px solid var(--rule-2);cursor:pointer}
+.more:hover{color:var(--ink)}
 
-.n2-top{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:44px}
-.n2-date{font-size:var(--t-s);color:rgba(244,244,244,.62);text-transform:lowercase;letter-spacing:.02em}
-.n2-link{border:0;background:none;color:rgba(244,244,244,.62);font-size:var(--t-s);padding:10px 0;text-decoration:none;letter-spacing:.02em}
-.n2-link:hover{color:#fff}
-.n2-us{display:inline-flex;gap:6px;padding:10px 0}
-.n2-us i{width:10px;height:10px;border-radius:50%;background:var(--c);box-shadow:0 0 12px 2px color-mix(in srgb,var(--c) 70%,transparent);opacity:.75}
-.n2-us i.here{opacity:1;animation:n2-breathe 2.4s ease-in-out infinite}
-@keyframes n2-breathe{50%{box-shadow:0 0 22px 6px color-mix(in srgb,var(--c) 80%,transparent)}}
+/* O cabeçalho: a cara, a edição, e os destinos sempre à vista (como as secções de um jornal). */
+.mh{display:flex;flex-direction:column;gap:10px;border-bottom:1px solid var(--rule-2)}
+.mh-top{display:flex;align-items:center;gap:12px;min-height:40px}
+.mh-face{color:var(--ink);display:inline-flex;padding:8px 0}
+.mh-ed{flex:1;font-size:var(--t-s);color:var(--sub)}
+.mh-us{display:inline-flex;text-decoration:none}
+.mh-us i{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-style:normal;font-size:var(--t-xs);color:#0B0B0B;background:var(--c);box-shadow:0 0 0 2px var(--paper)}
+.mh-us i + i{margin-left:-6px}
+.mh-nav{display:flex;gap:22px;overflow-x:auto;scrollbar-width:none;margin-bottom:-1px}
+.mh-nav::-webkit-scrollbar{display:none}
+.mh-nav a{flex:none;color:var(--sub);text-decoration:none;font-size:var(--t-r);padding:10px 0 12px;border-bottom:2px solid transparent;transition:color 160ms ease,border-color 160ms ease}
+.mh-nav a[aria-current="page"]{color:var(--ink);border-bottom-color:var(--acc)}
 
-/* A frase do dia: grande, como um título de revista. */
-.n2-head{font-size:clamp(34px,9.4vw,64px);line-height:1.04;letter-spacing:-0.035em;font-weight:500;max-width:14ch;text-wrap:balance;margin:0;
-  animation:n2-rise 900ms var(--ease-out) both}
-@keyframes n2-rise{from{opacity:0;transform:translateY(18px);filter:blur(6px)}}
+/* A manchete: serifado, largura normal, sem apertar letras. */
+.lead{font-family:var(--serif);font-weight:500;font-size:clamp(34px,8.6vw,60px);line-height:1.06;letter-spacing:-0.012em;margin:4px 0 0;max-width:18ch;text-wrap:balance;font-variation-settings:"opsz" 72}
+.lead span{color:var(--sub);font-weight:400}
 
-/* O mês: o número como herói, sem caixa. */
-.n2-month{display:flex;flex-direction:column;gap:12px}
-.n2-num{display:inline-flex;align-items:baseline;gap:8px;color:inherit;text-decoration:none;width:max-content;max-width:100%}
-.n2-num small{font-size:clamp(22px,6vw,38px);color:rgba(244,244,244,.55);font-weight:400}
-.odo{font-family:"NIKKI Nums","Albert Sans",sans-serif;font-variation-settings:"wght" var(--w,500);font-weight:var(--w,500);font-size:clamp(84px,27vw,168px);line-height:.9;letter-spacing:-0.06em;display:inline-flex;font-variant-numeric:proportional-nums;transition:font-variation-settings 1.2s var(--ease-out)}
-.odo-c{position:relative;display:inline-block;height:1em;overflow:hidden;line-height:1;font-variant-numeric:proportional-nums}
-.odo-w{visibility:hidden;display:inline-block}
-.odo-s{position:absolute;left:50%;top:0;margin-left:-.5em;width:1em;display:flex;flex-direction:column;transform:translateY(calc(var(--d) * -1em));transition:transform 1400ms cubic-bezier(.16,1,.3,1) calc(var(--k) * 70ms)}
-.odo-s > span{height:1em;display:block;text-align:center}
-.odo-x{display:inline-block;line-height:1;width:.26em}
-.n2-sub{font-size:var(--t-m);color:rgba(244,244,244,.72);margin:0}
-.n2-line{font-size:var(--t-r);color:rgba(244,244,244,.72);text-decoration:none;width:max-content;max-width:100%;border-bottom:1px solid rgba(244,244,244,.18);padding-bottom:2px}
+/* Números com rótulo e comparação. No telemóvel em lista com réguas; nos largos, lado a lado. */
+.figs{display:grid;grid-template-columns:1fr;border-top:1px solid var(--rule)}
+.fig{display:grid;grid-template-columns:1fr auto;grid-template-areas:"l v" "n v";align-items:baseline;column-gap:16px;row-gap:2px;padding:14px 0;border-bottom:1px solid var(--rule);color:inherit;text-decoration:none}
+.fig-l{grid-area:l;font-size:var(--t-r);color:var(--sub)}
+.fig-v{grid-area:v;align-self:center;font-family:var(--serif);font-variant-numeric:tabular-nums lining-nums;font-size:clamp(30px,8vw,40px);line-height:1;font-weight:400;font-variation-settings:"opsz" 48;white-space:nowrap}
+.fig-v small{font-size:.5em;color:var(--sub);margin-left:4px}
+.fig-n{grid-area:n;font-size:var(--t-s);color:var(--faint)}
+.fig-n.up{color:var(--up)} .fig-n.down{color:var(--down)}
+@media (min-width:760px){
+  .figs{grid-template-columns:repeat(3,1fr);border-bottom:1px solid var(--rule)}
+  .fig{grid-template-columns:1fr;grid-template-areas:"l" "v" "n";row-gap:8px;padding:18px 20px 18px 0;border-bottom:0}
+  .fig + .fig{border-left:1px solid var(--rule);padding-left:20px}
+  .fig-v{font-size:clamp(40px,4.4vw,56px);align-self:start}
+}
 
-/* O ritmo em lâminas: cada dia de um mês normal é uma lâmina inclinada. */
-.n2-blades{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:4px;height:34px;max-width:560px;margin-top:4px}
-.n2-blades i{display:block;transform:skewX(-32.6deg);border-radius:1px;background:rgba(244,244,244,.14);animation:n2-blade 700ms var(--ease-out) both;animation-delay:calc(var(--j) * 18ms)}
-.n2-blades i.f{background:#F4F4F4}
-.n2-blades i.a{background:#FF7A1F;box-shadow:0 0 12px rgba(255,122,31,.6)}
-.n2-blades i.now{outline:1px solid #FF7A1F;outline-offset:2px}
-@keyframes n2-blade{from{transform:skewX(-32.6deg) scaleY(0);opacity:0}}
+/* Secções numeradas: régua, número, título; o conteúdo por baixo. */
+.cols{display:grid;grid-template-columns:1fr;gap:36px}
+@media (min-width:900px){.cols{grid-template-columns:1.25fr 1fr;gap:48px}}
+.sec{display:flex;flex-direction:column;gap:16px;min-width:0}
+.sec-h{display:flex;align-items:baseline;gap:12px;border-top:1px solid var(--rule-2);padding-top:10px}
+.sec-n{font-family:var(--serif);font-variant-numeric:tabular-nums;color:var(--acc);font-size:var(--t-r)}
+.sec-t{flex:1;font-size:var(--t-r);letter-spacing:.01em}
+.sec-a,.sec-k{font-size:var(--t-s);color:var(--sub)}
 
-/* «A NIKKI lembra» sem caixa: só texto e linhas finas inclinadas. */
-.n2-plain .tile{background:none!important;border:0!important;box-shadow:none!important;padding:0!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
-.n2-plain .pane-top .s{font-size:var(--t-s);color:#FFB37A;letter-spacing:.02em}
-.n2-plain .now-row{border-bottom:0;position:relative}
-.n2-plain .now-row + .now-row::before{content:"";position:absolute;left:0;right:0;top:0;height:1px;background:linear-gradient(90deg,rgba(244,244,244,.22),transparent 70%)}
-.n2-plain .now-main .st2 > span:first-child{font-size:var(--t-l);letter-spacing:-0.01em}
-.n2-plain .tb,.n2-plain .now-act{background:rgba(244,244,244,.08)!important;border:1px solid rgba(244,244,244,.16)!important;color:#F4F4F4}
-.n2-plain .s{color:rgba(244,244,244,.62)}
+/* O ritmo: lâminas no ângulo dos bigodes, com a escala e os valores escritos. */
+.pace{display:flex;flex-direction:column;gap:10px}
+.blades{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:3px;height:30px}
+.blades i{display:block;transform:skewX(-32.6deg);background:rgba(242,238,230,.12)}
+.blades i.f{background:var(--ink)}
+.blades i.a{background:var(--acc)}
+.blades i.now{box-shadow:0 0 0 1.5px var(--paper),0 0 0 3px var(--acc)}
+.pace-scale{position:relative;display:flex;justify-content:space-between;font-size:var(--t-xs);color:var(--faint);height:16px}
+.pace-now{position:absolute;transform:translateX(-50%);color:var(--acc);white-space:nowrap}
+.pace-dl{margin:6px 0 0;display:grid;grid-template-columns:1fr;border-top:1px solid var(--rule)}
+.pace-dl > div{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:8px 0;border-bottom:1px solid var(--rule)}
+.pace-dl dt{font-size:var(--t-s);color:var(--sub)}
+.pace-dl dd{margin:0;font-family:var(--serif);font-variant-numeric:tabular-nums lining-nums;font-size:var(--t-l)}
 
-/* Portas: o fio do tempo e o cartaz do mês. */
-.n2-row{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:end}
-.n2-door{display:flex;flex-direction:column;gap:8px;align-items:flex-start;border:0;background:none;color:inherit;text-decoration:none;text-align:left;padding:0;font-size:var(--t-r);color:rgba(244,244,244,.72)}
-.n2-door .n2-k{font-size:var(--t-l);color:#F4F4F4;letter-spacing:-0.01em;position:relative;padding-right:22px}
-.n2-door .n2-k::after{content:"";position:absolute;right:0;top:50%;width:12px;height:1.5px;background:#FF7A1F;transform:rotate(-57.4deg)}
+/* A seguir: um horário, com as horas em coluna. */
+.tt{list-style:none;margin:0;padding:0;border-top:1px solid var(--rule)}
+.tt li{display:grid;grid-template-columns:64px 1fr;gap:12px;padding:10px 0;border-bottom:1px solid var(--rule);align-items:baseline}
+.tt-t{font-size:var(--t-l);color:var(--ink)}
+.tt-w{font-size:var(--t-m);display:flex;flex-direction:column;gap:2px;min-width:0}
+.tt-w small{font-size:var(--t-s);color:var(--faint)}
+.tt li.past{opacity:.45}
+
+/* «A NIKKI lembra» sem caixa: texto e réguas. */
+.plain .tile{background:none!important;border:0!important;box-shadow:none!important;padding:0!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important;border-radius:0!important}
+.plain .pane-top{display:none}
+.plain .now-list{border-top:1px solid var(--rule)}
+.plain .now-row{border-bottom:1px solid var(--rule)}
+.plain .now-main .st2 > span:first-child{font-size:var(--t-m)}
+.plain .s{color:var(--faint)}
+.plain .tb,.plain .now-act{background:transparent!important;border:1px solid var(--rule-2)!important;color:var(--ink)}
+
+/* A capa do mês. */
+.cover{display:flex;gap:18px;align-items:flex-end;border:0;background:none;color:inherit;text-align:left;padding:0;cursor:pointer}
+.cover-c{display:flex;flex-direction:column;gap:10px;font-size:var(--t-s);color:var(--sub);max-width:34ch}
+.cover-c .more{align-self:flex-start}
 .n2-poster{margin:0;display:flex;flex-direction:column;align-items:center;gap:10px}
-.n2-poster svg{width:100%;height:auto;display:block;border-radius:4px;box-shadow:0 30px 80px rgba(0,0,0,.6)}
-.n2-poster.small svg{width:96px;border-radius:3px;box-shadow:0 10px 30px rgba(0,0,0,.5)}
-.n2-over{position:fixed;inset:0;z-index:70;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:24px;background:rgba(11,11,11,.72);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);animation:n2-fade 300ms ease both}
-.n2-over .n2-poster{width:min(84vw,420px)}
+.n2-poster svg{width:100%;height:auto;display:block;box-shadow:0 30px 80px rgba(0,0,0,.6)}
+.n2-poster.small svg{width:104px;box-shadow:0 12px 30px rgba(0,0,0,.5)}
+.n2-poster .n2-link{border:0;background:none;color:#A9A39A;font-size:var(--t-s);border-bottom:1px solid rgba(242,238,230,.28);padding:0;cursor:pointer}
+.over{position:fixed;inset:0;z-index:70;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:24px;background:rgba(18,17,16,.9);animation:n2-fade 240ms ease both}
+.over .n2-poster{width:min(84vw,420px)}
 @keyframes n2-fade{from{opacity:0}}
 
-/* A cara como comando: a flutuar em baixo, sem barra. */
-.orb-wrap{position:fixed;z-index:40;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 22px);transform:translateX(-50%);width:76px;height:76px}
-.orb{position:relative;width:76px;height:76px;border-radius:50%;display:grid;place-items:center;color:#F4F4F4;touch-action:none;
-  border:1px solid rgba(255,255,255,.18);background:radial-gradient(60% 60% at 50% 35%,rgba(255,255,255,.14),rgba(255,255,255,.03));
-  -webkit-backdrop-filter:blur(20px) saturate(160%);backdrop-filter:blur(20px) saturate(160%);
-  box-shadow:0 0 0 1px rgba(0,0,0,.3),0 18px 50px rgba(0,0,0,.55),0 0 40px rgba(255,122,31,.28);transition:transform 260ms cubic-bezier(.34,1.56,.64,1),box-shadow 300ms ease}
-.orb:active,.orb-wrap.arc .orb{transform:scale(.92);box-shadow:0 0 0 1px rgba(0,0,0,.3),0 18px 50px rgba(0,0,0,.55),0 0 70px rgba(255,122,31,.55)}
+/* Dinheiro: o mês, a tabela «Onde», doze meses e os movimentos. */
+.mnav{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.mnav span{font-family:var(--serif);font-size:var(--t-l)}
+.mnav button{width:40px;height:40px;border-radius:50%;border:1px solid var(--rule-2);background:none;color:var(--ink);font-size:20px;line-height:1}
+.mnav button[disabled]{opacity:.3}
+.hero{display:flex;flex-direction:column;gap:8px}
+.hero-v{display:flex;align-items:baseline;gap:8px}
+.hero-v small{font-family:var(--serif);font-size:clamp(24px,6vw,36px);color:var(--sub)}
+.odo{font-family:var(--serif);font-weight:400;font-variation-settings:"opsz" 72;font-size:clamp(76px,22vw,132px);line-height:1.2;margin:-.12em 0;letter-spacing:-0.01em;display:inline-flex;font-variant-numeric:tabular-nums lining-nums}
+.odo-c{position:relative;display:inline-block;height:1.2em;overflow:hidden;line-height:1.2;vertical-align:bottom}
+.odo-w{visibility:hidden;display:inline-block}
+.odo-s{position:absolute;left:50%;top:0;margin-left:-.5em;width:1em;display:flex;flex-direction:column;transform:translateY(calc(var(--d) * -1.2em));transition:transform 1200ms cubic-bezier(.16,1,.3,1) calc(var(--k) * 60ms)}
+.odo-s > span{height:1.2em;line-height:1.2;display:block;text-align:center}
+.odo-x{display:inline-block;width:.24em}
+
+.tbl{width:100%;border-collapse:collapse;font-size:var(--t-r)}
+.tbl th{font-weight:400;font-size:var(--t-xs);color:var(--faint);text-align:left;padding:0 0 6px;border-bottom:1px solid var(--rule-2);letter-spacing:.02em}
+.tbl td{padding:10px 0;border-bottom:1px solid var(--rule);vertical-align:baseline}
+.tbl .r{text-align:right;padding-left:12px;white-space:nowrap}
+.tbl .num{font-size:var(--t-m)}
+.tbl .up{color:var(--up)} .tbl .down{color:var(--down)}
+.tbl td.bar{position:relative;width:34%;padding-left:12px;vertical-align:middle}
+.tbl td.bar i{display:block;height:8px;background:var(--ink);opacity:.85;transform:skewX(-32.6deg);transform-origin:left}
+.tbl td.bar b{position:absolute;top:50%;width:2px;height:18px;margin:-9px 0 0 11px;background:var(--acc)}
+.tbl.mv td.d{width:36px;color:var(--sub)}
+.tbl.mv small{display:block;font-size:var(--t-s);color:var(--faint)}
+
+.c12s{position:relative;display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:6px;height:220px;align-items:stretch}
+.c12{display:grid;grid-template-rows:22px 1fr 22px;align-items:end;border:0;background:none;color:inherit;padding:0;cursor:pointer;min-width:0}
+.c12-v{font-size:var(--t-xs);color:var(--sub);text-align:center;align-self:end;white-space:nowrap;letter-spacing:-0.01em}
+.c12.sel .c12-v,.c12.cur .c12-v{color:var(--ink)}
+.c12-b{position:relative;height:100%;display:flex;align-items:flex-end;justify-content:center}
+.c12-b i{position:absolute;bottom:0;left:12%;right:12%;background:rgba(242,238,230,.5)}
+.c12-b i.fc{background:repeating-linear-gradient(-57.4deg,rgba(255,122,31,.55) 0 2px,transparent 2px 5px);border:1px solid rgba(255,122,31,.6);border-bottom:0}
+.c12.cur .c12-b i:not(.fc){background:var(--acc)}
+.c12.sel .c12-b i:not(.fc){background:var(--ink)}
+.c12.cur.sel .c12-b i:not(.fc){background:var(--acc)}
+.c12-m{font-size:var(--t-xs);color:var(--faint);text-align:center;align-self:center}
+.c12.sel .c12-m{color:var(--ink)}
+.c12-norm{position:absolute;left:0;right:0;border-top:1px dashed var(--sub);pointer-events:none;z-index:1}
+.c12-norm em{position:absolute;left:0;top:-16px;font-style:normal;font-size:var(--t-xs);color:var(--sub)}
+
+/* O fio do tempo. */
+.levels{display:flex;gap:4px;position:sticky;top:calc(env(safe-area-inset-top,0px) + 6px);z-index:3;width:max-content;padding:4px;border-radius:999px;background:rgba(18,17,16,.92);border:1px solid var(--rule-2)}
+.levels button{border:0;background:none;color:var(--sub);font-size:var(--t-r);padding:8px 14px;border-radius:999px}
+.levels button[aria-selected="true"]{background:var(--ink);color:var(--paper)}
+.thread{display:flex;flex-direction:column;margin-top:-18px}
+.thread.z-in{animation:n2-zin 460ms cubic-bezier(.16,1,.3,1) both}
+.thread.z-out{animation:n2-zout 460ms cubic-bezier(.16,1,.3,1) both}
+@keyframes n2-zin{from{opacity:0;transform:scale(.9)}}
+@keyframes n2-zout{from{opacity:0;transform:scale(1.1)}}
+.tb-row{position:relative;display:grid;grid-template-columns:minmax(96px,.8fr) minmax(0,1fr) minmax(0,1.5fr);gap:14px;align-items:center;min-height:52px;padding:8px 0;border-bottom:1px solid var(--rule)}
+.tb-l{display:flex;flex-direction:column;font-size:var(--t-m)}
+.tb-l small{font-size:var(--t-xs);color:var(--faint)}
+.tb-m{display:flex;align-items:center;gap:10px;min-width:0}
+.tb-m .num{font-size:var(--t-s);color:var(--sub);white-space:nowrap}
+.tb-bar{display:block;height:10px;background:rgba(242,238,230,.75);transform:skewX(-32.6deg);transform-origin:left}
+.tb-r{display:flex;flex-direction:column;gap:2px;font-size:var(--t-r);min-width:0}
+.it{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.it.t-busy,.it.more{color:var(--faint)}
+.it.t-due{color:var(--up)}
+.it.ghost{color:var(--sub);font-style:italic}
+.it b{font-weight:400;color:var(--sub)}
+.tb-row.fut .tb-l{color:var(--sub)}
+.tb-row.now{border-bottom-color:var(--acc)}
+.tb-row.now .tb-l{color:var(--acc)}
+.tb-row.now .tb-bar{background:var(--acc)}
+.tb-m .n2-poster.small svg{width:54px}
+
+/* A cara como comando: tocar = escrever ou dizer; arrastar para cima = os destinos. Os destinos também estão no cabeçalho. */
+.orb-wrap{position:fixed;z-index:40;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 22px);transform:translateX(-50%);width:68px;height:68px}
+.orb-wrap::before{content:"";position:fixed;inset:-100vh -100vw;background:rgba(18,17,16,.82);opacity:0;pointer-events:none;transition:opacity 220ms ease}
+.orb-wrap.arc::before{opacity:1}
+.orb{position:relative;width:68px;height:68px;border-radius:50%;display:grid;place-items:center;color:#F2EEE6;touch-action:none;border:1px solid rgba(242,238,230,.28);background:#1C1A18;
+  box-shadow:0 14px 40px rgba(0,0,0,.6);transition:transform 240ms cubic-bezier(.34,1.56,.64,1),border-color 200ms ease}
+.orb:active,.orb-wrap.arc .orb{transform:scale(.92);border-color:#FF7A1F}
 .orb .face .eyes{transform:translate(calc(var(--lx,0) * 1.6px),calc(var(--ly,0) * 1.6px));transition:transform 160ms ease-out}
 .orb .face .wk-l,.orb .face .wk-r{transition:transform 600ms var(--ease-out);transform-box:fill-box}
 .orb.tense .face .wk-l{transform:rotate(-9deg);transform-origin:right center}
 .orb.tense .face .wk-r{transform:rotate(9deg);transform-origin:left center}
-.orb-wrap::before{content:"";position:fixed;inset:-100vh -100vw;background:radial-gradient(60% 50% at 50% 100%,rgba(11,11,11,.2),rgba(11,11,11,.78));opacity:0;pointer-events:none;transition:opacity 260ms ease}
-.orb-wrap.arc::before{opacity:1}
 .orb-arc{position:absolute;left:50%;top:50%;width:0;height:0;pointer-events:none}
-.orb-dest{position:absolute;left:0;top:0;transform:translate(-50%,-50%) translate(0,0) scale(.4);opacity:0;pointer-events:none;
-  min-width:76px;height:40px;padding:0 14px;border-radius:999px;border:1px solid rgba(255,255,255,.2);color:#F4F4F4;font-size:var(--t-r);
-  background:rgba(25,25,25,.72);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
-  transition:transform 380ms cubic-bezier(.34,1.56,.64,1) calc(var(--k) * 30ms),opacity 200ms ease calc(var(--k) * 30ms),background-color 160ms ease}
+.orb-dest{position:absolute;left:0;top:0;transform:translate(-50%,-50%) scale(.5);opacity:0;pointer-events:none;min-width:76px;height:40px;padding:0 14px;border-radius:999px;
+  border:1px solid rgba(242,238,230,.28);color:#F2EEE6;font-size:var(--t-r);background:#1C1A18;
+  transition:transform 340ms cubic-bezier(.34,1.56,.64,1) calc(var(--k) * 28ms),opacity 180ms ease calc(var(--k) * 28ms),background-color 140ms ease}
 .orb-wrap.arc .orb-dest{opacity:1;pointer-events:auto;transform:translate(-50%,-50%) translate(var(--x),var(--y)) scale(1)}
-.orb-dest.hot{background:#FF7A1F;color:#0B0B0B;border-color:#FF7A1F;box-shadow:0 0 30px rgba(255,122,31,.6)}
+.orb-dest.hot{background:#FF7A1F;color:#121110;border-color:#FF7A1F}
 .say-only{display:flex;flex-direction:column;gap:12px}
 
-/* O fio do tempo. */
-.n2-time{gap:18px}
-.n2-levels{display:flex;gap:4px;position:sticky;top:calc(env(safe-area-inset-top,0px) + 8px);z-index:3;width:max-content;padding:4px;border-radius:999px;background:rgba(20,20,20,.6);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,.12)}
-.n2-levels button{border:0;background:none;color:rgba(244,244,244,.62);font-size:var(--t-r);padding:8px 14px;border-radius:999px}
-.n2-levels button[aria-selected="true"]{background:#F4F4F4;color:#0B0B0B}
-.n2-hint{margin:-6px 0 0;font-size:var(--t-s);color:rgba(244,244,244,.5)}
-.n2-thread{display:flex;flex-direction:column}
-.n2-thread.z-in{animation:n2-zin 520ms cubic-bezier(.16,1,.3,1) both}
-.n2-thread.z-out{animation:n2-zout 520ms cubic-bezier(.16,1,.3,1) both}
-@keyframes n2-zin{from{opacity:0;transform:scale(.82);filter:blur(4px)}}
-@keyframes n2-zout{from{opacity:0;transform:scale(1.22);filter:blur(4px)}}
-.n2-b{position:relative;display:grid;grid-template-columns:minmax(96px,.8fr) minmax(0,1.1fr) minmax(0,1.6fr);gap:14px;align-items:center;min-height:54px;padding:8px 0}
-.n2-b::after{content:"";position:absolute;left:0;right:0;bottom:0;height:1px;background:linear-gradient(90deg,rgba(244,244,244,.1),transparent 80%)}
-.n2-bl{display:flex;flex-direction:column;font-size:var(--t-m)}
-.n2-bl small{font-size:var(--t-xs);color:rgba(244,244,244,.5)}
-.n2-bm{display:flex;align-items:center;gap:10px;min-width:0}
-.n2-blade{display:block;height:14px;width:var(--w);transform:skewX(-32.6deg);background:linear-gradient(90deg,rgba(244,244,244,.5),#F4F4F4);border-radius:1px;transform-origin:left;animation:n2-grow 700ms var(--ease-out) both}
-@keyframes n2-grow{from{width:0}}
-.n2-amt{font-size:var(--t-s);color:rgba(244,244,244,.7);white-space:nowrap;font-family:"NIKKI Nums","Albert Sans",sans-serif}
-.n2-br{display:flex;flex-direction:column;gap:2px;font-size:var(--t-r);min-width:0}
-.n2-it{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;min-width:0}
-.n2-it.t-busy{color:rgba(244,244,244,.5)}
-.n2-it.t-due{color:#FFB37A}
-.n2-it.more{color:rgba(244,244,244,.5)}
-.n2-it.ghost{color:rgba(244,244,244,.5);font-style:italic}
-.n2-b.fut .n2-bl{color:rgba(244,244,244,.7)}
-.n2-b.now .n2-bl{color:#FF7A1F}
-.n2-b.now::before{content:"";position:absolute;left:-24px;right:-24px;top:50%;height:1.5px;background:linear-gradient(90deg,transparent,#FF7A1F 12%,#FF7A1F 70%,transparent);box-shadow:0 0 16px 2px rgba(255,122,31,.55);z-index:-1;opacity:.55}
-.n2-b.now .n2-blade{background:linear-gradient(90deg,#FFB37A,#FF7A1F);box-shadow:0 0 14px rgba(255,122,31,.6)}
-.n2-bm .n2-poster.small svg{width:54px}
-
-@media (min-width:1024px){
-  .n2-page{padding-top:40px}
-  .n2-b{grid-template-columns:140px minmax(0,1fr) minmax(0,1.4fr)}
-}
 @media (prefers-reduced-motion: reduce){
-  .n2-head,.n2-blades i,.n2-thread.z-in,.n2-thread.z-out,.n2-blade,.n2-over,.n2-us i.here{animation:none}
-  .odo-s,.orb,.orb-dest,.odo{transition:none}
+  .thread.z-in,.thread.z-out,.over{animation:none}
+  .odo-s,.orb,.orb-dest,.mh-nav a{transition:none}
 }

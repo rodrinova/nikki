@@ -52,7 +52,8 @@ const swManifest = (): Plugin => ({
       if (c.type === 'chunk') { c.imports.forEach(walk); (c as any).viteMetadata?.importedCss?.forEach((x: string) => core.add(x)); }
     };
     Object.values(bundle).forEach((c) => { if (c.type === 'chunk' && c.isEntry) walk(c.fileName); });
-    files.filter((f) => /\.(woff2|css)$/.test(f)).forEach((f) => core.add(f));
+    // (A NIKKI 2, um protótipo só de quem administra, fica de fora: não pesa a quem não a abre.)
+    files.filter((f) => /\.(woff2|css)$/.test(f) && !/newsreader|^assets\/N2-/.test(f)).forEach((f) => core.add(f));
     const first = files.filter((f) => core.has(f)), later = files.filter((f) => !core.has(f));
     fs.writeFileSync(sw, fs.readFileSync(sw, 'utf8').replace('/*VERSION*/', version).replace('/*PRECACHE*/[]', JSON.stringify(first)).replace('/*LATER*/[]', JSON.stringify(later)));
   },
