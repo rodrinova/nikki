@@ -8,6 +8,9 @@ import { useAdminBadge } from '@/data/adminBadge';
 import { useOverlays } from '@/ui/overlays';
 import { Icon } from '@/ui/Icon';
 import { Top, Hint } from './Home';
+import { QR } from '@/ui/QR';
+import { LinkShare } from '@/ui/LinkShare';
+import { joinLinkUrl, newJoinLink } from '@/data/joinLink';
 import { marks, requests, spans } from '@/lib/perf';
 import { newDeviceCode } from '@/data/devices';
 import { Loading } from '@/ui/lazy';
@@ -29,6 +32,31 @@ export async function shareInvite(i: Pick<InviteRow, 'token' | 'code'>, house: s
   catch { toast(`Código do convite: ${i.code}`); }
 }
 
+/**
+ * O link (e o QR) para a outra pessoa entrar na casa: sem e-mail nem palavra-passe. Serve 7 dias e para uma pessoa;
+ * um link novo anula o anterior.
+ */
+function JoinLinkBox({ householdId }: { householdId: string }) {
+  const [url, setUrl] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const make = async () => {
+    setBusy(true); setErr('');
+    const r = await newJoinLink(householdId);
+    setBusy(false);
+    if (!r.ok) return setErr(r.why === 'casa cheia' ? 'A casa já tem duas pessoas.' : 'Não deu para criar o link agora. Tenta outra vez.');
+    setUrl(joinLinkUrl(r.v.token));
+  };
+  if (!url) return (
+    <>
+      <p className="s" style={{ fontSize: 'var(--t-m)' }}>Um link (ou um QR) e a pessoa entra logo: escreve o nome e já está, sem e-mail nem palavra-passe. Serve 7 dias, para uma pessoa.</p>
+      <button type="button" className="btn wide press" disabled={busy} onClick={() => void make()}>{busy ? 'A criar…' : 'Criar o link e o QR'} <Icon n="arrow" s={20} /></button>
+      {err && <p className="err">{err}</p>}
+    </>
+  );
+  return <LinkShare url={url} msg={`Vem para a nossa casa na NIKKI: ${url}\nAbres, escreves o teu nome e entras. Sem e-mail nem palavra-passe.`} qrLabel="Código QR para entrar na casa" />;
+}
+
 export function InviteForm({ householdId, onDone }: { householdId: string; onDone?: () => void }) {
   const { me, house } = useSession();
   const { toast } = useOverlays();
@@ -39,7 +67,8 @@ export function InviteForm({ householdId, onDone }: { householdId: string; onDon
   async function add(e: FormEvent) {
     e.preventDefault(); setErr('');
     if (!email.includes('@') || !me) return setErr('Escreve o e-mail da pessoa.');
-    const { data, error } = await supabase.from('invites').insert({ household_id: householdId, email: email.trim().toLowerCase(), role: 'admin', created_by: me.id }) // os dois da casa são iguais.select('token, code, email').single();
+    // Os dois da casa são iguais (papel admin).
+    const { data, error } = await supabase.from('invites').insert({ household_id: householdId, email: email.trim().toLowerCase(), role: 'admin', created_by: me.id }).select('token, code, email').single();
     if (error) return setErr(error.message);
     setMade((m) => [...m, data as any]); setEmail('');
     await shareInvite(data as any, house?.name ?? 'NIKKI', toast);
@@ -48,6 +77,8 @@ export function InviteForm({ householdId, onDone }: { householdId: string; onDon
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <JoinLinkBox householdId={householdId} />
+      <p className="s" style={{ marginTop: 6 }}>Ou por e-mail (a pessoa entra com o e-mail dela):</p>
       <form className="add-row" onSubmit={add}><label className="sr" htmlFor="inv-mail">E-mail</label><input id="inv-mail" className="field" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email@exemplo.pt" /><button className="sq press" aria-label="Criar convite"><Icon n="plus" /></button></form>
       {err && <p className="err">{err}</p>}
       {made.length > 0 && <div className="tile card rows">{made.map((i) => (
@@ -175,8 +206,9 @@ function DeviceCode() {
       {!c && !err && <Loading label="A criar o código" />}
       {err && <p className="err">{err}</p>}
       {c && <>
-        <p className="xl device-code" aria-live="polite">{left > 0 ? c.code : '— —'}</p>
-        <p className="s" style={{ fontSize: 'var(--t-m)' }}>{left > 0 ? `No outro aparelho, abre a NIKKI, toca em «Já uso a NIKKI noutro aparelho» e escreve este código. Vale ${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}, e só uma vez.` : 'Este código já passou do prazo. Pede outro.'}</p>
+        {left > 0 && <div className="qr-box"><QR text={link} label={`Código QR para entrar noutro aparelho: ${c.code}`} /></div>}
+        <p className="s" style={{ fontSize: 'var(--t-m)' }}>{left > 0 ? `No outro aparelho: aponta a câmara a este QR (ou abre a NIKKI, toca em «Já uso a NIKKI noutro aparelho» e em «Ler o QR»). Vale ${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}, e só uma vez.` : 'Este código já passou do prazo. Pede outro.'}</p>
+        <p className="device-code-small" aria-live="polite">{left > 0 ? <>Sem câmara? Escreve o código <b>{c.code}</b></> : '— —'}</p>
         {left > 0 && <button className="btn quiet wide press" onClick={async () => { try { await navigator.clipboard.writeText(link); toast('Ligação copiada. Abre-a no outro aparelho.', { ok: true }); } catch { toast(link); } }}>Copiar a ligação <Icon n="arrow" s={20} /></button>}
         <Hint>Cada aparelho fica com a sua sessão: sair num não tira o outro. No iPhone, a NIKKI do ecrã principal e o Safari contam como dois aparelhos.</Hint>
       </>}

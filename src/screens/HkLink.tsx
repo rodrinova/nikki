@@ -52,18 +52,7 @@ export function HkLinkPage() {
       {state === 'done' ? (
         <>
           <p className="l">Já está. Esta é a sua NIKKI.</p>
-          <p className="s">Para a ter sempre à mão, com um ícone como as outras aplicações:</p>
-          <ol className="hkl-steps">
-            {ios() ? <>
-              <li>Abra esta página no <b>Safari</b> (se veio do WhatsApp, toque em ⋯ e «Abrir no Safari»).</li>
-              <li>Toque em <b>Partilhar</b> (o quadrado com a seta para cima).</li>
-              <li>Escolha <b>Adicionar ao ecrã principal</b> e depois <b>Adicionar</b>.</li>
-            </> : <>
-              <li>Toque no menu <b>⋮</b> do browser.</li>
-              <li>Escolha <b>Adicionar ao ecrã principal</b> (ou «Instalar aplicação»).</li>
-            </>}
-            <li>Daí em diante, é só tocar no ícone da NIKKI: entra sempre, sem pedir nada.</li>
-          </ol>
+          <HomeScreenSteps />
           <button type="button" className="btn wide press" onClick={go}>Abrir a NIKKI agora</button>
         </>
       ) : state === 'other' ? (
@@ -80,5 +69,29 @@ export function HkLinkPage() {
         </>
       )}
     </div>
+  );
+}
+
+/**
+ * Como pôr a NIKKI no ecrã principal (iPhone ou Android). `tu`: por tu (pessoas da casa); senão, por você
+ * (quem faz o housekeeping).
+ */
+export function HomeScreenSteps({ tu }: { tu?: boolean }) {
+  const v = (a: string, b: string) => (tu ? a : b);
+  return (
+    <>
+      <p className="s">Para a ter sempre à mão, com um ícone como as outras aplicações:</p>
+      <ol className="hkl-steps">
+        {ios() ? <>
+          <li>{v('Abre', 'Abra')} esta página no <b>Safari</b> (se {v('vieste', 'veio')} do WhatsApp, {v('toca', 'toque')} em ⋯ e «Abrir no Safari»).</li>
+          <li>{v('Toca', 'Toque')} em <b>Partilhar</b> (o quadrado com a seta para cima).</li>
+          <li>{v('Escolhe', 'Escolha')} <b>Adicionar ao ecrã principal</b> e depois <b>Adicionar</b>.</li>
+        </> : <>
+          <li>{v('Toca', 'Toque')} no menu <b>⋮</b> do browser.</li>
+          <li>{v('Escolhe', 'Escolha')} <b>Adicionar ao ecrã principal</b> (ou «Instalar aplicação»).</li>
+        </>}
+        <li>Daí em diante, é só tocar no ícone da NIKKI: entra sempre, sem pedir nada.</li>
+      </ol>
+    </>
   );
 }

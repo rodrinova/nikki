@@ -9,6 +9,7 @@ import { Face } from '@/brand/Face';
 import { Icon } from '@/ui/Icon';
 import { ago } from '@/lib/admin';
 import { enterWithCode } from '@/data/devices';
+import { QrScan } from '@/ui/QrScan';
 import { InviteForm } from './People';
 
 const PENDING_INVITE = 'nikki_invite';
@@ -104,18 +105,32 @@ function FromDevice() {
   const [code, setCode] = useState(pre.toUpperCase());
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
-  async function go(e: FormEvent) {
-    e.preventDefault(); setErr('');
-    if (code.replace(/[^A-Za-z0-9]/g, '').length !== 8) return setErr('O código tem 8 letras e números (ex.: ABCD-2345).');
+  const [scan, setScan] = useState(false);
+  async function enter(c: string) {
+    setErr('');
+    if (c.replace(/[^A-Za-z0-9]/g, '').length !== 8) return setErr('O código tem 8 letras e números (ex.: ABCD-2345).');
     setBusy(true);
-    const why = await enterWithCode(code);
+    const why = await enterWithCode(c);
     setBusy(false);
     if (why) setErr(why); else if (pre) history.replaceState(null, '', location.pathname);
   }
+  const go = (e: FormEvent) => { e.preventDefault(); void enter(code); };
+  // Veio do QR (a câmara do sistema abriu a ligação com o código): entra sozinho.
+  useEffect(() => { if (pre) void enter(pre); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
+  // O QR lido aqui dentro (ex.: na NIKKI do ecrã principal, que a câmara do sistema não abre).
+  const fromQr = (text: string) => {
+    setScan(false);
+    const m = /[?&]codigo=([A-Za-z0-9-]+)/.exec(text) ?? /^([A-Za-z0-9]{4}-?[A-Za-z0-9]{4})$/.exec(text.trim());
+    if (!m) return setErr('Esse QR não é o de entrar noutro aparelho.');
+    setCode(m[1].toUpperCase()); void enter(m[1]);
+  };
   if (!open) return <button className="btn quiet wide press" onClick={() => setOpen(true)}>Já uso a NIKKI noutro aparelho <Icon n="arrow" s={20} /></button>;
   return (
     <form className="form tile card" style={{ padding: 16 }} onSubmit={go}>
-      <p className="s" style={{ fontSize: 'var(--t-m)' }}>No aparelho onde já tens a NIKKI: Perfil → «Entrar noutro aparelho». Escreve aqui o código que aparece. Sem e-mails, sem esperas.</p>
+      {scan && <QrScan title="Aponta ao QR do outro aparelho" onRead={fromQr} onCancel={() => setScan(false)} />}
+      <p className="s" style={{ fontSize: 'var(--t-m)' }}>No aparelho onde já tens a NIKKI: Perfil → «Entrar noutro aparelho». Aparece um QR: lê-o aqui. Sem e-mails, sem esperas.</p>
+      <button type="button" className="btn wide press" onClick={() => setScan(true)} disabled={busy}>Ler o QR <Icon n="arrow" s={20} /></button>
+      <p className="s">Ou escreve o código que aparece por baixo do QR:</p>
       <label>Código<input className="code" value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} placeholder="ABCD-2345" maxLength={9} autoCapitalize="characters" autoComplete="off" /></label>
       {err && <p className="err">{err}</p>}
       <button className="btn wide press" disabled={busy}>Entrar <Icon n="arrow" s={20} /></button>

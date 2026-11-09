@@ -796,6 +796,10 @@ export function createDemoClient(opts: { visit?: boolean } = {}) {
           { title: 'Cápsulas: o café rende mais em grão', text: 'Com ~55 cápsulas por mês, o mesmo café em grão custa metade.', saving: 8 },
           { title: 'Juntar compras no Lidl', text: 'O Pingo Doce leva metade do gasto; as compras grandes no Lidl costumam sair 10% mais baratas (estimativa: só 60% das compras têm fatura).', saving: 15 },
         ] }, error: null };
+        // O link para uma pessoa entrar na casa: na demonstração, entra como a Marta.
+        if (name === 'join-link' && b.action === 'create') return { data: { token: 'demo6789wxyz', expires_at: new Date(Date.now() + 7 * 86_400_000).toISOString() }, error: null };
+        if (name === 'join-link' && b.action === 'peek') return String(b.token) === 'demo6789wxyz' ? { data: { house: 'A nossa casa', from: 'Tiago', used: false }, error: null } : { data: { error: 'link inválido' }, error: null };
+        if (name === 'join-link' && b.action === 'redeem') return String(b.token) === 'demo6789wxyz' ? { data: { token_hash: 'demo:I' }, error: null } : { data: { error: 'link inválido' }, error: null };
         // O link de quem faz o housekeeping: na demonstração, entra como a Rosa.
         if (name === 'hk-link' && b.action === 'create') return { data: { token: 'demo2345abcd' }, error: null };
         if (name === 'hk-link' && b.action === 'redeem') return String(b.token) === 'demo2345abcd' ? { data: { token_hash: 'demo:M', name: 'Rosa' }, error: null } : { data: { error: 'link inválido' }, error: null };
@@ -822,6 +826,7 @@ export function createDemoClient(opts: { visit?: boolean } = {}) {
         // Com o código de outro aparelho (na demonstração, NIKK-2345): entra como o Rodrigo.
         if (o?.token_hash === 'demo:R') { me = R; emitAuth('SIGNED_IN'); return { data: {}, error: null }; }
         if (o?.token_hash === 'demo:M') { me = M; emitAuth('SIGNED_IN'); return { data: {}, error: null }; }
+        if (o?.token_hash === 'demo:I') { me = I; emitAuth('SIGNED_IN'); return { data: {}, error: null }; }
         // Na demonstração, qualquer código entra como uma pessoa nova, sem casa e à espera de aprovação (mostra o pedido).
         me = 'demo-' + uid().slice(0, 8);
         db.profiles.push({ id: me, name: pendingName ? pendingName[0].toUpperCase() + pendingName.slice(1) : 'Tu', color: '#94B096', email: pendingEmail, status: 'pending', created_at: new Date().toISOString(), request: null, requested_at: null, approved_at: null, approved_via: null, last_seen_at: null });
