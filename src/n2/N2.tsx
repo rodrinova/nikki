@@ -9,6 +9,7 @@ import { eur, monthlySeries, toU } from '@/lib/money';
 import { driver, expected } from '@/lib/forecast';
 import { compose, stories } from '@/lib/front';
 import { glance } from '@/lib/glance';
+import { explainCats, explainPace, explainYear } from '@/lib/explain';
 import { useShopPresence } from '@/data/presence';
 import { store } from '@/lib/store';
 import { seenKey } from '@/screens/Housekeeping';
@@ -29,7 +30,7 @@ const NAV = [
 ];
 const DESTS: Dest[] = NAV;
 /** O «€» nunca fica sozinho na linha seguinte. */
-const nb = (t: string) => t.replace(/ €/g, '\u00a0€');
+const nb = (t: string) => t.replace(/ €/g, '\u00a0€').replace(/(\d) (\d)/g, '$1\u00a0$2');
 const cap = (s: string) => (s ? s[0].toUpperCase() + s.slice(1) : s);
 /** Valores curtos para o gráfico (cabem numa coluna estreita): 878 · 1,3k. */
 const k1 = (u: number): string => { if (u < 0) return `−${k1(-u)}`; const e = u / 100_000; return e >= 1000 ? `${(e / 1000).toFixed(1).replace('.', ',').replace(',0', '')}k` : `${Math.round(e)}`; };
@@ -87,6 +88,7 @@ function Pace({ m }: { m: ReturnType<typeof useMonth> }) {
   const normalToday = m.normal * p.share;
   return (
     <div className="pace">
+      <p className="say">{nb(explainPace({ everyday: m.everyday, normal: m.normal, share: p.share, forecast: p.forecast, day: p.day }))}</p>
       <div className="blades" role="img" aria-label={`Até ao dia ${p.day}: ${eur(m.everyday, 0)} € gastos; num mês normal, até hoje, ${eur(normalToday, 0)} €.`}>
         {Array.from({ length: p.days }, (_, j) => <i key={j} className={`${j < (p.blocks ?? 0) ? (j < p.day ? 'f' : 'a') : ''}${j === p.day - 1 ? ' now' : ''}`} style={{ ['--j' as string]: j }} />)}
       </div>
@@ -228,6 +230,9 @@ export function N2Money() {
   const smax = Math.max(1, m.normal ?? 0, ...series.map((x) => x.total), fcast);
   const moves = expenses.rows.filter((e) => monthKey(e.spent_on) === key).sort((a, b) => (a.spent_on < b.spent_on ? 1 : -1));
   const pct = m.current ? (m.pace.fresh ? null : m.pace.pct) : m.normal ? Math.round((m.everyday / m.normal - 1) * 100) : null;
+  // As frases que explicam os gráficos (lib/explain.ts): o que é notável e porquê; o resto cala-se.
+  const catsSay = useMemo(() => (me ? explainCats({ byCat: m.dailyByCat, normals: catN, share: m.current && !m.pace.fresh ? m.pace.day / m.pace.days : 1, current: m.current, expenses: daily, who: me.id, key, label: catLabel }) : { text: '', marks: [] as string[], fixed: undefined as string | undefined }), [me, m, catN, daily, key]);
+  const yearSay = useMemo(() => explainYear({ months: series, normal: m.normal, forecast: fcast || null, expenses: daily, who: me?.id ?? '' }), [series, m.normal, fcast, daily, me?.id]);
   const [n, setN] = useState(8);
   const name = (id: string | null) => (id === me?.id ? 'tu' : id === partner?.id ? partner?.name ?? '' : '');
   const s = m.current ? 1 : 0;
@@ -253,13 +258,14 @@ export function N2Money() {
       <Sec n={`0${1 + s}`} t="Dia a dia"><Glance expenses={daily} monthKey={key} normal={m.normal} /></Sec>
 
       <Sec n={`0${2 + s}`} t="Onde" aside={<span className="sec-k">face ao teu normal</span>}>
+        {catsSay.text && <p className="say">{nb(catsSay.text)}</p>}
         {cats.length ? (
           <table className="tbl">
             <thead><tr><th>Categoria</th><th aria-label="Barra" /><th className="r">{m.current ? 'Até hoje' : 'No mês'}</th><th className="r">{m.current ? 'do normal' : 'Δ'}</th></tr></thead>
             <tbody>{cats.map(([c, v]) => {
               const nn = catN[c] ?? 0, d = nn > 0 && !m.current ? Math.round((v / nn - 1) * 100) : null;
               return (
-                <tr key={c}>
+                <tr key={c} className={catsSay.marks.includes(c) ? 'hl' : undefined}>
                   <td>{catLabel(c)}</td>
                   <td className="bar"><i style={{ width: `${(v / cmax) * 100}%` }} />{nn > 0 && <b style={{ left: `${(nn / cmax) * 100}%` }} title={`Normal: ${eur(nn, 0)} €`} />}</td>
                   <td className="r num">{eur(v, 0)} €</td>
@@ -269,16 +275,18 @@ export function N2Money() {
             })}</tbody>
           </table>
         ) : <p className="note">Nada em {monthName(key)}.</p>}
+        {catsSay.fixed && <p className="note">{nb(catsSay.fixed)}</p>}
         <p className="note">O traço vertical em cada barra é o normal da categoria.</p>
       </Sec>
 
       <Sec n={`0${3 + s}`} t="Doze meses" aside={m.normal ? <span className="sec-k">normal {eur(m.normal, 0)} €</span> : undefined}>
+        <p className="say">{nb(yearSay.text)}</p>
         <div className="c12s" role="img" aria-label={`Doze meses: ${series.map((x) => `${monthName(x.key)} ${eur(x.total, 0)} €`).join(', ')}.`}>
           {m.normal && <span className="c12-norm" style={{ bottom: `calc(22px + (100% - 44px) * ${m.normal / smax})` }}><em>normal</em></span>}
           {series.map((x) => {
             const fc = x.current && fcast > x.total ? fcast : 0;
             return (
-              <button key={x.key} type="button" className={`c12${x.key === key ? ' sel' : ''}${x.current ? ' cur' : ''}`} onClick={() => setKey(x.key)} aria-label={`${monthName(x.key)}: ${eur(x.total, 0)} €`}>
+              <button key={x.key} type="button" className={`c12${x.key === key ? ' sel' : ''}${x.current ? ' cur' : ''}${yearSay.marks.includes(x.key) ? ' hl' : ''}`} onClick={() => setKey(x.key)} aria-label={`${monthName(x.key)}: ${eur(x.total, 0)} €`}>
                 <span className="c12-v num">{x.total ? k1(x.total) : ''}</span>
                 <span className="c12-b">
                   {fc > 0 && <i className="fc" style={{ height: `${(fc / smax) * 100}%` }} />}
