@@ -7,7 +7,9 @@ const [dir, out] = process.argv.slice(2);
 const assets = join(dir, 'assets');
 const files = readdirSync(assets);
 const js = files.filter((f) => f.endsWith('.js')).map((f) => readFileSync(join(assets, f), 'utf8')).join('\n');
-const css = files.filter((f) => f.endsWith('.css')).map((f) => readFileSync(join(assets, f), 'utf8')).join('\n');
+// As letras vão dentro da página (numa página única não há ficheiros ao lado).
+const css = files.filter((f) => f.endsWith('.css')).map((f) => readFileSync(join(assets, f), 'utf8')).join('\n')
+  .replace(/url\(["']?(?:\.?\/)?(?:assets\/)?([\w.-]+\.woff2)["']?\)/g, (m, f) => (files.includes(f) ? `url(data:font/woff2;base64,${readFileSync(join(assets, f)).toString('base64')})` : m));
 const icon = readFileSync(join(dir, 'icons/icon.svg'), 'utf8');
 const page = `<!DOCTYPE html>
 <meta charset="utf-8">
