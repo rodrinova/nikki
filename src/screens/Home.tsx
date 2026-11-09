@@ -110,7 +110,7 @@ function FirstSteps() {
 /** Uma linha de «A NIKKI lembra», com o que a resolve ali mesmo (marcar feito, «Paguei»…). */
 type Need = NowItem & { act?: { label: string; run: () => void }; tick?: () => Promise<void> };
 
-function Now() {
+export function Now() {
   const { partner, me, house } = useSession();
   const { deadlines, on, chores, warranties, hk, hkMessages, cars, todos, gym, events, expenses, receiptItems, shop } = useHouse();
   const { open, toast } = useOverlays();
