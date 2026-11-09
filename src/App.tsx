@@ -46,6 +46,7 @@ const Housekeeper = later(() => import('@/screens/Housekeeper'), 'Housekeeper');
 const Salvage = later(() => import('@/screens/Salvage'), 'Salvage');
 const SalvageCarScreen = later(() => import('@/screens/Salvage'), 'SalvageCarScreen');
 const SalvageLinkPage = later(() => import('@/screens/Salvage'), 'SalvageLinkPage');
+const HkLinkPage = later(() => import('@/screens/HkLink'), 'HkLinkPage');
 // NIKKI 2 (protótipo à parte): só para quem administra a app e na demonstração.
 const N2Home = later(() => import('@/n2/N2'), 'N2Home');
 const N2Time = later(() => import('@/n2/N2'), 'N2Time');
@@ -166,6 +167,10 @@ function Shell() {
   useEffect(() => { scrollTo(0, 0); if (pathname !== '/melhorar' && pathname !== '/perfil') lastPlace.path = pathname; }, [pathname]);
 
   // A página do mecânico (salvados): abre só com a ligação, com ou sem sessão, e não mostra mais nada da NIKKI.
+  // O link de quem faz o housekeeping: entra sem e-mail nem convite (troca o link por uma sessão).
+  if (pathname.startsWith('/h/')) return (
+    <div className="app"><main className="screen"><Suspense fallback={<Loading page />}><Routes><Route path="/h/:token" element={<HkLinkPage />} /></Routes></Suspense></main><SheetHost /></div>
+  );
   if (pathname.startsWith('/s/') || pathname.startsWith('/p/')) return (
     <div className="app"><main className="screen"><Suspense fallback={<Loading page />}><Routes><Route path="/s/:token" element={<SalvageLinkPage />} /><Route path="/p/:code" element={<SalvageLinkPage />} /><Route path="/p/:code/:id" element={<SalvageLinkPage />} /></Routes></Suspense></main><SheetHost /></div>
   );
