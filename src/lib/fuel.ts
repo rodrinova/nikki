@@ -41,7 +41,7 @@ export function readFuel(text: string): FuelRead {
  */
 export function readOdometer(text: string, last: number | null = null): number | null {
   const t = ` ${text.replace(/[|]/g, ' ')} `;
-  const cands = [...t.matchAll(/(?<![\d.,])(\d{1,3}(?:[ .]\d{3})+|\d{3,7})(?![\d]|[.,]\d)/g)].map((m) => Number(m[1].replace(/[ .]/g, ''))).filter((x) => x >= 100 && x <= 1_999_999);
+  const cands = [...t.matchAll(/(?:^|[^\d.,])(\d{1,3}(?:[ .]\d{3})+|\d{3,7})(?![\d]|[.,]\d)/g)].map((m) => Number(m[1].replace(/[ .]/g, ''))).filter((x) => x >= 100 && x <= 1_999_999);
   if (!cands.length) return null;
   if (last !== null) {
     const after = cands.filter((x) => x >= last && x <= last + 5000).sort((a, b) => a - b);
