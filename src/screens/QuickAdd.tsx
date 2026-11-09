@@ -145,7 +145,7 @@ const KIND: Record<string, [string, string]> = { expense: ['coins', 'Despesa'], 
  * (que lê o dia, a divisão, quem pagou e a categoria); evento, compras e «a fazer» gravam-se aqui com um toque, ou
  * abrem a folha para ajustar.
  */
-function Say() {
+export function Say({ listen = false }: { listen?: boolean } = {}) {
   const { me, partner, house } = useSession();
   const { events, shop, todos, on: modOn } = useHouse();
   const { open, close, toast } = useOverlays();
@@ -157,6 +157,9 @@ function Say() {
   const it: Intent = raw.kind === 'shop' && !modOn('compras') ? { kind: null, text } : raw;
   const mic = useListen(setText);
   const inputRef = useRef<HTMLInputElement>(null);
+  // Aberto a manter o dedo na cara (NIKKI 2): já a ouvir.
+  const started = useRef(false);
+  useEffect(() => { if (listen && mic && !started.current) { started.current = true; mic.toggle(); } }, [listen, mic]);
 
   async function save(i: Intent) {
     if (busy || !house || !me) return;

@@ -46,6 +46,9 @@ const Housekeeper = later(() => import('@/screens/Housekeeper'), 'Housekeeper');
 const Salvage = later(() => import('@/screens/Salvage'), 'Salvage');
 const SalvageCarScreen = later(() => import('@/screens/Salvage'), 'SalvageCarScreen');
 const SalvageLinkPage = later(() => import('@/screens/Salvage'), 'SalvageLinkPage');
+// NIKKI 2 (protótipo à parte): só para quem administra a app e na demonstração.
+const N2Home = later(() => import('@/n2/N2'), 'N2Home');
+const N2Time = later(() => import('@/n2/N2'), 'N2Time');
 
 /** As caras dos dois (ou só a tua), sobrepostas: abrem o «Nós». */
 function Pair({ big }: { big?: boolean }) {
@@ -224,6 +227,8 @@ function Shell() {
           <Route path="/modulos" element={<Modules />} />
           <Route path="/melhorar" element={<Tickets />} />
           {appAdmin && <Route path="/admin" element={<Admin />} />}
+          {(appAdmin || DEMO) && <Route path="/n2" element={<N2Home />} />}
+          {(appAdmin || DEMO) && <Route path="/n2/tempo" element={<N2Time />} />}
           {appAdmin && <Route path="/salvados" element={<Salvage />} />}
           {appAdmin && <Route path="/salvados/:id" element={<SalvageCarScreen />} />}
           <Route path="/pessoas" element={<People />} />

@@ -26,3 +26,4 @@
 - Um passo à frente: `expected` e `driver` (`src/lib/forecast.ts`, testes em `__tests__/forecast.test.ts`) dão ao «A NIKKI lembra» as despesas mensais/anuais que ainda não apareceram (com a despesa já escrita) e a razão do ritmo; as compras a acabar vêm de `lib/pantry.ts`.
 - Histórias: «A semana da casa» e «O vosso ano» — cartões em `src/lib/story.ts` (testes em `__tests__/story.test.ts`), ecrã em `src/ui/Stories.tsx`; porta no Hoje (domingo/segunda; dezembro), sempre no «Nós».
 - Microtexto: nas listas, dois factos no máximo por linha (o resto no detalhe).
+- NIKKI 2 (protótipo à parte, `src/n2/`): só em `/n2` e `/n2/tempo`, para `appAdmin` e na demonstração; entrada no Perfil. Campo de luz (WebGL a 1/6 da resolução, 30 fps, parado sem WebGL/«reduzir movimento»/poupar dados), a cara como comando (`Orb`), o fio do tempo (`src/lib/thread.ts`, testes em `__tests__/thread.test.ts`), números que rolam (letra variável só dos algarismos, 4 KB) e o cartaz do mês. Sem som.
