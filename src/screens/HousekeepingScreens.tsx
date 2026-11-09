@@ -2,6 +2,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link, Navigate, useParams } from 'react-router-dom';
 import { hkLinkUrl, newHkLink } from '@/data/hkLink';
+import { LinkShare } from '@/ui/LinkShare';
 import { supabase } from '@/lib/supabase';
 import { useSession } from '@/data/session';
 import { useHouse, type HkRow } from '@/data/house';
@@ -318,7 +319,6 @@ function HkForm({ h }: { h?: HkRow }) {
  * quem o abre fica com a NIKKI dela nesse aparelho. Gerar um link novo anula o anterior (se o telemóvel se perder).
  */
 function HkLinkSheet({ h }: { h: HkRow }) {
-  const { toast } = useOverlays();
   const [url, setUrl] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
@@ -335,14 +335,9 @@ function HkLinkSheet({ h }: { h: HkRow }) {
       <p className="l">Link de entrada da {h.name}</p>
       <p className="s">Sem e-mail nem palavra-passe: {h.name} abre o link e fica com a NIKKI dela (a lista de cada visita, as mensagens e as compras; nada mais). Serve em qualquer aparelho até criares um link novo, que anula este.</p>
       {!url ? (
-        <button type="button" className="btn wide press" disabled={busy} onClick={() => void make()}>{busy ? 'A criar…' : 'Criar o link'} <Icon n="arrow" s={20} /></button>
+        <button type="button" className="btn wide press" disabled={busy} onClick={() => void make()}>{busy ? 'A criar…' : 'Criar o link e o QR'} <Icon n="arrow" s={20} /></button>
       ) : (
-        <>
-          <p className="hkl-url">{url}</p>
-          <a className="btn wide press" href={`https://wa.me/?text=${encodeURIComponent(msg)}`} target="_blank" rel="noopener noreferrer">Enviar por WhatsApp <Icon n="arrow" s={20} /></a>
-          {typeof navigator.share === 'function' && <button type="button" className="btn quiet wide press" onClick={() => navigator.share({ text: msg }).catch(() => {})}>Partilhar de outra forma</button>}
-          <button type="button" className="btn quiet wide press" onClick={() => navigator.clipboard?.writeText(url).then(() => toast('Link copiado.', { ok: true }), () => toast('Não deu para copiar.'))}>Copiar o link</button>
-        </>
+        <LinkShare url={url} msg={msg} qrLabel={`Código QR de entrada da ${h.name}`} />
       )}
       {err && <p className="err">{err}</p>}
     </div>

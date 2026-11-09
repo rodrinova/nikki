@@ -2039,3 +2039,21 @@ create table if not exists nikki.hk_links (
 alter table nikki.hk_links enable row level security;
 revoke all on nikki.hk_links from anon, authenticated, public;
 grant all on nikki.hk_links to service_role;
+
+-- ───────────────────────── pessoas da casa: entrar por um link ─────────────────────────
+-- Como o do housekeeping: quem já está na casa cria um link (ou mostra o QR) e a outra pessoa abre-o, escreve o nome e
+-- entra, sem e-mail nem palavra-passe. Um link por casa (um novo anula o anterior), 7 dias; serve para uma pessoa: depois
+-- de usado, só volta a abrir a conta dela, e só durante 24 horas (para pôr a NIKKI no ecrã principal do iPhone, que não
+-- partilha a sessão com o Safari). Só o resumo (sha-256); só a função join-link (chave de serviço) lê e escreve aqui.
+create table if not exists nikki.join_links (
+  household_id uuid primary key references nikki.households (id) on delete cascade,
+  token_hash text not null unique,
+  created_by uuid references nikki.profiles (id) on delete set null,
+  created_at timestamptz not null default now(),
+  expires_at timestamptz not null,
+  used_by uuid references nikki.profiles (id) on delete set null,
+  used_at timestamptz
+);
+alter table nikki.join_links enable row level security;
+revoke all on nikki.join_links from anon, authenticated, public;
+grant all on nikki.join_links to service_role;
