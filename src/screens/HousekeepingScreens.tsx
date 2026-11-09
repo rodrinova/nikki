@@ -329,7 +329,7 @@ function HkLinkSheet({ h }: { h: HkRow }) {
     if (!r.ok) return setErr('Não deu para criar o link agora. Tenta outra vez.');
     setUrl(hkLinkUrl(r.v.token));
   };
-  const msg = url ? `Olá ${h.name}! Este é o seu link para a NIKKI: ${url}\nAbre logo, sem palavra-passe: a lista de cada visita, as mensagens e as compras. Pode guardar no ecrã principal.` : '';
+  const msg = url ? `Olá ${h.name}! Este é o seu link para a NIKKI: ${url}\nAbre logo, sem palavra-passe: a lista de cada visita, as mensagens e as compras. Abra no Safari e, na página que aparece, veja como pôr no ecrã principal.` : '';
   return (
     <div className="form">
       <p className="l">Link de entrada da {h.name}</p>

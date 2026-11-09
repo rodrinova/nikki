@@ -1634,3 +1634,5 @@ body.story-open{overflow:hidden}
 .hkl{display:flex;flex-direction:column;gap:14px;min-height:80vh;justify-content:center;max-width:420px;margin:0 auto}
 .hkl-face{color:var(--ink);margin-bottom:8px}
 .hkl-url{margin:0;padding:12px 14px;border-radius:12px;background:var(--tile-2);font-size:var(--t-s);word-break:break-all;user-select:all}
+.hkl-steps{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:10px;font-size:var(--t-m);line-height:1.4}
+.hkl-steps b{font-weight:500}
