@@ -73,16 +73,6 @@ function Sec({ n, t, aside, children, className }: { n: string; t: string; aside
   );
 }
 
-/** Um número com rótulo e comparação: o essencial de uma linha de dados. */
-function Fig({ label, value, unit, note, to, tone }: { label: string; value: string; unit?: string; note?: ReactNode; to?: string; tone?: 'up' | 'down' }) {
-  const body = <>
-    <span className="fig-l">{label}</span>
-    <span className="fig-v">{value}{unit && <small>{unit}</small>}</span>
-    {note && <span className={`fig-n${tone ? ` ${tone}` : ''}`}>{note}</span>}
-  </>;
-  return to ? <Link to={to} className="fig press">{body}</Link> : <div className="fig">{body}</div>;
-}
-
 /** O ritmo do mês em lâminas, com os valores escritos: o que já foi, o normal até hoje e a previsão. */
 function Pace({ m }: { m: ReturnType<typeof useMonth> }) {
   const p = m.pace;
