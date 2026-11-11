@@ -21,6 +21,7 @@ import { Orb, type Dest } from './Orb';
 import { Now, useSpaceVals } from '@/screens/Home';
 import { MODULES } from '@/lib/modules';
 import { Icon } from '@/ui/Icon';
+import { DayArc, Dots, Gauge, Ruler } from './Viz';
 
 // NIKKI 2 (protótipo): «a revista da casa». Escuro, como hoje; um serifado de jornal (Newsreader) para títulos e
 // números e a Albert Sans para o resto; a estrutura faz o trabalho das caixas (réguas, colunas, secções numeradas);
@@ -42,12 +43,12 @@ function useN2() {
 }
 
 /** O cabeçalho da revista: a cara, a edição (o dia do ano) e a data; por baixo, os destinos, sempre à vista. */
-function Masthead() {
+function Masthead({ pill }: { pill?: boolean } = {}) {
   const { me, partner } = useSession();
   const { pathname } = useLocation();
   const d = new Date();
   return (
-    <header className="mh">
+    <header className={`mh${pill ? ' mh-p' : ''}`}>
       <div className="mh-top">
         <Link to="/" className="mh-face press" aria-label="Voltar à NIKKI de todos os dias"><Face h={18} mode="still" /></Link>
         <span className="mh-ed">{cap(d.toLocaleDateString('pt-PT', { weekday: 'long', day: 'numeric', month: 'long' }))}</span>
@@ -140,20 +141,27 @@ function Fronts({ money, short }: { money: { total: number; pct: number | null }
     eventos: /^\d+$/.test(val.eventos[0]) && Number(val.eventos[0]) <= 14 && !/depois/.test(val.eventos[1] ?? ''),
   };
   const rows = [
-    { k: 'dinheiro', to: '/n2/dinheiro', ic: 'coins', n: 'Dinheiro', v: `${eur(money.total, 0)} €`, u: money.pct === null ? 'este mês' : money.pct >= 10 ? `${Math.round(money.pct)}% acima do normal` : money.pct <= -10 ? `${Math.round(-money.pct)}% abaixo do normal` : 'dentro do normal', hot: money.pct !== null && money.pct >= 10 },
+    { k: 'dinheiro', to: '/n2/dinheiro', ic: 'coins', n: 'Dinheiro', v: `${eur(money.total, 0)} €`, u: money.pct === null ? '' : money.pct >= 10 ? `+${Math.round(money.pct)}%` : money.pct <= -10 ? `−${Math.round(-money.pct)}%` : 'normal', hot: money.pct !== null && money.pct >= 10 },
     ...MODULES.filter((x) => x.k !== 'contas' && x.k !== 'agenda' && on(x.k)).map((x) => ({ k: x.k as string, to: x.to, ic: x.ic, n: x.k === 'housekeeping' ? 'Ajuda em casa' : x.name, v: val[x.k]?.[0] ?? '—', u: val[x.k]?.[1] ?? '', hot: !!hot[x.k] })),
   ];
-  const list = short ? rows.filter((r) => r.hot) : rows;
-  if (!list.length) return <p className="note">Tudo em dia, em todas as frentes.</p>;
+  const list = short ? rows.filter((r) => r.hot || r.k === 'dinheiro').slice(0, 2) : rows;
+  const viz = (r: (typeof rows)[number]) => {
+    const n = Number(r.v);
+    if (r.k === 'dinheiro') return <Ruler pct={money.pct} />;
+    if (r.k === 'patrimonio' && Number.isFinite(n)) return <Gauge v={n} />;
+    if ((r.k === 'compras' || r.k === 'casa' || r.k === 'objetivos') && Number.isFinite(n)) return <Dots n={n} hot={r.hot ? Math.min(n, 24) : 0} />;
+    return <span className="cd-ic"><Icon n={r.ic as never} s={30} w={1.1} /></span>;
+  };
   return (
-    <ul className="fr">
-      {list.map((r) => (
-        <li key={r.k}><Link to={r.to} className="press">
-          <span className="fr-i"><Icon n={r.ic as never} s={18} /></span><span className="fr-n">{r.n}</span>
-          <span className="fr-v"><b className="num">{r.v}</b>{r.u && <small>{r.u}</small>}</span>
-        </Link></li>
+    <div className="cards">
+      {list.map((r, k) => (
+        <Link key={r.k} to={r.to} className={`cd press${r.hot ? ' hot' : ''}`} style={{ ['--i' as string]: k }} aria-label={`${r.n}: ${r.v} ${r.u}`}>
+          <span className="cd-h"><span>{r.n}</span><Icon n="arrow" s={14} /></span>
+          <span className="cd-g">{viz(r)}</span>
+          <span className="cd-v"><Odometer value={r.v} />{r.u && <small>{r.u}</small>}</span>
+        </Link>
       ))}
-    </ul>
+    </div>
   );
 }
 
@@ -162,9 +170,8 @@ export function N2Casa() {
   useN2();
   const m = useMonth();
   return (
-    <div className="n2-page">
-      <Masthead />
-      <section className="front calm" aria-label="Casa"><h1 className="lead">Casa</h1></section>
+    <div className="n2-page n2v">
+      <Masthead pill />
       <Fronts money={{ total: m.total, pct: m.pace.fresh ? null : m.pace.pct }} />
       <Orb dests={DESTS} />
     </div>
@@ -177,11 +184,10 @@ export function N2Home() {
   const { spendRows, deadlines, hk, hkMessages, shop, on } = useHouse();
   const m = useMonth();
   const L = useLedger();
-  const today = todayStr(), tmw = addDays(today, 1);
+  const today = todayStr();
   const items = useAgendaItems(today, addDays(today, 7));
   const hhmm = (() => { const d = new Date(); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; })();
   const todayIts = items.filter((i) => i.day === today && i.kind !== 'due').sort((a, b) => (a.time ?? '').localeCompare(b.time ?? ''));
-  const tmIts = items.filter((i) => i.day === tmw && i.kind !== 'due').sort((a, b) => (a.time ?? '').localeCompare(b.time ?? ''));
   const pct = m.pace.fresh ? null : m.pace.pct;
   const daily = useMemo(() => spendRows.filter((e) => e.category !== INVEST && !e.occasion_id), [spendRows]);
   const why = useMemo(() => {
@@ -205,22 +211,19 @@ export function N2Home() {
     balance: L ? { lead: L.lead, v: L.v, even: L.even } : null,
   })), [today, hhmm, pct, why, m.total, m.normal, m.key, deadlines.rows, on, items, me, daily, partner, here, shop.rows, hkCard, hkNew, L]);
   const { lead, calm } = front; // os números e as breves saíram do Hoje: já estão em «O teu dia» e em «A fazer»
+  const nowH = Number(hhmm.slice(0, 2)) + Number(hhmm.slice(3)) / 60;
+  const hOf = (t: string) => Number(t.slice(0, 2)) + Number(t.slice(3, 5)) / 60;
+  const next = todayIts.find((i) => i.time && i.time > hhmm) ?? null;
   return (
-    <div className="n2-page">
-      <Masthead />
-      <section className={`front${calm ? ' calm' : ''}`} aria-label="Manchete">
-        {lead.to ? <Link to={lead.to} className="lead press">{nb(lead.head)}</Link> : <h1 className="lead">{nb(lead.head)}</h1>}
-      </section>
-      <Sec n="" t={todayIts.length || !tmIts.length ? 'Hoje' : 'Amanhã'} aside={<Link to="/n2/tempo" className="more press">Agenda</Link>}>
-        <ol className="tt">
-          {(todayIts.length ? todayIts : tmIts).slice(0, 4).map((i, k) => (
-            <li key={k} className={i.day === today && i.time && (i.endTime ?? i.time) <= hhmm ? 'past' : ''}>
-              <span className="tt-t num">{i.time ?? '—'}</span><span className="tt-w">{i.title}</span>
-            </li>
-          ))}
-          {!todayIts.length && !tmIts.length && <li><span className="tt-t">—</span><span className="tt-w">Nada marcado.</span></li>}
-        </ol>
-      </Sec>
+    <div className="n2-page n2v">
+      <Masthead pill />
+      <Link to="/n2/tempo" className={`dayc press${calm ? '' : ' live'}`} aria-label={next ? `A seguir: ${next.title}, às ${next.time}` : 'Hoje sem mais nada marcado'}>
+        <span className="cd-h"><span>{next ? 'A seguir' : 'Hoje'}</span><Icon n="arrow" s={14} /></span>
+        <span className="dayc-v"><Odometer value={next?.time ?? hhmm} /><small>{next ? next.title : 'livre'}</small></span>
+        <DayArc now={nowH} marks={todayIts.filter((i) => i.time).map((i) => hOf(i.time!))} />
+        <span className="dayc-l">{nb(lead.head)}</span>
+      </Link>
+      <Fronts money={{ total: m.total, pct }} short />
       <Sec n="" t="A fazer" className="plain lite"><Now /></Sec>
       <Orb dests={DESTS} tense={pct !== null && pct >= 15} />
     </div>
@@ -263,7 +266,7 @@ export function N2Money() {
       </div>
       <div className="hero">
         <span className="fig-l">{partner ? 'A tua parte' : 'Total'} em {monthName(key)}</span>
-        <span className="hero-v"><Odometer value={eur(m.total, 0)} /><small>€</small></span>
+        <span className="dayc-v"><Odometer value={eur(m.total, 0)} /><small>€</small></span>
         <span className={`fig-n${pct !== null && pct >= 10 ? ' up' : pct !== null && pct <= -10 ? ' down' : ''}`}>
           {pct === null ? 'O primeiro mês: daqui para a frente compara-se.' : `${pct === 0 ? 'No ritmo habitual' : `${Math.abs(pct)}% ${pct > 0 ? 'acima' : 'abaixo'} do habitual`}${m.current && !m.pace.fresh ? `, até dia ${m.pace.day}` : ''}.`}
         </span>

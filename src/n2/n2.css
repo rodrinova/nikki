@@ -236,3 +236,69 @@ a.lead:hover{text-decoration:underline;text-decoration-thickness:1px;text-underl
 .lite .now-main .st2 > .s,.lite .now-act,.lite .now-row .tb{display:none!important}
 .lite .now-row{min-height:48px;align-items:center}
 .n2-page{gap:28px}
+
+/* ——— NIKKI 2 · visual: instrumentos em vez de frases. Grelha suíça, uma letra, números grandes e leves. ——— */
+.n2v{--serif:var(--font);gap:14px;padding-left:16px;padding-right:16px}
+.n2v .mh{border:0;gap:14px}
+.mh.mh-p .mh-nav{gap:8px;margin:0}
+.mh.mh-p .mh-nav a{border:0;padding:0 18px;height:40px;display:inline-flex;align-items:center;border-radius:999px;background:rgba(242,238,230,.07);color:var(--sub);font-size:var(--t-r);transition:background-color 200ms ease,color 200ms ease,transform 160ms var(--ease-out)}
+.mh.mh-p .mh-nav a[aria-current="page"]{background:var(--ink);color:#0B0B0B}
+.mh.mh-p .mh-nav a:active{transform:scale(.97)}
+
+.cd-h{display:flex;justify-content:space-between;align-items:center;font-size:var(--t-xs);letter-spacing:.09em;text-transform:uppercase;color:var(--sub)}
+.viz{display:block;width:100%;height:auto;overflow:visible}
+.viz .tick{stroke:rgba(242,238,230,.3);stroke-width:1}
+.viz text{font-size:9px;fill:var(--faint)}
+
+/* O dia: a peça grande, com a luz laranja por trás. */
+.dayc{position:relative;display:flex;flex-direction:column;gap:6px;padding:18px 18px 16px;border-radius:30px;color:var(--ink);text-decoration:none;overflow:hidden;isolation:isolate;
+  background:radial-gradient(120% 90% at 50% 118%,rgba(255,122,31,.5),rgba(255,122,31,.1) 46%,transparent 70%),#1B1917;box-shadow:inset 0 1px 0 rgba(255,255,255,.07);animation:sw-in 620ms var(--ease-out) both}
+.dayc::before{content:"";position:absolute;z-index:-1;left:50%;bottom:-46%;width:120%;aspect-ratio:1;transform:translateX(-50%);border-radius:50%;background:radial-gradient(closest-side,rgba(255,154,87,.42),transparent);filter:blur(18px);animation:sw-breathe 7s ease-in-out infinite}
+.dayc-v{display:flex;align-items:baseline;gap:10px;font-size:64px;line-height:1;letter-spacing:-.045em;font-weight:300;font-variant-numeric:tabular-nums}
+.dayc-v small{font-size:var(--t-r);letter-spacing:0;color:var(--sub);font-weight:400;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dayc-l{font-size:var(--t-s);color:var(--sub);text-align:center}
+.day-arc{margin-top:2px}
+.day-arc .rest{fill:none;stroke:rgba(242,238,230,.38);stroke-width:1.4;stroke-dasharray:1.5 5;stroke-linecap:round}
+.day-arc .done{fill:none;stroke:var(--ink);stroke-width:2.4;stroke-linecap:round;stroke-dasharray:1;stroke-dashoffset:1;animation:sw-draw 1100ms var(--ease-out) 160ms forwards}
+.day-arc .mk{fill:var(--ink);transform-box:fill-box;transform-origin:center;animation:sw-pop 420ms var(--ease-out) calc(700ms + var(--k) * 90ms) both}
+.day-arc .mk.past{fill:#1B1917;stroke:var(--ink);stroke-width:1.4}
+.day-arc .now{fill:var(--acc);animation:sw-pop 420ms var(--ease-out) 1100ms both;transform-box:fill-box;transform-origin:center}
+.day-arc .now-halo{fill:rgba(255,122,31,.28);transform-box:fill-box;transform-origin:center;animation:sw-pulse 2.6s ease-out 1400ms infinite;opacity:0}
+
+/* As frentes: cartões iguais numa grelha de duas colunas. */
+.cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.cd{display:flex;flex-direction:column;gap:10px;padding:16px;border-radius:26px;background:#1B1917;color:var(--ink);text-decoration:none;min-height:164px;box-shadow:inset 0 1px 0 rgba(255,255,255,.06);
+  animation:sw-in 560ms var(--ease-out) calc(120ms + var(--i) * 60ms) both;transition:transform 180ms var(--ease-out),background-color 200ms ease}
+.cd:active{transform:scale(.97)}
+.cd.hot{background:linear-gradient(160deg,#2A1D12,#1B1917 70%)}
+.cd.hot .cd-h{color:var(--up)}
+.cd-g{flex:1;display:flex;align-items:center}
+.cd-ic{color:rgba(242,238,230,.5);display:inline-flex}
+.cd-v{display:flex;align-items:baseline;gap:8px;font-size:34px;line-height:1;letter-spacing:-.04em;font-weight:300;font-variant-numeric:tabular-nums;white-space:nowrap;min-width:0}
+.cd-v small{font-size:var(--t-xs);letter-spacing:0;color:var(--faint);font-weight:400;overflow:hidden;text-overflow:ellipsis}
+.dots circle{fill:rgba(242,238,230,.14);transform-box:fill-box;transform-origin:center}
+.dots circle.on{fill:var(--ink);animation:sw-pop 360ms var(--ease-out) calc(300ms + var(--k) * 22ms) both}
+.dots circle.hot{fill:var(--acc);animation:sw-pop 360ms var(--ease-out) calc(300ms + var(--k) * 22ms) both}
+.ruler .hand{stroke:var(--ink);stroke-width:2;stroke-linecap:round;animation:sw-slide 900ms var(--ease-out) 300ms both}
+.ruler .hand.hot{stroke:var(--acc)}
+.gauge .rest{fill:none;stroke:rgba(242,238,230,.16);stroke-width:5;stroke-linecap:round}
+.gauge .done{fill:none;stroke:var(--acc);stroke-width:5;stroke-linecap:round;stroke-dasharray:1;stroke-dashoffset:1;animation:sw-fill 1100ms var(--ease-out) 300ms forwards}
+.n2v .sec-h{border:0;padding:6px 2px 0}
+.n2v .sec-t{font-size:var(--t-xs);letter-spacing:.09em;text-transform:uppercase;color:var(--sub)}
+@keyframes sw-in{from{opacity:0;transform:translateY(14px) scale(.98)}}
+@keyframes sw-draw{to{stroke-dashoffset:0}}
+@keyframes sw-fill{to{stroke-dashoffset:calc(1 - var(--t))}}
+@keyframes sw-pop{from{opacity:0;transform:scale(0)}}
+@keyframes sw-slide{from{transform:translateX(-30px);opacity:0}}
+@keyframes sw-pulse{0%{opacity:.9;transform:scale(.5)}100%{opacity:0;transform:scale(2.2)}}
+@keyframes sw-breathe{50%{transform:translateX(-50%) scale(1.08)}}
+@media (min-width:760px){.cards{grid-template-columns:repeat(4,minmax(0,1fr))}.n2v{max-width:920px}}
+@media (prefers-reduced-motion: reduce){.dayc,.dayc::before,.cd,.viz *{animation:none!important}.day-arc .done{stroke-dashoffset:0}.gauge .done{stroke-dashoffset:calc(1 - var(--t))}.day-arc .now-halo{opacity:0}}
+.n2v{width:100%}
+.n2v .odo{font:inherit;font-size:1em;letter-spacing:inherit;margin:0;line-height:1.1}
+.n2v .odo-c{height:1.1em;line-height:1.1}
+.n2v .odo-s{transform:translateY(calc(var(--d) * -1.1em))}
+.n2v .odo-s > span{height:1.1em;line-height:1.1}
+.n2v .odo-x{width:auto;min-width:.22em}
+.day-arc{aspect-ratio:300/176;flex:none}
+.dayc,.cd,.n2v .mh,.n2v .sec{flex:none}
