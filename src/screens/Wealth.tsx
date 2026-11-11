@@ -116,7 +116,7 @@ function Levels({ w }: { w: W }) {
   const { total, layers } = useMemo(() => {
     const snaps = snapshots.rows.map((s) => ({ asset_id: s.asset_id, on_date: s.on_date, value: toU(s.value) }));
     const pick = (f: (a: W['mine'][number]) => boolean) => netSeries(w.mine.filter((a) => a.liq !== 'out' && a.id !== 'salvados' && f(a)).map((a) => ({ id: a.id, part: a.part, archived: a.archived })), snaps);
-    const sE = pick((a) => a.role === 'emergency'), sC = pick((a) => a.role === 'cushion'), sI = pick((a) => !a.role);
+    const sE = pick((a) => a.role === 'emergency' || a.role === 'both'), sC = pick((a) => a.role === 'cushion'), sI = pick((a) => !a.role);
     const days = [...new Set([...sE, ...sC, ...sI].map((p) => p.on))].sort();
     const val = (s: { on: string; v: number }[], d: string) => { let v = 0; for (const p of s) { if (p.on > d) break; v = p.v; } return v; };
     const e = days.map((d) => ({ on: d, v: val(sE, d) }));
@@ -259,11 +259,11 @@ function Steps({ w }: { w: W }) {
   if (!w.spend) items.push({ t: 'Fechar o primeiro mês de despesas', d: 'Um mês completo e a NIKKI já sabe quanto custa a vossa vida. O resto vem daí.', p: 0 });
   for (const role of ['emergency', 'cushion'] as FundRole[]) {
     const f = role === 'emergency' ? w.emergency : w.cushion;
-    if (!f.list.length) items.push({ t: role === 'emergency' ? 'Dizer onde está o fundo de emergência' : 'Dizer onde está o fundo para imprevistos', d: `Ainda não existe? Começa-se ${WHERE[role]}. Até 10 € contam.`, p: pts(role), go: () => open(<ChooseFund role={role} />) });
+    if (!f.list.length && !f.spill.length) items.push({ t: role === 'emergency' ? 'Dizer onde está o fundo de emergência' : 'Dizer onde está o fundo para imprevistos', d: `Ainda não existe? Começa-se ${WHERE[role]}. Até 10 € contam.`, p: pts(role), go: () => open(<ChooseFund role={role} />) });
     for (const a of f.list) if (!a.check.ok) items.push({ t: `«${a.name}» não conta como ${ROLE[role].toLowerCase()}`, d: `${KINDS[a.kind as AssetKind]?.name ?? 'Este tipo'} ${a.check.why}. Melhor ${WHERE[role]}.`, p: 0, go: () => open(<AssetSheet asset={a} />) });
   }
   if (w.emergencyTarget && w.emergency.list.length && w.emergency.value < w.emergencyTarget) items.push({ t: `Faltam ${money(w.emergencyTarget - w.emergency.value)} no fundo de emergência`, d: w.plan?.emergency ? `Com ${money(w.plan.emergency)} por mês, fica completo ${((m) => (m === 1 ? 'no próximo mês' : `daqui a ${m} meses`))(Math.ceil((w.emergencyTarget - w.emergency.value) / w.plan.emergency))}.` : 'O plano do mês diz quanto pôr.', p: pts('emergency') });
-  if (w.cushion.list.length && w.cushion.value < w.cushionTarget) items.push({ t: `Faltam ${money(w.cushionTarget - w.cushion.value)} no fundo para imprevistos`, d: 'Para a máquina de lavar que avaria sempre ao domingo.', p: pts('cushion') });
+  if ((w.cushion.list.length || w.cushion.spill.length) && w.cushion.value < w.cushionTarget) items.push({ t: `Faltam ${money(w.cushionTarget - w.cushion.value)} no fundo para imprevistos`, d: 'Para a máquina de lavar que avaria sempre ao domingo.', p: pts('cushion') });
   if (w.sv && w.sv.rate !== null && w.sv.rate < 0.2) items.push({ t: 'Poupar 20% do que entra', d: `Hoje fica ${Math.round(w.sv.rate * 100)}%. Faltam ${money(Math.max(0, 0.2 * w.income - w.sv.surplus))} por mês.`, p: pts('savings') });
   const has = w.goal && goals.rows.some((g) => g.metric === w.goal!.metric && g.status === 'active' && (g.owner_id === null) === w.casa);
   async function makeGoal() {
@@ -363,7 +363,13 @@ function FundCard({ w, role }: { w: W; role: FundRole }) {
           <span className={a.check.ok ? 'v' : 'v warn'}>{a.check.ok ? money(a.mine) : 'não conta'}</span>
         </button>
       ))}
-      {!f.list.length && <button className="btn quiet press" style={{ alignSelf: 'flex-start' }} onClick={() => open(<ChooseFund role={role} />)}>Onde está? <Icon n="arrow" s={18} /></button>}
+      {f.spill.map((a) => (
+        <button key={a.id} type="button" className="fund-acc press" onClick={() => open(<AssetSheet asset={a} />)}>
+          <span><span>{a.name}</span><span className="s">Excedente do fundo de emergência · {owner(a.owner_id)}</span></span>
+          <span className="v">{money(f.overflow)}</span>
+        </button>
+      ))}
+      {!f.list.length && !f.spill.length && <button className="btn quiet press" style={{ alignSelf: 'flex-start' }} onClick={() => open(<ChooseFund role={role} />)}>Onde está? <Icon n="arrow" s={18} /></button>}
       <p className="s">Onde guardar: {WHERE[role]}.</p>
     </section>
   );
@@ -453,7 +459,7 @@ function Assets({ w }: { w: W }) {
   return (
     <div className="tile card rows">{w.shown.map((a) => (
       <button key={a.id} className="press" onClick={() => (a.id === 'salvados' ? nav('/salvados') : open(<AssetSheet asset={a} />))} style={a.part === 0 ? { opacity: 0.5 } : undefined}>
-        <span className="st2"><span>{a.name}</span><span className="s">{KINDS[a.kind as AssetKind]?.name ?? a.kind} · {owner(a.owner_id)}{a.liq !== 'out' ? ` · ${String(a.expected_return).replace('.', ',')}%/ano` : ' · fora das contas'}{a.role ? ` · ${a.role === 'both' ? 'os dois fundos' : ROLE[a.role].toLowerCase()}` : ''}</span></span>
+        <span className="st2"><span>{a.name}</span><span className="s">{KINDS[a.kind as AssetKind]?.name ?? a.kind} · {owner(a.owner_id)}{a.liq !== 'out' ? ` · ${String(a.expected_return).replace('.', ',')}%/ano` : ' · fora das contas'}{a.role ? ` · ${ROLE[a.role === 'both' ? 'emergency' : a.role].toLowerCase()}` : ''}</span></span>
         <span className="v">{w.casa ? money(a.value) : money(a.mine)}{w.casa && a.part > 0 && a.part < 1 ? <span className="s"> · tua parte {money(a.mine)}</span> : null}{!w.casa && a.part < 1 ? <span className="s"> de {money(a.value)}</span> : null}</span>
       </button>
     ))}</div>
@@ -544,12 +550,12 @@ function AssetSheet({ asset, role: presetRole }: { asset?: AssetRow & { value?: 
   const [owner, setOwner] = useState<string | null>(asset ? asset.owner_id : partner ? null : me!.id);
   const [value, setValue] = useState(asset?.value ? eur(asset.value).replace(/\s/g, '') : '');
   const [ret, setRet] = useState(asset ? String(asset.expected_return).replace('.', ',') : String(RETURN[(presetRole ? 'remunerada' : 'etf')]).replace('.', ','));
-  const [role, setRole] = useState<FundRole | 'both' | null>(asset?.role ?? presetRole ?? null);
+  const [role, setRole] = useState<FundRole | null>((asset?.role === 'both' ? 'emergency' : asset?.role) ?? presetRole ?? null);
   const [on, setOn] = useState(todayStr());
   const [err, setErr] = useState('');
   const log = asset ? snapshots.rows.filter((s) => s.asset_id === asset.id).sort((a, b) => (a.on_date < b.on_date ? 1 : -1)) : [];
   const liq = liqOf(kind);
-  const fr: FundRole | null = role === 'both' ? 'cushion' : role; // os dois: as regras do de imprevistos
+  const fr = role;
   const check = fr ? fundCheck(kind, fr) : null;
   const pickKind = (k: AssetKind) => { setKind(k); if (!asset) setRet(String(RETURN[k]).replace('.', ',')); };
 
@@ -595,9 +601,8 @@ function AssetSheet({ asset, role: presetRole }: { asset?: AssetRow & { value?: 
             <button type="button" className="press" aria-pressed={role === null} onClick={() => setRole(null)}>Investimento</button>
             <button type="button" className="press" aria-pressed={role === 'emergency'} onClick={() => setRole('emergency')}>Emergência</button>
             <button type="button" className="press" aria-pressed={role === 'cushion'} onClick={() => setRole('cushion')}>Imprevistos</button>
-            <button type="button" className="press" aria-pressed={role === 'both'} onClick={() => setRole('both')}>Os dois</button>
           </div>
-          {check && <p className={check.ok ? 's' : 'err'}>{check.ok ? (role === 'both' ? 'Conta nos dois: enche primeiro o fundo para imprevistos e o resto vai para o de emergência.' : `Conta como ${ROLE[fr!].toLowerCase()}.`) : `Não conta como ${role === 'both' ? 'os dois fundos' : ROLE[fr!].toLowerCase()}: ${check.why}. Melhor ${WHERE[fr!]}.`}</p>}
+          {check && <p className={check.ok ? 's' : 'err'}>{check.ok ? (role === 'emergency' && liq === 'now' ? 'Conta como fundo de emergência. O que passar da meta é o fundo para imprevistos: não precisas de outra conta.' : `Conta como ${ROLE[fr!].toLowerCase()}.`) : `Não conta como ${ROLE[fr!].toLowerCase()}: ${check.why}. Melhor ${WHERE[fr!]}.`}</p>}
         </>}
         {err && <p className="err">{err}</p>}
         <button className="btn wide press">Guardar <Icon n="check" s={20} /></button>
