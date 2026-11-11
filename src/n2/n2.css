@@ -222,3 +222,12 @@ a.lead:hover{text-decoration:underline;text-decoration-thickness:1px;text-underl
 .tbl tr.hl td.bar i{opacity:1}
 .c12.hl .c12-v{color:var(--acc)}
 .c12.hl .c12-m{color:var(--ink);text-decoration:underline;text-decoration-color:var(--acc);text-underline-offset:3px}
+
+/* As frentes da casa: linhas iguais, cada uma com o seu sinal. */
+.fr{list-style:none;margin:0;padding:0;border-top:1px solid var(--rule)}
+.fr a{display:grid;grid-template-columns:28px 1fr auto;gap:10px;align-items:center;padding:13px 0;border-bottom:1px solid var(--rule);color:inherit;text-decoration:none;min-height:48px}
+.fr-i{color:var(--sub);display:inline-flex}
+.fr-n{font-size:var(--t-m)}
+.fr-v{display:flex;align-items:baseline;gap:8px;text-align:right}
+.fr-v b{font-weight:400;font-size:var(--t-l)}
+.fr-v small{font-size:var(--t-s);color:var(--faint)}

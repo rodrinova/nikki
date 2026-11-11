@@ -1646,3 +1646,9 @@ body.story-open{overflow:hidden}
 .qrscan-view{position:relative;flex:1;min-height:0;border-radius:18px;overflow:hidden;background:#000}
 .qrscan-view video{width:100%;height:100%;object-fit:cover;display:block}
 .qrscan-frame{position:absolute;left:50%;top:50%;width:62%;aspect-ratio:1;transform:translate(-50%,-50%);border-radius:18px;box-shadow:0 0 0 2px #FF7A1F,0 0 0 100vmax rgba(0,0,0,.45)}
+
+/* O botão de ideias e problemas, sempre presente (pré-visualização da NIKKI 2). */
+.ticket-fab{position:fixed;z-index:45;right:max(14px,env(safe-area-inset-right,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 30px);width:48px;height:48px;border-radius:50%;display:grid;place-items:center;
+  background:#1D1B19;color:#F2EEE6;border:1px solid rgba(242,238,230,.28);box-shadow:0 10px 30px -10px rgba(0,0,0,.6);text-decoration:none}
+body:not(.n2) .ticket-fab{bottom:calc(env(safe-area-inset-bottom,0px) + 96px)}
+@media (min-width:1024px){body:not(.n2) .ticket-fab{bottom:24px}}

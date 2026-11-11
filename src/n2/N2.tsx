@@ -18,7 +18,9 @@ import { INVEST, catLabel, catNormals, useLedger, useMonth } from '@/screens/Mon
 import { Face } from '@/brand/Face';
 import { Odometer } from './Odometer';
 import { Orb, type Dest } from './Orb';
-import { Now } from '@/screens/Home';
+import { Now, useSpaceVals } from '@/screens/Home';
+import { MODULES } from '@/lib/modules';
+import { Icon } from '@/ui/Icon';
 
 // NIKKI 2 (protótipo): «a revista da casa». Escuro, como hoje; um serifado de jornal (Newsreader) para títulos e
 // números e a Albert Sans para o resto; a estrutura faz o trabalho das caixas (réguas, colunas, secções numeradas);
@@ -26,7 +28,7 @@ import { Now } from '@/screens/Home';
 // Só para quem administra a app e para a demonstração.
 
 const NAV = [
-  { to: '/n2', n: 'Hoje' }, { to: '/n2/dinheiro', n: 'Dinheiro' }, { to: '/n2/tempo', n: 'Tempo' }, { to: '/espacos', n: 'Casa' }, { to: '/nos', n: 'Nós' },
+  { to: '/n2', n: 'Hoje' }, { to: '/n2/tempo', n: 'Agenda' }, { to: '/n2/casa', n: 'Casa' },
 ];
 const DESTS: Dest[] = NAV;
 /** O «€» nunca fica sozinho na linha seguinte. */
@@ -36,7 +38,7 @@ const cap = (s: string) => (s ? s[0].toUpperCase() + s.slice(1) : s);
 const k1 = (u: number): string => { if (u < 0) return `−${k1(-u)}`; const e = u / 100_000; return e >= 1000 ? `${(e / 1000).toFixed(1).replace('.', ',').replace(',0', '')}k` : `${Math.round(e)}`; };
 
 function useN2() {
-  useEffect(() => { document.body.classList.add('n2'); return () => document.body.classList.remove('n2'); }, []);
+  useEffect(() => { document.body.classList.add('n2'); try { sessionStorage.setItem('nikki:n2', '1'); } catch { /* sem armazenamento */ } return () => document.body.classList.remove('n2'); }, []);
 }
 
 /** O cabeçalho da revista: a cara, a edição (o dia do ano) e a data; por baixo, os destinos, sempre à vista. */
@@ -55,7 +57,7 @@ function Masthead() {
         </Link>
       </div>
       <nav className="mh-nav" aria-label="Secções">
-        {NAV.map((x) => <Link key={x.to} to={x.to} className="press" aria-current={pathname === x.to ? 'page' : undefined}>{x.n}</Link>)}
+        {NAV.map((x) => <Link key={x.to} to={x.to} className="press" aria-current={pathname === x.to || (x.to === '/n2/casa' && pathname === '/n2/dinheiro') ? 'page' : undefined}>{x.n}</Link>)}
       </nav>
     </header>
   );
@@ -69,16 +71,6 @@ function Sec({ n, t, aside, children, className }: { n: string; t: string; aside
       {children}
     </section>
   );
-}
-
-/** Um número com rótulo e comparação: o essencial de uma linha de dados. */
-function Fig({ label, value, unit, note, to, tone }: { label: string; value: string; unit?: string; note?: ReactNode; to?: string; tone?: 'up' | 'down' }) {
-  const body = <>
-    <span className="fig-l">{label}</span>
-    <span className="fig-v">{value}{unit && <small>{unit}</small>}</span>
-    {note && <span className={`fig-n${tone ? ` ${tone}` : ''}`}>{note}</span>}
-  </>;
-  return to ? <Link to={to} className="fig press">{body}</Link> : <div className="fig">{body}</div>;
 }
 
 /** O ritmo do mês em lâminas, com os valores escritos: o que já foi, o normal até hoje e a previsão. */
@@ -138,6 +130,51 @@ function Glance({ expenses, monthKey: key, normal }: { expenses: Parameters<type
  * seguintes são destaques com o seu número, e há até quatro breves. Num dia calmo a manchete diz isso mesmo.
  * Por baixo, o que não muda de lugar: o mês num relance, a agenda e o que há para resolver.
  */
+/**
+ * As frentes da casa, lado a lado e com o mesmo peso: o dinheiro é uma delas. Cada linha tem o seu sinal (um número
+ * e a legenda). No Hoje (short) só aparecem as que pedem atenção; na Casa, todas.
+ */
+function Fronts({ money, short }: { money: { total: number; pct: number | null }; short?: boolean }) {
+  const { val, on } = useSpaceVals();
+  const hot: Record<string, boolean> = {
+    compras: Number(val.compras[0]) > 0, casa: val.casa[1] === 'por confirmar' || /aviso/.test(val.casa[1] ?? ''), housekeeping: val.housekeeping[0] === 'hoje',
+    eventos: /^\d+$/.test(val.eventos[0]) && Number(val.eventos[0]) <= 14 && !/depois/.test(val.eventos[1] ?? ''),
+  };
+  const rows = [
+    { k: 'dinheiro', to: '/n2/dinheiro', ic: 'coins', n: 'Dinheiro', v: `${eur(money.total, 0)} €`, u: money.pct === null ? 'este mês' : money.pct >= 10 ? `${Math.round(money.pct)}% acima do normal` : money.pct <= -10 ? `${Math.round(-money.pct)}% abaixo do normal` : 'dentro do normal', hot: money.pct !== null && money.pct >= 10 },
+    ...MODULES.filter((x) => x.k !== 'contas' && x.k !== 'agenda' && on(x.k)).map((x) => ({ k: x.k as string, to: x.to, ic: x.ic, n: x.k === 'housekeeping' ? 'Ajuda em casa' : x.name, v: val[x.k]?.[0] ?? '—', u: val[x.k]?.[1] ?? '', hot: !!hot[x.k] })),
+  ];
+  const list = short ? rows.filter((r) => r.hot) : rows;
+  if (!list.length) return <p className="note">Tudo em dia, em todas as frentes.</p>;
+  return (
+    <ul className="fr">
+      {list.map((r) => (
+        <li key={r.k}><Link to={r.to} className="press">
+          <span className="fr-i"><Icon n={r.ic as never} s={18} /></span><span className="fr-n">{r.n}</span>
+          <span className="fr-v"><b className="num">{r.v}</b>{r.u && <small>{r.u}</small>}</span>
+        </Link></li>
+      ))}
+    </ul>
+  );
+}
+
+/** Casa: a porta para todas as frentes. */
+export function N2Casa() {
+  useN2();
+  const m = useMonth();
+  return (
+    <div className="n2-page">
+      <Masthead />
+      <section className="front calm" aria-label="Casa"><h1 className="lead">A casa, frente a frente.</h1><p className="lead-sub">Cada uma com o seu sinal. Toca para entrar.</p></section>
+      <Sec n="01" t="Frentes"><Fronts money={{ total: m.total, pct: m.pace.fresh ? null : m.pace.pct }} /></Sec>
+      <Sec n="02" t="A conta" className="plain">
+        <ul className="briefs"><li><Link to="/pessoas" className="press">Pessoas e acessos</Link></li><li><Link to="/perfil" className="press">Definições</Link></li><li><Link to="/modulos" className="press">O que a casa usa</Link></li></ul>
+      </Sec>
+      <Orb dests={DESTS} />
+    </div>
+  );
+}
+
 export function N2Home() {
   useN2();
   const { me, partner, house } = useSession();
@@ -171,7 +208,7 @@ export function N2Home() {
     messages: hkCard && hkNew ? { from: hkCard.name, n: hkNew } : null,
     balance: L ? { lead: L.lead, v: L.v, even: L.even } : null,
   })), [today, hhmm, pct, why, m.total, m.normal, m.key, deadlines.rows, on, items, me, daily, partner, here, shop.rows, hkCard, hkNew, L]);
-  const { lead, calm, features, briefs } = front;
+  const { lead, calm } = front; // os números e as breves saíram do Hoje: já estão em «O teu dia» e em «A fazer»
   let sec = 0; const nn = () => String(++sec).padStart(2, '0');
   return (
     <div className="n2-page">
@@ -180,31 +217,19 @@ export function N2Home() {
         {lead.to ? <Link to={lead.to} className="lead press">{nb(lead.head)}</Link> : <h1 className="lead">{nb(lead.head)}</h1>}
         {lead.sub && <p className="lead-sub">{nb(lead.sub)}</p>}
       </section>
-      {features.length > 0 && (
-        <div className={`figs n${features.length}`}>
-          {features.map((f) => <Fig key={f.key} label={f.fig!.label} value={f.fig!.value} unit={f.fig!.unit} note={f.fig!.note} to={f.to} />)}
-        </div>
-      )}
-      {briefs.length > 0 && (
-        <Sec n={nn()} t="Breves">
-          <ul className="briefs">{briefs.map((b) => <li key={b.key}>{b.to ? <Link to={b.to} className="press">{nb(b.head)}</Link> : nb(b.head)}</li>)}</ul>
-        </Sec>
-      )}
-      <div className="cols">
-        <Sec n={nn()} t="O mês num relance" aside={<Link to="/n2/dinheiro" className="more press">Dinheiro</Link>}><Glance expenses={daily} monthKey={m.key} normal={m.normal} /></Sec>
-        <Sec n={nn()} t="A seguir" aside={<Link to="/n2/tempo" className="more press">Tempo</Link>}>
-          <ol className="tt">
-            {[...todayIts.map((i) => ({ i, d: 'Hoje' })), ...tmIts.map((i) => ({ i, d: 'Amanhã' }))].slice(0, 6).map(({ i, d }, k) => (
-              <li key={k} className={i.day === today && i.time && (i.endTime ?? i.time) <= hhmm ? 'past' : ''}>
-                <span className="tt-t num">{i.time ?? '—'}</span>
-                <span className="tt-w">{i.title}<small>{d}{i.note ? ` · ${i.note}` : ''}</small></span>
-              </li>
-            ))}
-            {!todayIts.length && !tmIts.length && <li><span className="tt-t">—</span><span className="tt-w">Hoje e amanhã sem nada marcado.</span></li>}
-          </ol>
-        </Sec>
-      </div>
-      <Sec n={nn()} t="Para resolver" className="plain"><Now /></Sec>
+      <Sec n={nn()} t="O teu dia" aside={<Link to="/n2/tempo" className="more press">Agenda</Link>}>
+        <ol className="tt">
+          {[...todayIts.map((i) => ({ i, d: 'Hoje' })), ...tmIts.map((i) => ({ i, d: 'Amanhã' }))].slice(0, 6).map(({ i, d }, k) => (
+            <li key={k} className={i.day === today && i.time && (i.endTime ?? i.time) <= hhmm ? 'past' : ''}>
+              <span className="tt-t num">{i.time ?? '—'}</span>
+              <span className="tt-w">{i.title}<small>{d}{i.note ? ` · ${i.note}` : ''}</small></span>
+            </li>
+          ))}
+          {!todayIts.length && !tmIts.length && <li><span className="tt-t">—</span><span className="tt-w">Hoje e amanhã sem nada marcado.</span></li>}
+        </ol>
+      </Sec>
+      <Sec n={nn()} t="A fazer" className="plain"><Now /></Sec>
+      <Sec n={nn()} t="A casa" aside={<Link to="/n2/casa" className="more press">Tudo</Link>}><Fronts money={{ total: m.total, pct }} short /></Sec>
       <Orb dests={DESTS} tense={pct !== null && pct >= 15} />
     </div>
   );

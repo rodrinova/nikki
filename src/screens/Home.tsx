@@ -534,7 +534,8 @@ function Space({ to, ic, n, v, u, more }: { to: string; ic: string; n: string; v
  * Casa (os espaços): os módulos ligados nesta casa, cada um com o número que importa. Os que não estão em
  * uso ficam no fim, mais discretos: abrir é ligar.
  */
-export function Spaces() {
+/** O sinal de cada frente da casa (um número e a sua legenda): para o ecrã Casa e para a NIKKI 2. */
+export function useSpaceVals() {
   const { appAdmin } = useSession();
   const { on, modules, shop, events, busy, deadlines, cars, goals, hk, gym, occasions, salvage } = useHouse();
   const hkc = hk.rows.find((r) => !r.archived);
@@ -558,6 +559,11 @@ export function Spaces() {
     eventos: occ ? ((d) => (d === null ? ['—', occ.name] : d === 0 ? ['hoje', occ.name] : [String(Math.abs(d)), `${Math.abs(d) === 1 ? 'dia' : 'dias'}${d < 0 ? ' depois' : ''} · ${occ.name}`]))(occ.on_date ? Math.round((Date.parse(occ.on_date + 'T12:00:00') - Date.parse(today + 'T12:00:00')) / 86_400_000) : null) as [string, string] : ['—', 'nenhum'],
     objetivos: [String(nGoals), nGoals === 1 ? 'objetivo' : 'objetivos'],
   };
+  return { val, on, modules, sv, appAdmin };
+}
+
+export function Spaces() {
+  const { val, on, modules, sv, appAdmin } = useSpaceVals();
   const lit = MODULES.filter((x) => on(x.k));
   const off = MODULES.filter((x) => !on(x.k));
   return (
