@@ -55,7 +55,3 @@ export function Gauge({ v }: { v: number }) {
   );
 }
 
-/** O fundo vivo: três luzes (laranja, azul, âmbar) a derivar devagar atrás do vidro. Só transformações: leve. */
-export function Aurora() {
-  return <div className="aurora" aria-hidden="true"><i className="a1" /><i className="a2" /><i className="a3" /></div>;
-}

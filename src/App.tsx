@@ -23,6 +23,7 @@ import { Loading, later } from '@/ui/lazy';
 import { QuickAdd } from '@/screens/QuickAdd';
 import { Goals } from '@/screens/Goals';
 import { DESTS, isRoot, under } from '@/lib/nav';
+import { Aurora } from '@/n2/Aurora';
 import { moduleOf } from '@/lib/modules';
 
 // Ecrãs menos usados (ou só de algumas pessoas): só se carregam quando se abrem.
@@ -121,30 +122,37 @@ function BottomBar() {
     return () => removeEventListener('scroll', on);
   }, []);
   useEffect(() => setHide(false), [pathname]);
-  const tab = (d: (typeof DESTS)[number]) => {
-    const cur = under(pathname, d.to);
+  const n2 = n2Mode(pathname);
+  const D: readonly { to: string; ic: string; n: string }[] = n2 ? N2_DESTS : DESTS;
+  const tab = (d: { to: string; ic: string; n: string }) => {
+    const cur = n2 ? (d.to === '/n2' ? pathname === '/n2' : d.to === '/n2/casa' ? !['/n2', '/n2/tempo', '/melhorar', '/agenda'].includes(pathname) : pathname === d.to) : under(pathname, d.to);
     return <Link key={d.to} className="press" to={d.to} aria-label={d.n} aria-current={cur ? 'page' : undefined}><Icon n={d.ic as any} /></Link>;
   };
   return (
-    <nav className={`bottom${hide && !isOpen ? ' away' : ''}`} aria-label="Principal"><div className="in">
-      {tab(DESTS[0])}{tab(DESTS[1])}
+    <nav className={`bottom${hide && !isOpen && !n2 ? ' away' : ''}`} aria-label="Principal"><div className="in">
+      {tab(D[0])}{tab(D[1])}
       <button className="press add" aria-label="Registar: despesa, evento, compra, a fazer…" aria-expanded={isOpen} onClick={() => (isOpen ? close() : open(<QuickAdd />))}><Icon n="plus" s={24} w={1.6} /></button>
-      {tab(DESTS[2])}{tab(DESTS[3])}
+      {tab(D[2])}{tab(D[3])}
     </div></nav>
   );
 }
 
 /**
- * NIKKI 2 (pré-visualização): o botão de ideias e problemas, sempre presente. Aparece desde que se entra na
- * pré-visualização e acompanha os ecrãs que se abrem a partir dela; ao voltar ao início de todos os dias, sai.
+ * NIKKI 2 (pré-visualização): ligada desde que se entra em /n2 e em todos os ecrãs que se abrem a partir daí; ao
+ * voltar ao início de todos os dias, desliga. Com ela, a app inteira veste o azul-noite, o vidro e a luz, e a barra
+ * de baixo passa a Hoje · Agenda · + · Casa · Ideias.
  */
-function TicketFab() {
-  const { pathname } = useLocation();
-  const { isOpen } = useOverlays();
+function n2Mode(pathname: string): boolean {
   let on = pathname.startsWith('/n2');
   try { if (pathname === '/') sessionStorage.removeItem('nikki:n2'); else on = on || sessionStorage.getItem('nikki:n2') === '1'; } catch { /* sem armazenamento */ }
-  if (!on || isOpen || pathname === '/melhorar') return null;
-  return <Link className="ticket-fab press" to="/melhorar" aria-label="Ideias e problemas: diz-nos o que melhorar neste ecrã"><Icon n="chat" s={20} /></Link>;
+  return on;
+}
+const N2_DESTS = [{ to: '/n2', ic: 'home', n: 'Hoje' }, { to: '/n2/tempo', ic: 'cal', n: 'Agenda' }, { to: '/n2/casa', ic: 'grid', n: 'Casa' }, { to: '/melhorar', ic: 'chat', n: 'Ideias e problemas' }];
+function N2Skin() {
+  const { pathname } = useLocation();
+  const on = n2Mode(pathname);
+  useEffect(() => { document.body.classList.toggle('n2x', on); return () => document.body.classList.remove('n2x'); }, [on]);
+  return on ? <Aurora /> : null;
 }
 
 function SoonRoute() {
@@ -264,7 +272,7 @@ function Shell() {
       </main></div>
       <BottomBar />
       <SideBar />
-      <TicketFab />
+      <N2Skin />
       <SheetHost />
     </HouseProvider>
   );

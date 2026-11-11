@@ -2,7 +2,7 @@
    em vez de caixas; cada número com rótulo e comparação; nada animado atrás do texto. */
 @font-face{font-family:"NIKKI Serif";font-style:normal;font-weight:400 560;font-display:swap;src:url("./newsreader-nikki.woff2") format("woff2")}
 
-body.n2 .bottom,body.n2 .status,body.n2 .side,body.n2 .update-pill{display:none!important}
+body.n2 .status,body.n2 .side,body.n2 .update-pill{display:none!important}
 body.n2{background:#121110}
 body.n2 .app{max-width:none!important;width:auto;margin:0!important;padding:0!important}
 body.n2 .app > .screen{max-width:none!important;padding:0;gap:0}
@@ -305,16 +305,6 @@ a.lead:hover{text-decoration:underline;text-decoration-thickness:1px;text-underl
 
 /* ——— Profundidade: azul-noite e laranja, vidro sobre luz em movimento. Tudo vivo, nada parado. ——— */
 .n2v{--paper:#0B1017;--ink:#F3F5F8;--sub:rgba(226,232,242,.62);--faint:rgba(226,232,242,.42);--acc:#FF6A1F;--up:#FFB070;--blue:#3D5BFF;isolation:isolate;overflow-x:clip}
-body.n2:has(.n2v){background:#0B1017}
-.aurora{position:fixed;inset:0;z-index:-1;overflow:hidden;pointer-events:none;background:radial-gradient(140% 90% at 50% 0%,#141B27,#0B1017 60%)}
-.aurora i{position:absolute;border-radius:50%;will-change:transform}
-.aurora .a1{width:130vmax;height:130vmax;left:-45vmax;bottom:-78vmax;background:radial-gradient(closest-side,rgba(255,106,31,.62),rgba(255,106,31,.2) 45%,transparent 70%);animation:au-1 19s ease-in-out infinite alternate}
-.aurora .a2{width:120vmax;height:120vmax;right:-62vmax;top:-58vmax;background:radial-gradient(closest-side,rgba(61,91,255,.6),rgba(61,91,255,.18) 48%,transparent 70%);animation:au-2 23s ease-in-out infinite alternate}
-.aurora .a3{width:70vmax;height:70vmax;left:-10vmax;top:22%;background:radial-gradient(closest-side,rgba(255,176,112,.2),transparent 70%);animation:au-3 27s ease-in-out infinite alternate}
-@keyframes au-1{to{transform:translate3d(22vmax,-12vmax,0) scale(1.15)}}
-@keyframes au-2{to{transform:translate3d(-18vmax,14vmax,0) scale(1.2)}}
-@keyframes au-3{to{transform:translate3d(30vmax,-18vmax,0) scale(.8)}}
-
 /* Vidro: translúcido, com o brilho da aresta de cima, a sombra por baixo e a luz do dedo. */
 .n2v .cd,.n2v .dayc{position:relative;overflow:hidden;background:linear-gradient(150deg,rgba(255,255,255,.13),rgba(255,255,255,.035) 55%,rgba(255,255,255,.06));border:1px solid rgba(255,255,255,.1);
   box-shadow:inset 0 1px 0 rgba(255,255,255,.22),inset 0 -1px 0 rgba(0,0,0,.25),0 24px 48px -24px rgba(0,0,0,.75)}
