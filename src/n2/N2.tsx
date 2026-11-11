@@ -21,7 +21,7 @@ import { Orb, type Dest } from './Orb';
 import { Now, useSpaceVals } from '@/screens/Home';
 import { MODULES } from '@/lib/modules';
 import { Icon } from '@/ui/Icon';
-import { DayArc, Dots, Gauge, Ruler } from './Viz';
+import { Aurora, DayArc, Dots, Gauge, Ruler } from './Viz';
 
 // NIKKI 2 (protótipo): «a revista da casa». Escuro, como hoje; um serifado de jornal (Newsreader) para títulos e
 // números e a Albert Sans para o resto; a estrutura faz o trabalho das caixas (réguas, colunas, secções numeradas);
@@ -37,6 +37,13 @@ const nb = (t: string) => t.replace(/ €/g, '\u00a0€').replace(/(\d) (\d)/g, 
 const cap = (s: string) => (s ? s[0].toUpperCase() + s.slice(1) : s);
 /** Valores curtos para o gráfico (cabem numa coluna estreita): 878 · 1,3k. */
 const k1 = (u: number): string => { if (u < 0) return `−${k1(-u)}`; const e = u / 100_000; return e >= 1000 ? `${(e / 1000).toFixed(1).replace('.', ',').replace(',0', '')}k` : `${Math.round(e)}`; };
+
+/** A luz segue o dedo: cada cartão de vidro acende onde lhe tocam. */
+const glow = (e: { target: EventTarget; clientX: number; clientY: number }) => {
+  const c = (e.target as HTMLElement).closest?.('.cd,.dayc') as HTMLElement | null; if (!c) return;
+  const r = c.getBoundingClientRect();
+  c.style.setProperty('--mx', `${e.clientX - r.left}px`); c.style.setProperty('--my', `${e.clientY - r.top}px`);
+};
 
 function useN2() {
   useEffect(() => { document.body.classList.add('n2'); try { sessionStorage.setItem('nikki:n2', '1'); } catch { /* sem armazenamento */ } return () => document.body.classList.remove('n2'); }, []);
@@ -170,7 +177,8 @@ export function N2Casa() {
   useN2();
   const m = useMonth();
   return (
-    <div className="n2-page n2v">
+    <div className="n2-page n2v" onPointerMove={glow}>
+      <Aurora />
       <Masthead pill />
       <Fronts money={{ total: m.total, pct: m.pace.fresh ? null : m.pace.pct }} />
       <Orb dests={DESTS} />
@@ -215,7 +223,8 @@ export function N2Home() {
   const hOf = (t: string) => Number(t.slice(0, 2)) + Number(t.slice(3, 5)) / 60;
   const next = todayIts.find((i) => i.time && i.time > hhmm) ?? null;
   return (
-    <div className="n2-page n2v">
+    <div className="n2-page n2v" onPointerMove={glow}>
+      <Aurora />
       <Masthead pill />
       <Link to="/n2/tempo" className={`dayc press${calm ? '' : ' live'}`} aria-label={next ? `A seguir: ${next.title}, às ${next.time}` : 'Hoje sem mais nada marcado'}>
         <span className="cd-h"><span>{next ? 'A seguir' : 'Hoje'}</span><Icon n="arrow" s={14} /></span>

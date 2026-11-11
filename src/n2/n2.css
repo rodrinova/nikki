@@ -302,3 +302,59 @@ a.lead:hover{text-decoration:underline;text-decoration-thickness:1px;text-underl
 .n2v .odo-x{width:auto;min-width:.22em}
 .day-arc{aspect-ratio:300/176;flex:none}
 .dayc,.cd,.n2v .mh,.n2v .sec{flex:none}
+
+/* ——— Profundidade: azul-noite e laranja, vidro sobre luz em movimento. Tudo vivo, nada parado. ——— */
+.n2v{--paper:#0B1017;--ink:#F3F5F8;--sub:rgba(226,232,242,.62);--faint:rgba(226,232,242,.42);--acc:#FF6A1F;--up:#FFB070;--blue:#3D5BFF;isolation:isolate;overflow-x:clip}
+body.n2:has(.n2v){background:#0B1017}
+.aurora{position:fixed;inset:0;z-index:-1;overflow:hidden;pointer-events:none;background:radial-gradient(140% 90% at 50% 0%,#141B27,#0B1017 60%)}
+.aurora i{position:absolute;border-radius:50%;will-change:transform}
+.aurora .a1{width:130vmax;height:130vmax;left:-45vmax;bottom:-78vmax;background:radial-gradient(closest-side,rgba(255,106,31,.62),rgba(255,106,31,.2) 45%,transparent 70%);animation:au-1 19s ease-in-out infinite alternate}
+.aurora .a2{width:120vmax;height:120vmax;right:-62vmax;top:-58vmax;background:radial-gradient(closest-side,rgba(61,91,255,.6),rgba(61,91,255,.18) 48%,transparent 70%);animation:au-2 23s ease-in-out infinite alternate}
+.aurora .a3{width:70vmax;height:70vmax;left:-10vmax;top:22%;background:radial-gradient(closest-side,rgba(255,176,112,.2),transparent 70%);animation:au-3 27s ease-in-out infinite alternate}
+@keyframes au-1{to{transform:translate3d(22vmax,-12vmax,0) scale(1.15)}}
+@keyframes au-2{to{transform:translate3d(-18vmax,14vmax,0) scale(1.2)}}
+@keyframes au-3{to{transform:translate3d(30vmax,-18vmax,0) scale(.8)}}
+
+/* Vidro: translúcido, com o brilho da aresta de cima, a sombra por baixo e a luz do dedo. */
+.n2v .cd,.n2v .dayc{position:relative;overflow:hidden;background:linear-gradient(150deg,rgba(255,255,255,.13),rgba(255,255,255,.035) 55%,rgba(255,255,255,.06));border:1px solid rgba(255,255,255,.1);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.22),inset 0 -1px 0 rgba(0,0,0,.25),0 24px 48px -24px rgba(0,0,0,.75)}
+.n2v .dayc{-webkit-backdrop-filter:blur(26px) saturate(150%);backdrop-filter:blur(26px) saturate(150%)}
+.n2v .cd::after,.n2v .dayc::after{content:"";position:absolute;inset:0;pointer-events:none;border-radius:inherit;background:radial-gradient(180px circle at var(--mx,50%) var(--my,-40%),rgba(255,255,255,.2),transparent 65%);opacity:.55;transition:opacity 300ms ease}
+.n2v .cd:active::after,.n2v .dayc:active::after{opacity:1}
+.n2v .cd.hot{background:linear-gradient(150deg,rgba(255,150,80,.22),rgba(255,255,255,.035) 60%),radial-gradient(120% 90% at 50% 125%,rgba(255,106,31,.45),transparent 62%)}
+.n2v .cd:not(.hot):nth-child(3n){background:linear-gradient(150deg,rgba(255,255,255,.12),rgba(255,255,255,.03) 60%),radial-gradient(120% 90% at 50% 125%,rgba(61,91,255,.34),transparent 62%)}
+.n2v .cd-v,.n2v .dayc-v{text-shadow:0 2px 18px rgba(0,0,0,.35)}
+
+/* A peça do dia: um sol laranja a nascer atrás do arco, sempre a respirar. */
+.n2v .dayc{background:linear-gradient(160deg,rgba(255,255,255,.14),rgba(255,255,255,.03) 50%)}
+.n2v .dayc::before{bottom:-58%;width:128%;background:radial-gradient(closest-side,rgba(255,150,70,.95),rgba(255,106,31,.5) 38%,rgba(61,91,255,.16) 62%,transparent 72%);filter:none;animation:sun 6s ease-in-out infinite}
+@keyframes sun{0%,100%{transform:translateX(-50%) translateY(0) scale(1)}50%{transform:translateX(-50%) translateY(-5%) scale(1.07)}}
+.n2v .day-arc .done{stroke:#fff}
+.n2v .done-glow{fill:none;stroke:#FFB070;stroke-width:9;stroke-linecap:round;opacity:.35;filter:blur(5px);stroke-dasharray:1;stroke-dashoffset:1;animation:sw-draw 1100ms var(--ease-out) 160ms forwards}
+.n2v .gauge .done-glow{stroke:var(--acc);stroke-width:11;opacity:.5;animation:sw-fill 1100ms var(--ease-out) 300ms forwards}
+.n2v .comet{fill:none;stroke:#fff;stroke-width:3.4;stroke-linecap:round;stroke-dasharray:.07 1;stroke-dashoffset:.07;opacity:0;filter:drop-shadow(0 0 5px #FFB070);animation:comet 4.2s cubic-bezier(.5,0,.2,1) 1500ms infinite}
+@keyframes comet{0%{stroke-dashoffset:.07;opacity:0}12%{opacity:.95}80%{opacity:.95}100%{stroke-dashoffset:-1;opacity:0}}
+.n2v .day-arc .now{filter:drop-shadow(0 0 8px #FF6A1F)}
+.n2v .day-arc .mk.past{fill:#18202C}
+.n2v .viz .tick{stroke:rgba(226,232,242,.34)}
+
+/* Os instrumentos nunca param: os pontos cintilam em onda, o ponteiro oscila, a nota pulsa. */
+.n2v .dots circle{fill:rgba(226,232,242,.13)}
+.n2v .dots circle.on,.n2v .dots circle.hot{animation:sw-pop 360ms var(--ease-out) calc(300ms + var(--k) * 22ms) both,twinkle 3.2s ease-in-out calc(1200ms + var(--k) * 110ms) infinite}
+.n2v .dots circle.hot{filter:drop-shadow(0 0 4px rgba(255,106,31,.9))}
+@keyframes twinkle{0%,100%{opacity:1}50%{opacity:.45}}
+.n2v .ruler .hand{filter:drop-shadow(0 0 5px rgba(255,255,255,.7));animation:sw-slide 900ms var(--ease-out) 300ms both,sway 3.6s ease-in-out 1400ms infinite}
+@keyframes sway{0%,100%{transform:translateX(-1.2px)}50%{transform:translateX(1.2px)}}
+.n2v .cd-ic{color:rgba(243,245,248,.7);animation:bob 4.5s ease-in-out infinite}
+@keyframes bob{50%{transform:translateY(-3px)}}
+
+/* Comprimidos e o comando: vidro também. */
+.n2v .mh.mh-p .mh-nav a{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.1);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);color:var(--sub)}
+.n2v .mh.mh-p .mh-nav a[aria-current="page"]{background:#F3F5F8;color:#0B1017;box-shadow:0 8px 24px -8px rgba(255,255,255,.35)}
+.n2v .orb{background:linear-gradient(150deg,rgba(255,255,255,.2),rgba(255,255,255,.05));border:1px solid rgba(255,255,255,.2);-webkit-backdrop-filter:blur(18px) saturate(160%);backdrop-filter:blur(18px) saturate(160%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.3),0 14px 34px -10px rgba(0,0,0,.7),0 0 30px -6px rgba(255,106,31,.55);animation:orb-glow 4s ease-in-out infinite}
+@keyframes orb-glow{50%{box-shadow:inset 0 1px 0 rgba(255,255,255,.3),0 14px 34px -10px rgba(0,0,0,.7),0 0 44px -2px rgba(255,106,31,.8)}}
+.n2v .plain .now-list,.n2v .plain .now-row{border-color:rgba(255,255,255,.1)}
+@media (prefers-reduced-motion: reduce){.aurora i,.n2v .dayc::before,.n2v .comet,.n2v .dots circle,.n2v .ruler .hand,.n2v .cd-ic,.n2v .orb{animation:none!important}.n2v .done-glow{stroke-dashoffset:0}}
+.n2v .dots circle.on{fill:var(--ink)}
+.n2v .dots circle.hot{fill:var(--acc)}
