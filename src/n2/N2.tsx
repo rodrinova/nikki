@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Link, useLocation, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import './n2.css';
 import { useSession } from '@/data/session';
 import { useHouse } from '@/data/house';
@@ -17,21 +17,16 @@ import { buckets, LEVELS, type Ghost, type Level } from '@/lib/thread';
 import { INVEST, catLabel, catNormals, useLedger, useMonth } from '@/screens/Money';
 import { Face } from '@/brand/Face';
 import { Odometer } from './Odometer';
-import { Orb, type Dest } from './Orb';
 import { Now, useSpaceVals } from '@/screens/Home';
 import { MODULES } from '@/lib/modules';
 import { Icon } from '@/ui/Icon';
-import { Aurora, DayArc, Dots, Gauge, Ruler } from './Viz';
+import { DayArc, Dots, Gauge, Ruler } from './Viz';
 
 // NIKKI 2 (protótipo): «a revista da casa». Escuro, como hoje; um serifado de jornal (Newsreader) para títulos e
 // números e a Albert Sans para o resto; a estrutura faz o trabalho das caixas (réguas, colunas, secções numeradas);
 // cada número tem rótulo e comparação; os gráficos escrevem os valores em cima dos dados; o movimento só orienta.
 // Só para quem administra a app e para a demonstração.
 
-const NAV = [
-  { to: '/n2', n: 'Hoje' }, { to: '/n2/tempo', n: 'Agenda' }, { to: '/n2/casa', n: 'Casa' },
-];
-const DESTS: Dest[] = NAV;
 /** O «€» nunca fica sozinho na linha seguinte. */
 const nb = (t: string) => t.replace(/ €/g, '\u00a0€').replace(/(\d) (\d)/g, '$1\u00a0$2');
 const cap = (s: string) => (s ? s[0].toUpperCase() + s.slice(1) : s);
@@ -52,7 +47,6 @@ function useN2() {
 /** O cabeçalho da revista: a cara, a edição (o dia do ano) e a data; por baixo, os destinos, sempre à vista. */
 function Masthead({ pill }: { pill?: boolean } = {}) {
   const { me, partner } = useSession();
-  const { pathname } = useLocation();
   const d = new Date();
   return (
     <header className={`mh${pill ? ' mh-p' : ''}`}>
@@ -63,9 +57,6 @@ function Masthead({ pill }: { pill?: boolean } = {}) {
           <i style={{ ['--c' as string]: me?.color }}>{me?.name?.[0]}</i>{partner && <i style={{ ['--c' as string]: partner.color }}>{partner.name?.[0]}</i>}
         </Link>
       </div>
-      <nav className="mh-nav" aria-label="Secções">
-        {NAV.map((x) => <Link key={x.to} to={x.to} className="press" aria-current={pathname === x.to || (x.to === '/n2/casa' && pathname === '/n2/dinheiro') ? 'page' : undefined}>{x.n}</Link>)}
-      </nav>
     </header>
   );
 }
@@ -178,10 +169,8 @@ export function N2Casa() {
   const m = useMonth();
   return (
     <div className="n2-page n2v" onPointerMove={glow}>
-      <Aurora />
       <Masthead pill />
       <Fronts money={{ total: m.total, pct: m.pace.fresh ? null : m.pace.pct }} />
-      <Orb dests={DESTS} />
     </div>
   );
 }
@@ -224,7 +213,6 @@ export function N2Home() {
   const next = todayIts.find((i) => i.time && i.time > hhmm) ?? null;
   return (
     <div className="n2-page n2v" onPointerMove={glow}>
-      <Aurora />
       <Masthead pill />
       <Link to="/n2/tempo" className={`dayc press${calm ? '' : ' live'}`} aria-label={next ? `A seguir: ${next.title}, às ${next.time}` : 'Hoje sem mais nada marcado'}>
         <span className="cd-h"><span>{next ? 'A seguir' : 'Hoje'}</span><Icon n="arrow" s={14} /></span>
@@ -234,7 +222,6 @@ export function N2Home() {
       </Link>
       <Fronts money={{ total: m.total, pct }} short />
       <Sec n="" t="A fazer" className="plain lite"><Now /></Sec>
-      <Orb dests={DESTS} tense={pct !== null && pct >= 15} />
     </div>
   );
 }
@@ -266,7 +253,7 @@ export function N2Money() {
   const name = (id: string | null) => (id === me?.id ? 'tu' : id === partner?.id ? partner?.name ?? '' : '');
   const s = m.current ? 1 : 0;
   return (
-    <div className="n2-page">
+    <div className="n2-page n2v">
       <Masthead />
       <div className="mnav">
         <button type="button" className="press" aria-label="Mês anterior" onClick={() => setKey(prevMonth(key))}>‹</button>
@@ -341,7 +328,6 @@ export function N2Money() {
         </table>
         {moves.length > n && <button type="button" className="more press" onClick={() => setN(n + 20)}>Mais {Math.min(20, moves.length - n)} de {moves.length - n}</button>}
       </Sec>
-      <Orb dests={DESTS} tense={pct !== null && pct >= 15} />
     </div>
   );
 }
@@ -382,7 +368,7 @@ export function N2Time() {
     return () => { removeEventListener('wheel', wheel); removeEventListener('keydown', key); };
   });
   return (
-    <div className="n2-page"
+    <div className="n2-page n2v"
       onTouchStart={(e) => { if (e.touches.length === 2) { const [a, b] = [e.touches[0], e.touches[1]]; pinch.current = { d: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY), done: false }; } }}
       onTouchMove={(e) => {
         const p = pinch.current; if (!p || p.done || e.touches.length !== 2) return;
@@ -420,7 +406,6 @@ export function N2Time() {
           </div>
         ))}
       </div>
-      <Orb dests={DESTS} />
     </div>
   );
 }

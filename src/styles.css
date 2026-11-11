@@ -1647,8 +1647,30 @@ body.story-open{overflow:hidden}
 .qrscan-view video{width:100%;height:100%;object-fit:cover;display:block}
 .qrscan-frame{position:absolute;left:50%;top:50%;width:62%;aspect-ratio:1;transform:translate(-50%,-50%);border-radius:18px;box-shadow:0 0 0 2px #FF7A1F,0 0 0 100vmax rgba(0,0,0,.45)}
 
-/* O botão de ideias e problemas, sempre presente (pré-visualização da NIKKI 2). */
-.ticket-fab{position:fixed;z-index:45;right:max(14px,env(safe-area-inset-right,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 30px);width:48px;height:48px;border-radius:50%;display:grid;place-items:center;
-  background:#1D1B19;color:#F2EEE6;border:1px solid rgba(242,238,230,.28);box-shadow:0 10px 30px -10px rgba(0,0,0,.6);text-decoration:none}
-body:not(.n2) .ticket-fab{bottom:calc(env(safe-area-inset-bottom,0px) + 96px)}
-@media (min-width:1024px){body:not(.n2) .ticket-fab{bottom:24px}}
+/* ——— NIKKI 2 em toda a app (pré-visualização): azul-noite e laranja, vidro sobre luz em movimento. ——— */
+.aurora{position:fixed;inset:0;z-index:-1;overflow:hidden;pointer-events:none;background:radial-gradient(140% 90% at 50% 0%,#141B27,#0B1017 60%)}
+.aurora i{position:absolute;border-radius:50%;will-change:transform}
+.aurora .a1{width:130vmax;height:130vmax;left:-45vmax;bottom:-78vmax;background:radial-gradient(closest-side,rgba(255,106,31,.62),rgba(255,106,31,.2) 45%,transparent 70%);animation:au-1 19s ease-in-out infinite alternate}
+.aurora .a2{width:120vmax;height:120vmax;right:-62vmax;top:-58vmax;background:radial-gradient(closest-side,rgba(61,91,255,.6),rgba(61,91,255,.18) 48%,transparent 70%);animation:au-2 23s ease-in-out infinite alternate}
+.aurora .a3{width:70vmax;height:70vmax;left:-10vmax;top:22%;background:radial-gradient(closest-side,rgba(255,176,112,.2),transparent 70%);animation:au-3 27s ease-in-out infinite alternate}
+@keyframes au-1{to{transform:translate3d(22vmax,-12vmax,0) scale(1.15)}}
+@keyframes au-2{to{transform:translate3d(-18vmax,14vmax,0) scale(1.2)}}
+@keyframes au-3{to{transform:translate3d(30vmax,-18vmax,0) scale(.8)}}
+
+body.n2x{--ground:#0B1017;--tile:#141B27;--tile-2:rgba(255,255,255,.1);--ink:#F3F5F8;--sub:rgba(226,232,242,.64);--line:rgba(255,255,255,.12);
+  --accent:#FF6A1F;--on-accent:#0B1017;--accent-soft:rgba(255,106,31,.16);--glow:255,106,31;--aura:transparent;
+  --glass:linear-gradient(150deg,rgba(255,255,255,.12),rgba(255,255,255,.035) 55%,rgba(255,255,255,.06));--glass-line:rgba(255,255,255,.1);--glass-hi:inset 0 1px 0 rgba(255,255,255,.2),0 24px 48px -24px rgba(0,0,0,.7);
+  background:#0B1017!important;color:var(--ink);color-scheme:dark}
+body.n2x .app{position:relative;z-index:1}
+body.n2x .tile{-webkit-backdrop-filter:none;backdrop-filter:none}
+body.n2x .sheet{background:linear-gradient(180deg,#18202D,#111722);border:1px solid rgba(255,255,255,.1);border-bottom:0;box-shadow:0 -30px 80px -20px rgba(0,0,0,.8)}
+body.n2x .scrim{background:rgba(5,8,13,.6);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+body.n2x .side{display:none!important}
+body.n2x .bottom{display:block!important;z-index:40}
+body.n2x .bottom .in{background:linear-gradient(150deg,rgba(255,255,255,.16),rgba(255,255,255,.05));border:1px solid rgba(255,255,255,.14);-webkit-backdrop-filter:blur(22px) saturate(160%);backdrop-filter:blur(22px) saturate(160%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.28),0 18px 44px -12px rgba(0,0,0,.75)}
+body.n2x .bottom .in > a{border-color:transparent;color:var(--sub)}
+body.n2x .bottom .in > a[aria-current="page"]{background:#F3F5F8;color:#0B1017}
+body.n2x .bottom .add{background:linear-gradient(160deg,#FF8A3D,#FF5A12);border-color:transparent;color:#0B1017;box-shadow:0 0 28px -4px rgba(255,106,31,.75);animation:dock-glow 4s ease-in-out infinite}
+@keyframes dock-glow{50%{box-shadow:0 0 40px 0 rgba(255,106,31,.95)}}
+@media (prefers-reduced-motion: reduce){.aurora i,body.n2x .bottom .add{animation:none!important}}
