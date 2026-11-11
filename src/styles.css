@@ -253,9 +253,9 @@ body.has-sheet .toast-root{top:calc(env(safe-area-inset-top,0px) + 12px);bottom:
 @keyframes eyesIn{from{transform:scaleY(0)}}
 @keyframes whisk{from{transform:scaleX(0)}}
 @keyframes fadeIn{from{opacity:0}}
-.story{display:flex;flex-direction:column;gap:14px}
-.story p{font-size:var(--t-m);line-height:1.6;max-width:38ch}
-.story .sign{color:var(--sub)}
+.tale{display:flex;flex-direction:column;gap:14px}
+.tale p{font-size:var(--t-m);line-height:1.6;max-width:38ch}
+.tale .sign{color:var(--sub)}
 
 @media (prefers-reduced-motion: reduce){
   .word .eyes,.word .lt,.word .wk-l,.word .wk-r{animation:none!important}
