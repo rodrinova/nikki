@@ -201,3 +201,11 @@ describe('netSeries', () => {
   });
   it('sem valores, sem pontos', () => expect(netSeries(A, [])).toEqual([]));
 });
+
+describe('um ativo para os dois fundos', () => {
+  it('enche primeiro o dos imprevistos; o resto conta no de emergência', () => {
+    expect(splitFunds([], [], 10_000 * U, 6_000 * U, 4_000 * U)).toEqual({ emergency: 2_000 * U, cushion: 4_000 * U, overflow: 0 });
+    expect(splitFunds([], [{ value: 1_000 * U }], 10_000 * U, 6_000 * U, 4_000 * U)).toEqual({ emergency: 3_000 * U, cushion: 4_000 * U, overflow: 0 });
+    expect(splitFunds([], [], 10_000 * U, 3_000 * U, 4_000 * U)).toEqual({ emergency: 0, cushion: 3_000 * U, overflow: 0 });
+  });
+});

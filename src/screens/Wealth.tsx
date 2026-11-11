@@ -453,7 +453,7 @@ function Assets({ w }: { w: W }) {
   return (
     <div className="tile card rows">{w.shown.map((a) => (
       <button key={a.id} className="press" onClick={() => (a.id === 'salvados' ? nav('/salvados') : open(<AssetSheet asset={a} />))} style={a.part === 0 ? { opacity: 0.5 } : undefined}>
-        <span className="st2"><span>{a.name}</span><span className="s">{KINDS[a.kind as AssetKind]?.name ?? a.kind} · {owner(a.owner_id)}{a.liq !== 'out' ? ` · ${String(a.expected_return).replace('.', ',')}%/ano` : ' · fora das contas'}{a.role ? ` · ${ROLE[a.role].toLowerCase()}` : ''}</span></span>
+        <span className="st2"><span>{a.name}</span><span className="s">{KINDS[a.kind as AssetKind]?.name ?? a.kind} · {owner(a.owner_id)}{a.liq !== 'out' ? ` · ${String(a.expected_return).replace('.', ',')}%/ano` : ' · fora das contas'}{a.role ? ` · ${a.role === 'both' ? 'os dois fundos' : ROLE[a.role].toLowerCase()}` : ''}</span></span>
         <span className="v">{w.casa ? money(a.value) : money(a.mine)}{w.casa && a.part > 0 && a.part < 1 ? <span className="s"> · tua parte {money(a.mine)}</span> : null}{!w.casa && a.part < 1 ? <span className="s"> de {money(a.value)}</span> : null}</span>
       </button>
     ))}</div>
@@ -544,12 +544,13 @@ function AssetSheet({ asset, role: presetRole }: { asset?: AssetRow & { value?: 
   const [owner, setOwner] = useState<string | null>(asset ? asset.owner_id : partner ? null : me!.id);
   const [value, setValue] = useState(asset?.value ? eur(asset.value).replace(/\s/g, '') : '');
   const [ret, setRet] = useState(asset ? String(asset.expected_return).replace('.', ',') : String(RETURN[(presetRole ? 'remunerada' : 'etf')]).replace('.', ','));
-  const [role, setRole] = useState<FundRole | null>(asset?.role ?? presetRole ?? null);
+  const [role, setRole] = useState<FundRole | 'both' | null>(asset?.role ?? presetRole ?? null);
   const [on, setOn] = useState(todayStr());
   const [err, setErr] = useState('');
   const log = asset ? snapshots.rows.filter((s) => s.asset_id === asset.id).sort((a, b) => (a.on_date < b.on_date ? 1 : -1)) : [];
   const liq = liqOf(kind);
-  const check = role ? fundCheck(kind, role) : null;
+  const fr: FundRole | null = role === 'both' ? 'cushion' : role; // os dois: as regras do de imprevistos
+  const check = fr ? fundCheck(kind, fr) : null;
   const pickKind = (k: AssetKind) => { setKind(k); if (!asset) setRet(String(RETURN[k]).replace('.', ',')); };
 
   async function save(e: FormEvent) {
@@ -594,8 +595,9 @@ function AssetSheet({ asset, role: presetRole }: { asset?: AssetRow & { value?: 
             <button type="button" className="press" aria-pressed={role === null} onClick={() => setRole(null)}>Investimento</button>
             <button type="button" className="press" aria-pressed={role === 'emergency'} onClick={() => setRole('emergency')}>Emergência</button>
             <button type="button" className="press" aria-pressed={role === 'cushion'} onClick={() => setRole('cushion')}>Imprevistos</button>
+            <button type="button" className="press" aria-pressed={role === 'both'} onClick={() => setRole('both')}>Os dois</button>
           </div>
-          {check && <p className={check.ok ? 's' : 'err'}>{check.ok ? `Conta como ${ROLE[role!].toLowerCase()}.` : `Não conta como ${ROLE[role!].toLowerCase()}: ${check.why}. Melhor ${WHERE[role!]}.`}</p>}
+          {check && <p className={check.ok ? 's' : 'err'}>{check.ok ? (role === 'both' ? 'Conta nos dois: enche primeiro o fundo para imprevistos e o resto vai para o de emergência.' : `Conta como ${ROLE[fr!].toLowerCase()}.`) : `Não conta como ${role === 'both' ? 'os dois fundos' : ROLE[fr!].toLowerCase()}: ${check.why}. Melhor ${WHERE[fr!]}.`}</p>}
         </>}
         {err && <p className="err">{err}</p>}
         <button className="btn wide press">Guardar <Icon n="check" s={20} /></button>
