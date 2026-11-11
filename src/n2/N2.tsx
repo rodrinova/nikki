@@ -46,12 +46,11 @@ function Masthead() {
   const { me, partner } = useSession();
   const { pathname } = useLocation();
   const d = new Date();
-  const ed = Math.floor((d.getTime() - new Date(d.getFullYear(), 0, 0).getTime()) / 86_400_000);
   return (
     <header className="mh">
       <div className="mh-top">
         <Link to="/" className="mh-face press" aria-label="Voltar à NIKKI de todos os dias"><Face h={18} mode="still" /></Link>
-        <span className="mh-ed">Edição {ed} · {d.toLocaleDateString('pt-PT', { weekday: 'long', day: 'numeric', month: 'long' })}</span>
+        <span className="mh-ed">{cap(d.toLocaleDateString('pt-PT', { weekday: 'long', day: 'numeric', month: 'long' }))}</span>
         <Link to="/nos" className="mh-us press" aria-label="Nós">
           <i style={{ ['--c' as string]: me?.color }}>{me?.name?.[0]}</i>{partner && <i style={{ ['--c' as string]: partner.color }}>{partner.name?.[0]}</i>}
         </Link>
@@ -67,7 +66,7 @@ function Masthead() {
 function Sec({ n, t, aside, children, className }: { n: string; t: string; aside?: ReactNode; children: ReactNode; className?: string }) {
   return (
     <section className={`sec${className ? ` ${className}` : ''}`} aria-label={t}>
-      <header className="sec-h"><span className="sec-n">{n}</span><span className="sec-t">{t}</span>{aside && <span className="sec-a">{aside}</span>}</header>
+      <header className="sec-h">{n && <span className="sec-n">{n}</span>}<span className="sec-t">{t}</span>{aside && <span className="sec-a">{aside}</span>}</header>
       {children}
     </section>
   );
@@ -165,11 +164,8 @@ export function N2Casa() {
   return (
     <div className="n2-page">
       <Masthead />
-      <section className="front calm" aria-label="Casa"><h1 className="lead">A casa, frente a frente.</h1><p className="lead-sub">Cada uma com o seu sinal. Toca para entrar.</p></section>
-      <Sec n="01" t="Frentes"><Fronts money={{ total: m.total, pct: m.pace.fresh ? null : m.pace.pct }} /></Sec>
-      <Sec n="02" t="A conta" className="plain">
-        <ul className="briefs"><li><Link to="/pessoas" className="press">Pessoas e acessos</Link></li><li><Link to="/perfil" className="press">Definições</Link></li><li><Link to="/modulos" className="press">O que a casa usa</Link></li></ul>
-      </Sec>
+      <section className="front calm" aria-label="Casa"><h1 className="lead">Casa</h1></section>
+      <Fronts money={{ total: m.total, pct: m.pace.fresh ? null : m.pace.pct }} />
       <Orb dests={DESTS} />
     </div>
   );
@@ -209,27 +205,23 @@ export function N2Home() {
     balance: L ? { lead: L.lead, v: L.v, even: L.even } : null,
   })), [today, hhmm, pct, why, m.total, m.normal, m.key, deadlines.rows, on, items, me, daily, partner, here, shop.rows, hkCard, hkNew, L]);
   const { lead, calm } = front; // os números e as breves saíram do Hoje: já estão em «O teu dia» e em «A fazer»
-  let sec = 0; const nn = () => String(++sec).padStart(2, '0');
   return (
     <div className="n2-page">
       <Masthead />
       <section className={`front${calm ? ' calm' : ''}`} aria-label="Manchete">
         {lead.to ? <Link to={lead.to} className="lead press">{nb(lead.head)}</Link> : <h1 className="lead">{nb(lead.head)}</h1>}
-        {lead.sub && <p className="lead-sub">{nb(lead.sub)}</p>}
       </section>
-      <Sec n={nn()} t="O teu dia" aside={<Link to="/n2/tempo" className="more press">Agenda</Link>}>
+      <Sec n="" t={todayIts.length || !tmIts.length ? 'Hoje' : 'Amanhã'} aside={<Link to="/n2/tempo" className="more press">Agenda</Link>}>
         <ol className="tt">
-          {[...todayIts.map((i) => ({ i, d: 'Hoje' })), ...tmIts.map((i) => ({ i, d: 'Amanhã' }))].slice(0, 6).map(({ i, d }, k) => (
+          {(todayIts.length ? todayIts : tmIts).slice(0, 4).map((i, k) => (
             <li key={k} className={i.day === today && i.time && (i.endTime ?? i.time) <= hhmm ? 'past' : ''}>
-              <span className="tt-t num">{i.time ?? '—'}</span>
-              <span className="tt-w">{i.title}<small>{d}{i.note ? ` · ${i.note}` : ''}</small></span>
+              <span className="tt-t num">{i.time ?? '—'}</span><span className="tt-w">{i.title}</span>
             </li>
           ))}
-          {!todayIts.length && !tmIts.length && <li><span className="tt-t">—</span><span className="tt-w">Hoje e amanhã sem nada marcado.</span></li>}
+          {!todayIts.length && !tmIts.length && <li><span className="tt-t">—</span><span className="tt-w">Nada marcado.</span></li>}
         </ol>
       </Sec>
-      <Sec n={nn()} t="A fazer" className="plain"><Now /></Sec>
-      <Sec n={nn()} t="A casa" aside={<Link to="/n2/casa" className="more press">Tudo</Link>}><Fronts money={{ total: m.total, pct }} short /></Sec>
+      <Sec n="" t="A fazer" className="plain lite"><Now /></Sec>
       <Orb dests={DESTS} tense={pct !== null && pct >= 15} />
     </div>
   );

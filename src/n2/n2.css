@@ -231,3 +231,8 @@ a.lead:hover{text-decoration:underline;text-decoration-thickness:1px;text-underl
 .fr-v{display:flex;align-items:baseline;gap:8px;text-align:right}
 .fr-v b{font-weight:400;font-size:var(--t-l)}
 .fr-v small{font-size:var(--t-s);color:var(--faint)}
+
+/* Páginas leves: um título, uma lista. Em «A fazer» fica só o título de cada coisa; o resto está a um toque. */
+.lite .now-main .st2 > .s,.lite .now-act,.lite .now-row .tb{display:none!important}
+.lite .now-row{min-height:48px;align-items:center}
+.n2-page{gap:28px}
