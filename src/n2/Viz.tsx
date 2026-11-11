@@ -1,3 +1,4 @@
+import type React from 'react';
 // Os instrumentos da NIKKI 2: o desenho diz o número antes de o texto o dizer. Tudo em SVG, a uma só espessura,
 // com o laranja para «agora» e para o que pede atenção. O movimento só desenha (uma vez, à entrada).
 
@@ -55,3 +56,46 @@ export function Gauge({ v }: { v: number }) {
   );
 }
 
+
+/**
+ * O mês num mostrador: um raio por dia, à volta de um arco de 270°. O comprimento é o que se gastou nesse dia;
+ * o dia de hoje acende a laranja, os dias que faltam ficam em ponto. Uma agulha de luz varre o mostrador, sempre.
+ */
+export function MonthDial({ days, today, children }: { days: number[]; today: number | null; children?: React.ReactNode }) {
+  const n = days.length, max = Math.max(1, ...days), C = 150, R0 = 96, R1 = 138;
+  const ang = (k: number) => ((135 + (270 * (k + 0.5)) / n) * Math.PI) / 180;
+  const pt = (k: number, r: number) => [C + Math.cos(ang(k)) * r, C + Math.sin(ang(k)) * r] as const;
+  return (
+    <div className="mdial">
+      <svg className="viz" viewBox="0 0 300 262" role="img" aria-label="O mês, dia a dia">
+        <circle className="md-ring" cx={C} cy={C} r={R0 - 10} />
+        {days.map((v, k) => {
+          const fut = today !== null && k + 1 > today, r = fut || v <= 0 ? R0 + 2 : R0 + 4 + (v / max) * (R1 - R0 - 4);
+          const [a, b] = pt(k, R0), [c, d] = pt(k, r);
+          return <line key={k} className={`md-d${today === k + 1 ? ' now' : fut ? ' fut' : v <= 0 ? ' zero' : ''}`} x1={a} y1={b} x2={c} y2={d} style={{ ['--k' as string]: k }} />;
+        })}
+        <g className="md-sweep"><line x1={C} y1={C - R0 + 14} x2={C} y2={C - R1} /></g>
+      </svg>
+      <div className="md-c">{children}</div>
+    </div>
+  );
+}
+
+/** Doze meses em matriz de pontos: cada coluna é um mês, cada ponto uma fatia; a linha do normal atravessa. */
+export function DotCols({ cols, normal, onPick }: { cols: { key: string; label: string; v: number; ghost?: number; cur?: boolean; sel?: boolean }[]; normal: number | null; onPick: (key: string) => void }) {
+  const ROWS = 9, max = Math.max(1, normal ?? 0, ...cols.map((c) => Math.max(c.v, c.ghost ?? 0)));
+  const rows = (v: number) => Math.round((v / max) * ROWS), nr = normal ? rows(normal) : -1;
+  return (
+    <div className="dcols" style={{ ['--n' as string]: cols.length }}>
+      {cols.map((c, j) => {
+        const on = rows(c.v), gh = rows(c.ghost ?? 0);
+        return (
+          <button key={c.key} type="button" className={`dcol press${c.sel ? ' sel' : ''}${c.cur ? ' cur' : ''}`} onClick={() => onPick(c.key)} aria-label={`${c.label}: ${Math.round(c.v / 100_000)} €`}>
+            {Array.from({ length: ROWS }, (_, i) => { const r = ROWS - i; return <i key={i} className={`${r <= on ? 'on' : r <= gh ? 'gh' : ''}${r === nr ? ' nr' : ''}`} style={{ ['--k' as string]: j * 2 + r }} />; })}
+            <span>{c.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}

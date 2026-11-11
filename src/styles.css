@@ -1674,3 +1674,20 @@ body.n2x .bottom .in > a[aria-current="page"]{background:#F3F5F8;color:#0B1017}
 body.n2x .bottom .add{background:linear-gradient(160deg,#FF8A3D,#FF5A12);border-color:transparent;color:#0B1017;box-shadow:0 0 28px -4px rgba(255,106,31,.75);animation:dock-glow 4s ease-in-out infinite}
 @keyframes dock-glow{50%{box-shadow:0 0 40px 0 rgba(255,106,31,.95)}}
 @media (prefers-reduced-motion: reduce){.aurora i,body.n2x .bottom .add{animation:none!important}}
+/* NIKKI 2: os gráficos partilhados na linguagem nova (mostradores de traço fino, luz e movimento contínuo). */
+body.n2x .arc-track{stroke:rgba(243,245,248,.28);stroke-width:10;stroke-dasharray:1.5 7;stroke-linecap:butt}
+body.n2x .arc-fill{stroke-width:4;filter:drop-shadow(0 0 7px rgba(255,106,31,.9))}
+body.n2x .arc-knob{r:8;stroke:#0B1017;animation:fadeIn 400ms ease-out 900ms both,knob 2.6s ease-in-out 1300ms infinite}
+@keyframes knob{50%{filter:drop-shadow(0 0 16px rgba(255,106,31,1))}}
+body.n2x .arc-n{font-weight:300}
+body.n2x .tc-line{stroke:#F3F5F8;stroke-width:2.4;filter:drop-shadow(0 0 7px rgba(255,106,31,.85))}
+body.n2x .tc-month{stroke:rgba(255,255,255,.1);stroke-dasharray:2 5}
+body.n2x .tc-dot{fill:var(--accent);stroke:#0B1017}
+body.n2x .tc-mline{stroke:rgba(243,245,248,.5)}
+body.n2x .tc-win{fill:rgba(61,91,255,.2);stroke:rgba(120,145,255,.7)}
+body.n2x .gbar{height:12px;border-radius:999px;background:rgba(255,255,255,.07);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}
+body.n2x .gbar i{position:relative;border-radius:999px;background:linear-gradient(90deg,rgba(255,255,255,.25),#F3F5F8);box-shadow:0 0 14px -2px rgba(255,255,255,.5);overflow:hidden}
+body.n2x .gbar.st-risk i,body.n2x .gbar.st-over i{background:linear-gradient(90deg,rgba(255,106,31,.4),#FF6A1F);box-shadow:0 0 16px -2px rgba(255,106,31,.9)}
+body.n2x .gbar i::after{content:"";position:absolute;inset:0;background:linear-gradient(100deg,transparent 30%,rgba(255,255,255,.55) 50%,transparent 70%);background-size:220% 100%;animation:gsheen 3.6s ease-in-out infinite}
+@keyframes gsheen{0%{background-position:160% 0}60%,100%{background-position:-60% 0}}
+@media (prefers-reduced-motion: reduce){body.n2x .arc-knob,body.n2x .gbar i::after{animation:none!important}}

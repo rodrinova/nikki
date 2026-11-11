@@ -4,12 +4,10 @@ import './n2.css';
 import { useSession } from '@/data/session';
 import { useHouse } from '@/data/house';
 import { useAgendaItems } from '@/data/agenda';
-import { addDays, monthKey, monthName, nextMonth, prevMonth, todayStr } from '@/lib/dates';
-import { eur, monthlySeries, toU } from '@/lib/money';
+import { addDays, daysInMonth, monthKey, monthName, nextMonth, prevMonth, todayStr } from '@/lib/dates';
+import { eur, monthlySeries, partOf, toU } from '@/lib/money';
 import { driver, expected } from '@/lib/forecast';
 import { compose, stories } from '@/lib/front';
-import { glance } from '@/lib/glance';
-import { explainCats, explainPace, explainYear } from '@/lib/explain';
 import { useShopPresence } from '@/data/presence';
 import { store } from '@/lib/store';
 import { seenKey } from '@/screens/Housekeeping';
@@ -20,7 +18,7 @@ import { Odometer } from './Odometer';
 import { Now, useSpaceVals } from '@/screens/Home';
 import { MODULES } from '@/lib/modules';
 import { Icon } from '@/ui/Icon';
-import { DayArc, Dots, Gauge, Ruler } from './Viz';
+import { DayArc, DotCols, Dots, Gauge, MonthDial, Ruler } from './Viz';
 
 // NIKKI 2 (protótipo): «a revista da casa». Escuro, como hoje; um serifado de jornal (Newsreader) para títulos e
 // números e a Albert Sans para o resto; a estrutura faz o trabalho das caixas (réguas, colunas, secções numeradas);
@@ -71,63 +69,6 @@ function Sec({ n, t, aside, children, className }: { n: string; t: string; aside
   );
 }
 
-/** O ritmo do mês em lâminas, com os valores escritos: o que já foi, o normal até hoje e a previsão. */
-function Pace({ m }: { m: ReturnType<typeof useMonth> }) {
-  const p = m.pace;
-  if (p.fresh || p.blocks === undefined || !m.normal) return <p className="note">O ritmo aparece ao fim do primeiro mês completo.</p>;
-  const normalToday = m.normal * p.share;
-  return (
-    <div className="pace">
-      <p className="say">{nb(explainPace({ everyday: m.everyday, normal: m.normal, share: p.share, forecast: p.forecast, day: p.day }))}</p>
-      <div className="blades" role="img" aria-label={`Até ao dia ${p.day}: ${eur(m.everyday, 0)} € gastos; num mês normal, até hoje, ${eur(normalToday, 0)} €.`}>
-        {Array.from({ length: p.days }, (_, j) => <i key={j} className={`${j < (p.blocks ?? 0) ? (j < p.day ? 'f' : 'a') : ''}${j === p.day - 1 ? ' now' : ''}`} style={{ ['--j' as string]: j }} />)}
-      </div>
-      <div className="pace-scale" aria-hidden="true"><span>dia 1</span><span className="pace-now" style={{ left: `${((p.day - 0.5) / p.days) * 100}%` }}>hoje, dia {p.day}</span><span>dia {p.days}</span></div>
-      <dl className="pace-dl">
-        <div><dt>Dia a dia, até hoje</dt><dd>{eur(m.everyday, 0)} €</dd></div>
-        {m.events > 0 && <div><dt>À parte (eventos e compras grandes)</dt><dd>{eur(m.events, 0)} €</dd></div>}
-        <div><dt>Num mês normal, até hoje</dt><dd>{eur(normalToday, 0)} €</dd></div>
-        <div><dt>Previsão para o mês</dt><dd>{eur(p.forecast, 0)} €</dd></div>
-      </dl>
-      <p className="note">Cada lâmina é um dia de um mês normal. Brancas: já passaram. Laranja: dias que ainda não chegaram, mas já estão gastos.</p>
-    </div>
-  );
-}
-
-/**
- * O mês num relance: um calendário com o valor de cada dia escrito (a tua parte, dia a dia), os dias fora do normal
- * anotados com o que os pesou, e a frase que explica o mês. Lê-se de uma vez; não é uma imagem.
- */
-function Glance({ expenses, monthKey: key, normal }: { expenses: Parameters<typeof glance>[0]; monthKey: string; normal: number | null }) {
-  const { me } = useSession();
-  const g = useMemo(() => glance(expenses, me?.id ?? '', key, todayStr(), normal), [expenses, me?.id, key, normal]);
-  const out = new Map(g.outliers.map((d, i) => [d.day, i + 1]));
-  return (
-    <div className="gl">
-      <p className="gl-say">{nb(g.sentence)}</p>
-      <div className="gl-cal" role="table" aria-label={`O mês dia a dia: ${g.days.filter((d) => d.total).map((d) => `dia ${d.day}, ${eur(d.total, 0)} €`).join('; ')}`}>
-        {['S', 'T', 'Q', 'Q', 'S', 'S', 'D'].map((w, i) => <span key={`w${i}`} className="gl-wd" aria-hidden="true">{w}</span>)}
-        {Array.from({ length: g.lead }, (_, i) => <span key={`e${i}`} aria-hidden="true" />)}
-        {g.days.map((d) => (
-          <span key={d.day} aria-hidden="true" className={`gl-d${d.future ? ' fut' : ''}${d.today ? ' now' : ''}${out.has(d.day) ? ' out' : ''}${d.total < 0 ? ' neg' : ''}`}
-            style={{ ['--a' as string]: g.max ? Math.max(0, Math.min(1, d.total / g.max)) : 0 }}>
-            <small>{d.day}{out.has(d.day) && <sup>{out.get(d.day)}</sup>}</small>
-            <b className="num">{d.future ? '' : d.total ? k1(d.total) : '·'}</b>
-          </span>
-        ))}
-      </div>
-      {g.outliers.length > 0 && (
-        <ol className="gl-notes">{g.outliers.map((d, i) => <li key={d.day}><span className="num">{i + 1}</span><span>Dia {d.day}{d.note ? ` · ${d.note}` : ''}</span><span className="num">{eur(d.total, 0)} €</span></li>)}</ol>
-      )}
-    </div>
-  );
-}
-
-/**
- * O Hoje que se compõe (lib/front.ts): cada assunto da casa tem um peso agora; o de mais peso é a manchete, os dois
- * seguintes são destaques com o seu número, e há até quatro breves. Num dia calmo a manchete diz isso mesmo.
- * Por baixo, o que não muda de lugar: o mês num relance, a agenda e o que há para resolver.
- */
 /**
  * As frentes da casa, lado a lado e com o mesmo peso: o dinheiro é uma delas. Cada linha tem o seu sinal (um número
  * e a legenda). No Hoje (short) só aparecem as que pedem atenção; na Casa, todas.
@@ -243,15 +184,15 @@ export function N2Money() {
   const cats = m.dailyByCat.filter(([, v]) => v > 0).slice(0, 7);
   const cmax = Math.max(1, ...cats.map(([c, v]) => Math.max(v, catN[c] ?? 0)));
   const fcast = m.current && !m.pace.fresh ? m.pace.forecast : 0;
-  const smax = Math.max(1, m.normal ?? 0, ...series.map((x) => x.total), fcast);
   const moves = expenses.rows.filter((e) => monthKey(e.spent_on) === key).sort((a, b) => (a.spent_on < b.spent_on ? 1 : -1));
   const pct = m.current ? (m.pace.fresh ? null : m.pace.pct) : m.normal ? Math.round((m.everyday / m.normal - 1) * 100) : null;
-  // As frases que explicam os gráficos (lib/explain.ts): o que é notável e porquê; o resto cala-se.
-  const catsSay = useMemo(() => (me ? explainCats({ byCat: m.dailyByCat, normals: catN, share: m.current && !m.pace.fresh ? m.pace.day / m.pace.days : 1, current: m.current, expenses: daily, who: me.id, key, label: catLabel }) : { text: '', marks: [] as string[], fixed: undefined as string | undefined }), [me, m, catN, daily, key]);
-  const yearSay = useMemo(() => explainYear({ months: series, normal: m.normal, forecast: fcast || null, expenses: daily, who: me?.id ?? '' }), [series, m.normal, fcast, daily, me?.id]);
+  const perDay = useMemo(() => {
+    const d = Array.from({ length: daysInMonth(key) }, () => 0);
+    if (me) for (const e of daily) if (monthKey(e.spent_on) === key) d[Number(e.spent_on.slice(8, 10)) - 1] += partOf(e, me.id);
+    return d;
+  }, [daily, key, me]);
   const [n, setN] = useState(8);
   const name = (id: string | null) => (id === me?.id ? 'tu' : id === partner?.id ? partner?.name ?? '' : '');
-  const s = m.current ? 1 : 0;
   return (
     <div className="n2-page n2v">
       <Masthead />
@@ -260,63 +201,37 @@ export function N2Money() {
         <span>{cap(monthName(key))}{key.slice(0, 4) !== cur.slice(0, 4) ? ` ${key.slice(0, 4)}` : ''}</span>
         <button type="button" className="press" aria-label="Mês seguinte" disabled={key >= cur} onClick={() => setKey(nextMonth(key))}>›</button>
       </div>
-      <div className="hero">
-        <span className="fig-l">{partner ? 'A tua parte' : 'Total'} em {monthName(key)}</span>
-        <span className="dayc-v"><Odometer value={eur(m.total, 0)} /><small>€</small></span>
-        <span className={`fig-n${pct !== null && pct >= 10 ? ' up' : pct !== null && pct <= -10 ? ' down' : ''}`}>
-          {pct === null ? 'O primeiro mês: daqui para a frente compara-se.' : `${pct === 0 ? 'No ritmo habitual' : `${Math.abs(pct)}% ${pct > 0 ? 'acima' : 'abaixo'} do habitual`}${m.current && !m.pace.fresh ? `, até dia ${m.pace.day}` : ''}.`}
-        </span>
-        <span className="fig-n">O teu normal: {m.normal ? `${eur(m.normal, 0)} €` : '—'} por mês.{m.events > 0 ? ` Mais ${eur(m.events, 0)} € em eventos, à parte.` : ''}</span>
-      </div>
-
-      {m.current && <Sec n="01" t="Ritmo"><Pace m={m} /></Sec>}
-
-      <Sec n={`0${1 + s}`} t="Dia a dia"><Glance expenses={daily} monthKey={key} normal={m.normal} /></Sec>
-
-      <Sec n={`0${2 + s}`} t="Onde" aside={<span className="sec-k">face ao teu normal</span>}>
-        {catsSay.text && <p className="say">{nb(catsSay.text)}</p>}
-        {cats.length ? (
-          <table className="tbl">
-            <thead><tr><th>Categoria</th><th aria-label="Barra" /><th className="r">{m.current ? 'Até hoje' : 'No mês'}</th><th className="r">{m.current ? 'do normal' : 'Δ'}</th></tr></thead>
-            <tbody>{cats.map(([c, v]) => {
-              const nn = catN[c] ?? 0, d = nn > 0 && !m.current ? Math.round((v / nn - 1) * 100) : null;
-              return (
-                <tr key={c} className={catsSay.marks.includes(c) ? 'hl' : undefined}>
-                  <td>{catLabel(c)}</td>
-                  <td className="bar"><i style={{ width: `${(v / cmax) * 100}%` }} />{nn > 0 && <b style={{ left: `${(nn / cmax) * 100}%` }} title={`Normal: ${eur(nn, 0)} €`} />}</td>
-                  <td className="r num">{eur(v, 0)} €</td>
-                  <td className={`r num${d !== null && d >= 5 ? ' up' : d !== null && d <= -5 ? ' down' : ''}`}>{d === null ? (nn ? `${Math.round((v / nn) * 100)}%` : '—') : `${d > 0 ? '+' : d < 0 ? '−' : ''}${Math.abs(d)}%`}</td>
-                </tr>
-              );
-            })}</tbody>
-          </table>
-        ) : <p className="note">Nada em {monthName(key)}.</p>}
-        {catsSay.fixed && <p className="note">{nb(catsSay.fixed)}</p>}
-        <p className="note">O traço vertical em cada barra é o normal da categoria.</p>
-      </Sec>
-
-      <Sec n={`0${3 + s}`} t="Doze meses" aside={m.normal ? <span className="sec-k">normal {eur(m.normal, 0)} €</span> : undefined}>
-        <p className="say">{nb(yearSay.text)}</p>
-        <div className="c12s" role="img" aria-label={`Doze meses: ${series.map((x) => `${monthName(x.key)} ${eur(x.total, 0)} €`).join(', ')}.`}>
-          {m.normal && <span className="c12-norm" style={{ bottom: `calc(22px + (100% - 44px) * ${m.normal / smax})` }}><em>normal</em></span>}
-          {series.map((x) => {
-            const fc = x.current && fcast > x.total ? fcast : 0;
-            return (
-              <button key={x.key} type="button" className={`c12${x.key === key ? ' sel' : ''}${x.current ? ' cur' : ''}${yearSay.marks.includes(x.key) ? ' hl' : ''}`} onClick={() => setKey(x.key)} aria-label={`${monthName(x.key)}: ${eur(x.total, 0)} €`}>
-                <span className="c12-v num">{x.total ? k1(x.total) : ''}</span>
-                <span className="c12-b">
-                  {fc > 0 && <i className="fc" style={{ height: `${(fc / smax) * 100}%` }} />}
-                  <i style={{ height: `${(x.total / smax) * 100}%` }} />
-                </span>
-                <span className="c12-m">{monthName(x.key).slice(0, 3)}</span>
-              </button>
-            );
-          })}
+      <section className="dayc mcard" aria-label={`${monthName(key)}: ${eur(m.total, 0)} €`}>
+        <MonthDial days={perDay} today={m.current ? Number(todayStr().slice(8, 10)) : null}>
+          <span className="dayc-v"><Odometer value={eur(m.total, 0)} /><small>€</small></span>
+          {pct !== null && <span className={`chip-d${pct >= 10 ? ' up' : pct <= -10 ? ' down' : ''}`}>{pct > 0 ? '+' : pct < 0 ? '−' : ''}{Math.abs(pct)}%</span>}
+        </MonthDial>
+        <div className="tri">
+          <span><small>Dia a dia</small><b>{eur(m.everyday, 0)} €</b></span>
+          <span><small>À parte</small><b>{eur(m.events, 0)} €</b></span>
+          <span><small>{fcast ? 'Previsão' : 'Normal'}</small><b>{fcast ? eur(fcast, 0) : m.normal ? eur(m.normal, 0) : '—'} €</b></span>
         </div>
-        {fcast > 0 && <p className="note">No mês a decorrer, o tracejado é a previsão: {eur(fcast, 0)} €.</p>}
-      </Sec>
+      </section>
 
-      <Sec n={`0${4 + s}`} t={`Movimentos de ${monthName(key)}`} aside={<span className="sec-k">{moves.length}</span>}>
+      <section className="cd wide" aria-label="Onde">
+        <span className="cd-h"><span>Onde</span></span>
+        {cats.length ? cats.slice(0, 6).map(([c, v], k) => {
+          const nn = catN[c] ?? 0, over = nn > 0 && v > nn * 1.1;
+          return (
+            <div key={c} className={`cap${over ? ' hot' : ''}`} style={{ ['--w' as string]: `${Math.max(4, (v / cmax) * 100)}%`, ['--k' as string]: k }}>
+              <i />{nn > 0 && <b style={{ left: `${(nn / cmax) * 100}%` }} />}
+              <span>{catLabel(c)}</span><em>{eur(v, 0)} €</em>
+            </div>
+          );
+        }) : <p className="note">—</p>}
+      </section>
+
+      <section className="cd wide" aria-label="Doze meses">
+        <span className="cd-h"><span>12 meses</span>{m.normal ? <span>normal {eur(m.normal, 0)} €</span> : null}</span>
+        <DotCols normal={m.normal} onPick={setKey} cols={series.map((x) => ({ key: x.key, label: monthName(x.key).slice(0, 1).toUpperCase(), v: x.total, ghost: x.current && fcast > x.total ? fcast : 0, cur: x.current, sel: x.key === key }))} />
+      </section>
+
+      <Sec n="" t={`Movimentos`} aside={<span className="sec-k">{moves.length}</span>}>
         <table className="tbl mv">
           <tbody>{moves.slice(0, n).map((e) => (
             <tr key={e.id}>
