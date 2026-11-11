@@ -595,9 +595,9 @@ export function Soon({ k }: { k: string }) {
 
 const STORY = [
   'A Nikki é uma chinchila. Cinzenta, macia e com aquela autoridade natural de quem nunca precisou de levantar a voz. As chinchilas, de resto, não levantam a voz. Levantam a taça. E depois atiram-na ao chão.',
-  'Partilha a gaiola com o Balki. Partilha da mesma forma que um casal partilha o comando da televisão: é dos dois, mas há sempre um que o tem na mão.',
-  'Quando o Balki está a comer, a Nikki chega, encosta-o com o focinho e fica com a taça. Não é egoísmo. É gestão de prioridades. Quando acaba, empurra a taça para o chão, que é a maneira que ela tem de dizer «assunto encerrado». Quem a vai buscar é o Balki. Ninguém lhe pede. Ninguém precisa.',
-  'À hora do banho passa-se o mesmo. As chinchilas tomam banho em pó, o que revela uma espécie que olhou para a água e pensou: isto pode ser simplificado. A Nikki entra na banheira, o Balki sai. Sem drama, com a elegância de quem segura a porta. Há quem chame a isto ceder. O Balki chama-lhe paz.',
+  'Partilha a gaiola com o Balky. Partilha da mesma forma que um casal partilha o comando da televisão: é dos dois, mas há sempre um que o tem na mão.',
+  'Quando o Balky está a comer, a Nikki chega, encosta-o com o focinho e fica com a taça. Não é egoísmo. É gestão de prioridades. Quando acaba, empurra a taça para o chão, que é a maneira que ela tem de dizer «assunto encerrado». Quem a vai buscar é o Balky. Ninguém lhe pede. Ninguém precisa.',
+  'À hora do banho passa-se o mesmo. As chinchilas tomam banho em pó, o que revela uma espécie que olhou para a água e pensou: isto pode ser simplificado. A Nikki entra na banheira, o Balky sai. Sem drama, com a elegância de quem segura a porta. Há quem chame a isto ceder. O Balky chama-lhe paz.',
   'Ao fim do dia, depois de horas a mandar e a ser mandado, dormem os dois encostadinhos na casinha de madeira que foram roendo juntos. Já é mais janela do que parede. Não faz mal. Ninguém fica numa casa por causa das paredes.',
   'É assim que funciona uma boa equipa: há quem saiba onde está cada coisa, há quem vá buscar a taça, e à noite ninguém se lembra de quem empurrou quem.',
   'A NIKKI faz isso por nós. Sabe quanto gastámos, o que falta comprar, quem adiantou mais e quando é a revisão do carro. Põe ordem nas coisas pequenas, para sobrar espaço para as grandes. E, de vez em quando, dá-nos um empurrãozinho. Com o focinho, claro.',
@@ -608,7 +608,7 @@ export function Story() {
       <Top title="A história" />
       <div style={{ color: 'var(--ink)', padding: '16px 0 8px' }}><Wordmark h={48} draw alive /></div>
       <h1 className="l">Quem é a NIKKI</h1>
-      <div className="story">{STORY.map((p) => <p key={p.slice(0, 12)}>{p}</p>)}<p className="sign">A NIKKI manda. Nós agradecemos.</p></div>
+      <div className="tale">{STORY.map((p) => <p key={p.slice(0, 12)}>{p}</p>)}<p className="sign">A NIKKI manda. Nós agradecemos.</p></div>
       <div className="tile" style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 14, color: 'var(--ink)' }}>
         <Wordmark h={20} />
         <p className="s">O nome é o logótipo. O primeiro K está espelhado e os dois K são mais pequenos: as hastes são os olhos e as pernas finas são os bigodes. No resto da app fica só a cara.</p>
