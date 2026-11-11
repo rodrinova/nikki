@@ -81,17 +81,19 @@ export function useWealth(view: WealthView) {
     // 2 000 € por adulto + 500 € por filho: a casa conta os dois; cada pessoa, os seus 2 000 € e a sua parte dos filhos.
     const cushionTargetOf = () => (casa ? cushionMin(house?.children, solo ? 1 : 2) : cushionMin(house?.children, 1, myShare));
     const fund = (role: FundRole) => {
-      // «Os dois»: aparece nos dois fundos e conta com as regras do de imprevistos (à mão no próprio dia).
-      const list = mine.filter((a) => a.role === role || a.role === 'both').map((a) => ({ ...a, check: fundCheck(a.kind, a.role === 'both' ? 'cushion' : role) }));
+      // Um só ativo chega para os dois: o fundo de emergência enche primeiro e o que passar da meta (à mão no
+      // próprio dia) é o fundo para imprevistos, sem ser preciso dizer onde está. «both» antigo conta como emergência.
+      const list = mine.filter((a) => (a.role === 'both' ? 'emergency' : a.role) === role).map((a) => ({ ...a, check: fundCheck(a.kind, role) }));
       return { list, value: list.filter((a) => a.check.ok).reduce((t, a) => t + a.mine, 0) };
     };
     const emRaw = fund('emergency'), cuRaw = fund('cushion');
     const emergencyTarget = spend ? spend.avg * EMERGENCY_MONTHS : null;
     // O que passar da meta do fundo de emergência (e estiver disponível no próprio dia) conta no fundo de maneio.
-    const ok = (l: typeof emRaw.list, both: boolean) => l.filter((a) => a.check.ok && (a.role === 'both') === both);
-    const bothValue = ok(cuRaw.list, true).reduce((t, a) => t + a.mine, 0);
-    const split = splitFunds(ok(emRaw.list, false).map((a) => ({ value: a.mine, liq: a.liq })), ok(cuRaw.list, false).map((a) => ({ value: a.mine })), emergencyTarget, bothValue, cushionTargetOf());
-    const emergency = { ...emRaw, value: split.emergency, overflow: split.overflow }, cushion = { ...cuRaw, value: split.cushion, overflow: split.overflow };
+    const ok = (l: typeof emRaw.list) => l.filter((a) => a.check.ok);
+    const split = splitFunds(ok(emRaw.list).map((a) => ({ value: a.mine, liq: a.liq })), ok(cuRaw.list).map((a) => ({ value: a.mine })), emergencyTarget);
+    // De onde vem o excedente: os ativos do fundo de emergência à mão no próprio dia.
+    const spill = split.overflow > 0 ? ok(emRaw.list).filter((a) => a.liq === 'now') : [];
+    const emergency = { ...emRaw, value: split.emergency, overflow: split.overflow, spill: [] as typeof spill }, cushion = { ...cuRaw, value: split.cushion, overflow: split.overflow, spill };
     // 2 000 € por adulto + 500 € por filho: a casa conta os dois; cada pessoa, os seus 2 000 € e a sua parte dos filhos.
     const cushionTarget = cushionTargetOf();
     const sv = income > 0 && spend ? savings(income, spend.avg) : null;
