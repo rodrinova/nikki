@@ -108,10 +108,14 @@ export function entriesByMonth<T extends IncomeEntry>(entries: T[]): { month: st
  * disponível no próprio dia; o que passar da meta e estiver disponível no próprio dia conta no fundo de maneio.
  * Sem meta (ainda sem despesa média), não há excedente.
  */
-export function splitFunds(em: { value: number; liq: Liquidity }[], cu: { value: number }[], target: number | null) {
+export function splitFunds(em: { value: number; liq: Liquidity }[], cu: { value: number }[], target: number | null, both = 0, cushionTarget = Infinity) {
+  // Um ativo para os dois fundos (disponível no próprio dia): enche primeiro o dos imprevistos, até à meta dele;
+  // o resto junta-se ao de emergência como dinheiro à mão.
+  const own0 = cu.reduce((t, a) => t + a.value, 0);
+  const toCu = Math.min(both, Math.max(0, cushionTarget - own0));
   const days = em.filter((a) => a.liq !== 'now').reduce((t, a) => t + a.value, 0);
-  const now = em.filter((a) => a.liq === 'now').reduce((t, a) => t + a.value, 0);
-  const total = days + now, own = cu.reduce((t, a) => t + a.value, 0);
+  const now = em.filter((a) => a.liq === 'now').reduce((t, a) => t + a.value, 0) + (both - toCu);
+  const total = days + now, own = own0 + toCu;
   if (target === null) return { emergency: total, cushion: own, overflow: 0 };
   const overflow = Math.max(0, now - Math.max(0, target - days));
   return { emergency: Math.min(total, target), cushion: own + overflow, overflow };

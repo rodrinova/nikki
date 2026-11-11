@@ -2057,3 +2057,7 @@ create table if not exists nikki.join_links (
 alter table nikki.join_links enable row level security;
 revoke all on nikki.join_links from anon, authenticated, public;
 grant all on nikki.join_links to service_role;
+
+-- Um ativo pode ser os dois fundos ao mesmo tempo («both»): enche primeiro o de imprevistos, o resto vai para o de emergência.
+alter table nikki.assets drop constraint if exists assets_role_check;
+alter table nikki.assets add constraint assets_role_check check (role in ('emergency', 'cushion', 'both'));
