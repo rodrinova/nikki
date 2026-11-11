@@ -11,7 +11,9 @@ export function DayArc({ now, marks }: { now: number; marks: number[] }) {
     <svg className="viz day-arc" viewBox={`0 -8 ${W} ${H + 18}`} role="img" aria-label="O dia, das 0 às 24 horas">
       {Array.from({ length: 25 }, (_, h) => { const [a, b] = pt(h, R + 9), [c, d] = pt(h, R + (h % 6 === 0 ? 17 : 13)); return <line key={h} className="tick" x1={a} y1={b} x2={c} y2={d} />; })}
       <path className="rest" d={arc(now, 24)} />
+      <path className="done-glow" d={arc(0, now)} pathLength={1} />
       <path className="done" d={arc(0, now)} pathLength={1} />
+      <path className="comet" d={arc(0, now)} pathLength={1} />
       {marks.map((h, k) => { const [x, y] = pt(h); return <circle key={k} className={`mk${h < now ? ' past' : ''}`} cx={x} cy={y} r={4.5} style={{ ['--k' as string]: k }} />; })}
       <circle className="now-halo" cx={nx} cy={ny} r={11} /><circle className="now" cx={nx} cy={ny} r={5.5} />
       {[0, 6, 12, 18, 24].map((h) => { const [x, y] = pt(h, R - 18); return <text key={h} x={x} y={y + 4} textAnchor="middle">{h}</text>; })}
@@ -47,7 +49,13 @@ export function Gauge({ v }: { v: number }) {
   return (
     <svg className="viz gauge" viewBox="0 0 96 48" aria-hidden="true">
       <path className="rest" d={`M${a(0)}A${R} ${R} 0 0 1 ${a(1)}`} />
+      <path className="done-glow" d={`M${a(0)}A${R} ${R} 0 0 1 ${a(1)}`} pathLength={1} style={{ ['--t' as string]: t }} />
       <path className="done" d={`M${a(0)}A${R} ${R} 0 0 1 ${a(1)}`} pathLength={1} style={{ ['--t' as string]: t }} />
     </svg>
   );
+}
+
+/** O fundo vivo: três luzes (laranja, azul, âmbar) a derivar devagar atrás do vidro. Só transformações: leve. */
+export function Aurora() {
+  return <div className="aurora" aria-hidden="true"><i className="a1" /><i className="a2" /><i className="a3" /></div>;
 }
