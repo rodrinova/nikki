@@ -52,6 +52,7 @@ const JoinLinkPage = later(() => import('@/screens/JoinLink'), 'JoinLinkPage');
 const N2Home = later(() => import('@/n2/N2'), 'N2Home');
 const N2Time = later(() => import('@/n2/N2'), 'N2Time');
 const N2Money = later(() => import('@/n2/N2'), 'N2Money');
+const N2Casa = later(() => import('@/n2/N2'), 'N2Casa');
 
 /** As caras dos dois (ou só a tua), sobrepostas: abrem o «Nós». */
 function Pair({ big }: { big?: boolean }) {
@@ -131,6 +132,19 @@ function BottomBar() {
       {tab(DESTS[2])}{tab(DESTS[3])}
     </div></nav>
   );
+}
+
+/**
+ * NIKKI 2 (pré-visualização): o botão de ideias e problemas, sempre presente. Aparece desde que se entra na
+ * pré-visualização e acompanha os ecrãs que se abrem a partir dela; ao voltar ao início de todos os dias, sai.
+ */
+function TicketFab() {
+  const { pathname } = useLocation();
+  const { isOpen } = useOverlays();
+  let on = pathname.startsWith('/n2');
+  try { if (pathname === '/') sessionStorage.removeItem('nikki:n2'); else on = on || sessionStorage.getItem('nikki:n2') === '1'; } catch { /* sem armazenamento */ }
+  if (!on || isOpen || pathname === '/melhorar') return null;
+  return <Link className="ticket-fab press" to="/melhorar" aria-label="Ideias e problemas: diz-nos o que melhorar neste ecrã"><Icon n="chat" s={20} /></Link>;
 }
 
 function SoonRoute() {
@@ -237,6 +251,7 @@ function Shell() {
           {(appAdmin || DEMO) && <Route path="/n2" element={<N2Home />} />}
           {(appAdmin || DEMO) && <Route path="/n2/tempo" element={<N2Time />} />}
           {(appAdmin || DEMO) && <Route path="/n2/dinheiro" element={<N2Money />} />}
+          {(appAdmin || DEMO) && <Route path="/n2/casa" element={<N2Casa />} />}
           {appAdmin && <Route path="/salvados" element={<Salvage />} />}
           {appAdmin && <Route path="/salvados/:id" element={<SalvageCarScreen />} />}
           <Route path="/pessoas" element={<People />} />
@@ -249,6 +264,7 @@ function Shell() {
       </main></div>
       <BottomBar />
       <SideBar />
+      <TicketFab />
       <SheetHost />
     </HouseProvider>
   );
