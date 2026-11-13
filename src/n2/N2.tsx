@@ -18,6 +18,7 @@ import { Odometer } from './Odometer';
 import { Now, useSpaceVals } from '@/screens/Home';
 import { MODULES } from '@/lib/modules';
 import { Icon } from '@/ui/Icon';
+import { GuideOnce } from '@/ui/Tour';
 import { DayArc, DotCols, Dots, Gauge, MonthDial, Ruler } from './Viz';
 
 // NIKKI 2 (protótipo): «a revista da casa». Escuro, como hoje; um serifado de jornal (Newsreader) para títulos e
@@ -231,6 +232,7 @@ export function N2Money() {
         <DotCols normal={m.normal} onPick={setKey} cols={series.map((x) => ({ key: x.key, label: monthName(x.key).slice(0, 1).toUpperCase(), v: x.total, ghost: x.current && fcast > x.total ? fcast : 0, cur: x.current, sel: x.key === key }))} />
       </section>
 
+      <GuideOnce k="dinheiro" />
       <Sec n="" t={`Movimentos`} aside={<span className="sec-k">{moves.length}</span>}>
         <table className="tbl mv">
           <tbody>{moves.slice(0, n).map((e) => (

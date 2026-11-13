@@ -1,4 +1,4 @@
-import { useCallback, useEffect, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { useSession } from '@/data/session';
@@ -8,9 +8,10 @@ import { Icon } from '@/ui/Icon';
 import { MODULES, moduleName, type ModuleKey } from '@/lib/modules';
 import { shortDate } from '@/lib/admin';
 import { Top } from './Home';
+import { GuideOnce, ModuleGuide } from '@/ui/Tour';
 
 /** Ligar ou desligar um módulo da casa (só quem administra a casa). Otimista: volta atrás se a base recusar. */
-function useToggleModule() {
+export function useToggleModule(setShow: (k: ModuleKey) => void = () => {}) {
   const { house, me } = useSession();
   const { modules } = useHouse();
   const { toast } = useOverlays();
@@ -24,21 +25,24 @@ function useToggleModule() {
       : await supabase.from('household_modules').insert({ household_id: house.id, module: k, enabled_by: me.id });
     if (error) { modules.setRows(was); toast('Não deu para mudar. Tenta outra vez.'); return; }
     if (!quiet) toast(`${moduleName(k)} ${isOn ? 'escondido' : 'ligado'}.`, { ok: !isOn });
+    if (!quiet && !isOn && k !== 'garagem' && k !== 'casa') setShow(k);
     if (quiet) return;
     if (k === 'garagem' && !isOn) nav('/garagem'); // ligar a Garagem pede logo os carros
     if (k === 'casa' && !isOn) nav('/casa'); // e a Casa pergunta como é a casa
-  }, [house, me, modules, toast, nav]);
+  }, [house, me, modules, toast, nav, setShow]);
 }
 
 /** Módulos da casa: cada casa liga só o que lhe faz falta. Desligar esconde; nada se apaga. */
 export function Modules() {
   const { house } = useSession();
   const { modules, on } = useHouse();
-  const toggle = useToggleModule();
+  const [show, setShowS] = useState<ModuleKey | null>(null);
+  const toggle = useToggleModule(setShowS);
   const admin = !!house && house.role !== 'staff';
   return (
     <>
       <Top title="Módulos" />
+      {show && <ModuleGuide k={show} onClose={() => setShowS(null)} />}
       <p className="s" style={{ fontSize: 'var(--t-m)' }}>Esconde os que não fazem falta. Nada se apaga.</p>
       <div className="tile card rows mods">
         <div className="mod"><span className="ic"><Icon n="coins" /></span><span className="t">Dinheiro, Agenda e Pessoas<span className="s">Sempre ligados. A agenda está no início.</span></span></div>
@@ -64,5 +68,5 @@ export function Gate({ k, children }: { k: ModuleKey; children: ReactNode }) {
   const lit = on(k);
   // Usar é ligar: abrir um módulo desligado liga-o para a casa (sem ecrã de «desligado» nem pedir a ninguém).
   useEffect(() => { if (!lit && !modules.loading) toggle(k, true); }, [lit, modules.loading, k, toggle]);
-  return lit ? <>{children}</> : null;
+  return lit ? <>{children}<GuideOnce k={k} /></> : null;
 }
