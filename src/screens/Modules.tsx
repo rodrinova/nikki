@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/lib/supabase';
+import { DEMO, supabase } from '@/lib/supabase';
+import { isNewcomer } from '@/lib/guide';
 import { useSession } from '@/data/session';
 import { useHouse } from '@/data/house';
 import { useOverlays } from '@/ui/overlays';
@@ -25,7 +26,7 @@ export function useToggleModule(setShow: (k: ModuleKey) => void = () => {}) {
       : await supabase.from('household_modules').insert({ household_id: house.id, module: k, enabled_by: me.id });
     if (error) { modules.setRows(was); toast('Não deu para mudar. Tenta outra vez.'); return; }
     if (!quiet) toast(`${moduleName(k)} ${isOn ? 'escondido' : 'ligado'}.`, { ok: !isOn });
-    if (!quiet && !isOn && k !== 'garagem' && k !== 'casa') setShow(k);
+    if (!quiet && !isOn && k !== 'garagem' && k !== 'casa' && (DEMO || isNewcomer(me.created_at))) setShow(k);
     if (quiet) return;
     if (k === 'garagem' && !isOn) nav('/garagem'); // ligar a Garagem pede logo os carros
     if (k === 'casa' && !isOn) nav('/casa'); // e a Casa pergunta como é a casa

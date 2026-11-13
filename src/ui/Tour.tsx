@@ -5,7 +5,8 @@ import { Face } from '@/brand/Face';
 import { Icon } from './Icon';
 import { Aurora } from '@/n2/Aurora';
 import { DayArc, Dots, Gauge, MonthDial, Ruler } from '@/n2/Viz';
-import { FRONTS, STEPS, guideKey, type GuideKey } from '@/lib/guide';
+import { FRONTS, STEPS, guideKey, isNewcomer, type GuideKey } from '@/lib/guide';
+import { DEMO } from '@/lib/supabase';
 import { store } from '@/lib/store';
 import { useSession } from '@/data/session';
 
@@ -105,7 +106,7 @@ export function GuideOnce({ k }: { k: GuideKey }) {
   const [open, setOpen] = useState(false);
   useEffect(() => {
     if (!me) return;
-    if (!store.get(guideKey(me.id, k)) && !document.querySelector('.tour')) setOpen(true);
+    if ((DEMO || isNewcomer(me.created_at)) && !store.get(guideKey(me.id, k)) && !document.querySelector('.tour')) setOpen(true);
     const again = (e: Event) => { if ((e as CustomEvent).detail === k) setOpen(true); };
     addEventListener('nikki:guide', again);
     return () => removeEventListener('nikki:guide', again);

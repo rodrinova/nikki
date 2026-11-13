@@ -69,3 +69,7 @@ export const STEPS: Record<string, { t: string; d: string; eg?: string }[]> = {
 
 export const tourKey = (uid: string) => `nikki:tour:${uid}`;
 export const guideKey = (uid: string, k: string) => `nikki:guide:${uid}:${k}`;
+
+/** O guia é só para quem adere a partir daqui: quem já cá estava conhece a casa e não é interrompido. */
+export const GUIDE_SINCE = '2026-11-13T22:30:00Z';
+export const isNewcomer = (createdAt: string | null | undefined) => !!createdAt && createdAt >= GUIDE_SINCE;
