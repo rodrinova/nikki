@@ -24,7 +24,7 @@ import { QuickAdd } from '@/screens/QuickAdd';
 import { Goals } from '@/screens/Goals';
 import { DESTS, isRoot, under } from '@/lib/nav';
 import { Aurora } from '@/n2/Aurora';
-import { tourKey } from '@/lib/guide';
+import { isNewcomer, tourKey } from '@/lib/guide';
 import { useToggleModule } from '@/screens/Modules';
 import type { ModuleKey } from '@/lib/modules';
 import { Tour } from '@/ui/Tour';
@@ -169,7 +169,7 @@ function TourHost() {
   const toggle = useToggleModule();
   const [open, setOpen] = useState(false);
   useEffect(() => {
-    if (me && !DEMO && !store.get(tourKey(me.id))) setOpen(true);
+    if (me && !DEMO && isNewcomer(me.created_at) && !store.get(tourKey(me.id))) setOpen(true);
     const again = () => setOpen(true);
     addEventListener('nikki:tour', again);
     return () => removeEventListener('nikki:tour', again);

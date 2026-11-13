@@ -10,7 +10,7 @@ export interface Profile { id: string; name: string; color: string }
  * A conta de quem entrou. «pending»: a primeira pessoa de uma casa espera pela aprovação da administração da app
  * (quem entra com convite fica ativa logo). «paused»: suspensa. «declined»: pedido não aceite.
  */
-export interface Me extends Profile { status: 'pending' | 'active' | 'paused' | 'declined'; request: { house: string; note: string | null } | null; requested_at: string | null }
+export interface Me extends Profile { status: 'pending' | 'active' | 'paused' | 'declined'; request: { house: string; note: string | null } | null; requested_at: string | null; created_at?: string | null }
 export interface Member extends Profile { role: 'admin' | 'member' }
 /** «staff»: quem faz o housekeeping (vê só as tarefas das visitas, as mensagens e as compras). */
 export interface House { id: string; name: string; role: 'admin' | 'member' | 'staff'; children: number }
@@ -92,7 +92,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     const uid = session?.user.id;
     if (!uid) { setMe(null); setAppAdmin(false); setHouses([]); setMembers([]); (mark('sessão'), setReady(true)); return; }
     const [{ data: p, error: pe }, { data: ms }, { data: adm }] = await Promise.all([
-      supabase.from('profiles').select('id, name, color, status, request, requested_at').eq('id', uid).maybeSingle(),
+      supabase.from('profiles').select('id, name, color, status, request, requested_at, created_at').eq('id', uid).maybeSingle(),
       supabase.from('memberships').select('household_id, role, households(name, children)').eq('profile_id', uid),
       supabase.rpc('is_app_admin'),
     ]);
