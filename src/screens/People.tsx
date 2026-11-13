@@ -36,6 +36,18 @@ export async function shareInvite(i: Pick<InviteRow, 'token' | 'code'>, house: s
  * O link (e o QR) para a outra pessoa entrar na casa: sem e-mail nem palavra-passe. Serve 7 dias e para uma pessoa;
  * um link novo anula o anterior.
  */
+/** Convidar alguém para a NIKKI (para a casa dele, não para a nossa): o QR leva à app; a conta segue para aprovação. */
+function AppInvite() {
+  const url = `${location.origin}${import.meta.env.BASE_URL}`;
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <h2 className="l">Convidar para a NIKKI</h2>
+      <p className="s" style={{ fontSize: 'var(--t-m)' }}>Para quem quer a NIKKI na casa dele. Aponta a câmara, cria a conta e fica à espera de aprovação. Para entrar na vossa casa, o convite é em Pessoas.</p>
+      <LinkShare url={url} msg={`Experimenta a NIKKI, a app que põe ordem na vida da casa: ${url}`} qrLabel="Código QR para abrir a NIKKI" />
+    </div>
+  );
+}
+
 function JoinLinkBox({ householdId }: { householdId: string }) {
   const [url, setUrl] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -171,6 +183,8 @@ export function Profile() {
         <Link className="press" to="/modulos"><span className="k">Módulos</span><span className="v"><Icon n="arrow" s={16} /></span></Link>
         <Link className="press" to="/melhorar"><span className="k">Ideias e problemas</span><span className="v"><Icon n="arrow" s={16} /></span></Link>
         <Link className="press" to="/historia"><span className="k">A história da NIKKI</span><span className="v"><Icon n="arrow" s={16} /></span></Link>
+        <button type="button" className="press" onClick={() => dispatchEvent(new Event('nikki:tour'))}><span className="k">Guia da NIKKI<span className="s" style={{ display: 'block' }}>Onde está tudo e como se usa, em dois minutos</span></span><span className="v"><Icon n="arrow" s={16} /></span></button>
+        <button type="button" className="press" onClick={() => open(<AppInvite />)}><span className="k">Convidar para a NIKKI<span className="s" style={{ display: 'block' }}>Um QR para quem quer a NIKKI na casa dele</span></span><span className="v"><Icon n="arrow" s={16} /></span></button>
         {appAdmin && <Link className="press" to="/n2"><span className="k">Experimentar a NIKKI 2</span><span className="v s">protótipo<Icon n="arrow" s={16} /></span></Link>}
         {appAdmin && <Link className="press" to="/admin"><span className="k">Administração da app</span><span className="v">{adm.pending + adm.novo > 0 && <span className="badge">{adm.pending + adm.novo}</span>}<Icon n="arrow" s={16} /></span></Link>}
       </div>

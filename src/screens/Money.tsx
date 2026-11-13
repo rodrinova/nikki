@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { GuideOnce } from '@/ui/Tour';
 import { Link, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { useSession } from '@/data/session';
@@ -72,6 +73,7 @@ export function Money() {
   const us = !!partner && sp.get('ver') === 'entre-nos';
   return (
     <>
+      <GuideOnce k="dinheiro" />
       <Top title="Dinheiro" />
       {partner && <div className="seg" role="tablist" aria-label="Dinheiro">
         <button type="button" role="tab" className="press" aria-selected={!us} aria-pressed={!us} onClick={() => setSp({}, { replace: true })}>Gastos</button>

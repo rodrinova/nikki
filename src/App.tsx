@@ -24,6 +24,10 @@ import { QuickAdd } from '@/screens/QuickAdd';
 import { Goals } from '@/screens/Goals';
 import { DESTS, isRoot, under } from '@/lib/nav';
 import { Aurora } from '@/n2/Aurora';
+import { tourKey } from '@/lib/guide';
+import { useToggleModule } from '@/screens/Modules';
+import type { ModuleKey } from '@/lib/modules';
+import { Tour } from '@/ui/Tour';
 import { moduleOf } from '@/lib/modules';
 
 // Ecrãs menos usados (ou só de algumas pessoas): só se carregam quando se abrem.
@@ -155,6 +159,25 @@ function N2Skin() {
   return on ? <Aurora /> : null;
 }
 
+/**
+ * O guia da NIKKI: abre sozinho na primeira vez que a pessoa entra na casa (não na demonstração) e sempre que for
+ * pedido (Perfil → Guia da NIKKI). No fim, cada frente explica-se ao abrir pela primeira vez.
+ */
+function TourHost() {
+  const { me, house } = useSession();
+  const { on } = useHouse();
+  const toggle = useToggleModule();
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (me && !DEMO && !store.get(tourKey(me.id))) setOpen(true);
+    const again = () => setOpen(true);
+    addEventListener('nikki:tour', again);
+    return () => removeEventListener('nikki:tour', again);
+  }, [me]);
+  if (!open || !me) return null;
+  return <Tour picked={(k) => on(k as ModuleKey)} toggle={(k) => void toggle(k as ModuleKey, true)} canPick={!!house && house.role !== 'staff'} onClose={() => { store.set(tourKey(me.id), '1'); setOpen(false); }} />;
+}
+
 function SoonRoute() {
   const { k = '' } = useParams();
   const m = moduleOf(`/em-breve/${k}`);
@@ -273,6 +296,7 @@ function Shell() {
       <BottomBar />
       <SideBar />
       <N2Skin />
+      <TourHost />
       <SheetHost />
     </HouseProvider>
   );
