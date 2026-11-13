@@ -1,5 +1,7 @@
+import type React from 'react';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { flushSync } from 'react-dom';
 import './n2.css';
 import { useSession } from '@/data/session';
 import { useHouse } from '@/data/house';
@@ -37,10 +39,24 @@ const glow = (e: { target: EventTarget; clientX: number; clientY: number }) => {
   const c = (e.target as HTMLElement).closest?.('.cd,.dayc') as HTMLElement | null; if (!c) return;
   const r = c.getBoundingClientRect();
   c.style.setProperty('--mx', `${e.clientX - r.left}px`); c.style.setProperty('--my', `${e.clientY - r.top}px`);
+  if (c.classList.contains('cd')) c.style.setProperty('--ty', `${(((e.clientX - r.left) / r.width - 0.5) * 9).toFixed(2)}deg`); if (c.classList.contains('cd')) c.style.setProperty('--tx', `${((0.5 - (e.clientY - r.top) / r.height) * 9).toFixed(2)}deg`);
 };
 
+/** O cartão abre-se e vira ecrã: o cartão tocado e o ecrã de destino partilham o mesmo nome de transição. */
+function openFrom(e: React.MouseEvent<HTMLElement>, to: string, nav: (to: string) => void) {
+  const d = document as Document & { startViewTransition?: (cb: () => void) => { finished: Promise<void> } };
+  if (!d.startViewTransition || matchMedia('(prefers-reduced-motion: reduce)').matches || e.metaKey || e.ctrlKey) return;
+  e.preventDefault();
+  const card = e.currentTarget, root = document.documentElement;
+  card.style.setProperty('view-transition-name', 'front');
+  try {
+    d.startViewTransition(() => { card.style.removeProperty('view-transition-name'); root.classList.add('vt', 'vt-open'); flushSync(() => nav(to)); })
+      .finished.finally(() => root.classList.remove('vt', 'vt-open'));
+  } catch { card.style.removeProperty('view-transition-name'); root.classList.remove('vt', 'vt-open'); nav(to); }
+}
+
 function useN2() {
-  useEffect(() => { document.body.classList.add('n2'); try { sessionStorage.setItem('nikki:n2', '1'); } catch { /* sem armazenamento */ } return () => document.body.classList.remove('n2'); }, []);
+  useEffect(() => { document.body.classList.add('n2'); return () => document.body.classList.remove('n2'); }, []);
 }
 
 /** O cabeçalho da revista: a cara, a edição (o dia do ano) e a data; por baixo, os destinos, sempre à vista. */
@@ -50,7 +66,7 @@ function Masthead({ pill }: { pill?: boolean } = {}) {
   return (
     <header className={`mh${pill ? ' mh-p' : ''}`}>
       <div className="mh-top">
-        <Link to="/" className="mh-face press" aria-label="Voltar à NIKKI de todos os dias"><Face h={18} mode="still" /></Link>
+        <Link to="/historia" className="mh-face press" aria-label="NIKKI: a história"><Face h={18} mode="still" /></Link>
         <span className="mh-ed">{cap(d.toLocaleDateString('pt-PT', { weekday: 'long', day: 'numeric', month: 'long' }))}</span>
         <Link to="/nos" className="mh-us press" aria-label="Nós">
           <i style={{ ['--c' as string]: me?.color }}>{me?.name?.[0]}</i>{partner && <i style={{ ['--c' as string]: partner.color }}>{partner.name?.[0]}</i>}
@@ -74,7 +90,7 @@ function Sec({ n, t, aside, children, className }: { n: string; t: string; aside
  * As frentes da casa, lado a lado e com o mesmo peso: o dinheiro é uma delas. Cada linha tem o seu sinal (um número
  * e a legenda). No Hoje (short) só aparecem as que pedem atenção; na Casa, todas.
  */
-function Fronts({ money, short }: { money: { total: number; pct: number | null }; short?: boolean }) {
+function useFrontRows(money: { total: number; pct: number | null }) {
   const { val, on } = useSpaceVals();
   const hot: Record<string, boolean> = {
     compras: Number(val.compras[0]) > 0, casa: val.casa[1] === 'por confirmar' || /aviso/.test(val.casa[1] ?? ''), housekeeping: val.housekeeping[0] === 'hoje',
@@ -84,6 +100,12 @@ function Fronts({ money, short }: { money: { total: number; pct: number | null }
     { k: 'dinheiro', to: '/n2/dinheiro', ic: 'coins', n: 'Dinheiro', v: `${eur(money.total, 0)} €`, u: money.pct === null ? '' : money.pct >= 10 ? `+${Math.round(money.pct)}%` : money.pct <= -10 ? `−${Math.round(-money.pct)}%` : 'normal', hot: money.pct !== null && money.pct >= 10 },
     ...MODULES.filter((x) => x.k !== 'contas' && x.k !== 'agenda' && on(x.k)).map((x) => ({ k: x.k as string, to: x.to, ic: x.ic, n: x.k === 'housekeeping' ? 'Ajuda em casa' : x.name, v: val[x.k]?.[0] ?? '—', u: val[x.k]?.[1] ?? '', hot: !!hot[x.k] })),
   ];
+  return rows;
+}
+
+function Fronts({ money, short }: { money: { total: number; pct: number | null }; short?: boolean }) {
+  const rows = useFrontRows(money);
+  const nav = useNavigate();
   const list = short ? rows.filter((r) => r.hot || r.k === 'dinheiro').slice(0, 2) : rows;
   const viz = (r: (typeof rows)[number]) => {
     const n = Number(r.v);
@@ -95,7 +117,7 @@ function Fronts({ money, short }: { money: { total: number; pct: number | null }
   return (
     <div className="cards">
       {list.map((r, k) => (
-        <Link key={r.k} to={r.to} className={`cd press${r.hot ? ' hot' : ''}`} style={{ ['--i' as string]: k }} aria-label={`${r.n}: ${r.v} ${r.u}`}>
+        <Link key={r.k} to={r.to} onClick={(e) => openFrom(e, r.to, nav)} className={`cd press${r.hot ? ' hot' : ''}`} style={{ ['--i' as string]: k }} aria-label={`${r.n}: ${r.v} ${r.u}`}>
           <span className="cd-h"><span>{r.n}</span><Icon n="arrow" s={14} /></span>
           <span className="cd-g">{viz(r)}</span>
           <span className="cd-v"><Odometer value={r.v} />{r.u && <small>{r.u}</small>}</span>
@@ -109,10 +131,11 @@ function Fronts({ money, short }: { money: { total: number; pct: number | null }
 export function N2Casa() {
   useN2();
   const m = useMonth();
+  const money = { total: m.total, pct: m.pace.fresh ? null : m.pace.pct };
   return (
     <div className="n2-page n2v" onPointerMove={glow}>
       <Masthead pill />
-      <Fronts money={{ total: m.total, pct: m.pace.fresh ? null : m.pace.pct }} />
+      <Fronts money={money} />
     </div>
   );
 }
@@ -153,15 +176,22 @@ export function N2Home() {
   const nowH = Number(hhmm.slice(0, 2)) + Number(hhmm.slice(3)) / 60;
   const hOf = (t: string) => Number(t.slice(0, 2)) + Number(t.slice(3, 5)) / 60;
   const next = todayIts.find((i) => i.time && i.time > hhmm) ?? null;
+  const [scrub, setScrub] = useState<number | null>(null);
+  const hNow = scrub ?? nowH;
+  const hm = (h: number) => `${String(Math.floor(h)).padStart(2, '0')}:${String(Math.floor((h % 1) * 60 / 5) * 5).padStart(2, '0')}`;
+  // a percorrer: o que está a decorrer nessa hora, ou o que vem a seguir a ela
+  const shown = scrub === null ? next : todayIts.find((i) => i.time && hOf(i.time) <= scrub && hOf(i.endTime ?? i.time) + (i.endTime ? 0 : 1) > scrub) ?? null;
   return (
     <div className="n2-page n2v" onPointerMove={glow}>
       <Masthead pill />
-      <Link to="/n2/tempo" className={`dayc press${calm ? '' : ' live'}`} aria-label={next ? `A seguir: ${next.title}, às ${next.time}` : 'Hoje sem mais nada marcado'}>
-        <span className="cd-h"><span>{next ? 'A seguir' : 'Hoje'}</span><Icon n="arrow" s={14} /></span>
-        <span className="dayc-v"><Odometer value={next?.time ?? hhmm} /><small>{next ? next.title : 'livre'}</small></span>
-        <DayArc now={nowH} marks={todayIts.filter((i) => i.time).map((i) => hOf(i.time!))} />
-        <span className="dayc-l">{nb(lead.head)}</span>
-      </Link>
+      <section className={`dayc${calm ? '' : ' live'}${scrub !== null ? ' scrub' : ''}${hNow < 7 || hNow >= 20.5 ? ' night' : ''}`} style={{ ['--sx' as string]: `${50 - Math.cos((Math.PI * hNow) / 24) * 40}%`, ['--sy' as string]: Math.sin((Math.PI * hNow) / 24).toFixed(3) }}
+        aria-label={shown ? `${scrub !== null ? 'Às' : 'A seguir, às'} ${shown.time}: ${shown.title}` : 'Sem nada marcado'}>
+        <Link to="/n2/tempo" className="dayc-go press" aria-label="Abrir a agenda"><Icon n="arrow" s={16} /></Link>
+        <span className="cd-h"><span>{scrub !== null ? 'Nessa hora' : next ? 'A seguir' : 'Hoje'}</span></span>
+        <span className="dayc-v">{scrub !== null ? <span>{hm(scrub)}</span> : <Odometer value={next?.time ?? hhmm} />}<small>{shown ? shown.title : 'livre'}</small></span>
+        <DayArc now={hNow} marks={todayIts.filter((i) => i.time).map((i) => hOf(i.time!))} onScrub={setScrub} />
+        <span className="dayc-l">{scrub !== null ? 'Larga para voltar a agora' : nb(lead.head)}</span>
+      </section>
       <Fronts money={{ total: m.total, pct }} short />
       <Sec n="" t="A fazer" className="plain lite"><Now /></Sec>
     </div>
@@ -193,6 +223,7 @@ export function N2Money() {
     return d;
   }, [daily, key, me]);
   const [n, setN] = useState(8);
+  const [pick, setPick] = useState<number | null>(null);
   const name = (id: string | null) => (id === me?.id ? 'tu' : id === partner?.id ? partner?.name ?? '' : '');
   return (
     <div className="n2-page n2v">
@@ -203,9 +234,9 @@ export function N2Money() {
         <button type="button" className="press" aria-label="Mês seguinte" disabled={key >= cur} onClick={() => setKey(nextMonth(key))}>›</button>
       </div>
       <section className="dayc mcard" aria-label={`${monthName(key)}: ${eur(m.total, 0)} €`}>
-        <MonthDial days={perDay} today={m.current ? Number(todayStr().slice(8, 10)) : null}>
-          <span className="dayc-v"><Odometer value={eur(m.total, 0)} /><small>€</small></span>
-          {pct !== null && <span className={`chip-d${pct >= 10 ? ' up' : pct <= -10 ? ' down' : ''}`}>{pct > 0 ? '+' : pct < 0 ? '−' : ''}{Math.abs(pct)}%</span>}
+        <MonthDial days={perDay} today={m.current ? Number(todayStr().slice(8, 10)) : null} pick={pick} onPick={setPick}>
+          {pick ? <><small className="day">dia {pick}</small><span className="dayc-v"><span>{eur(perDay[pick - 1] ?? 0, 0)}</span><small>€</small></span></> : <span className="dayc-v"><Odometer value={eur(m.total, 0)} /><small>€</small></span>}
+          {!pick && pct !== null && <span className={`chip-d${pct >= 10 ? ' up' : pct <= -10 ? ' down' : ''}`}>{pct > 0 ? '+' : pct < 0 ? '−' : ''}{Math.abs(pct)}%</span>}
         </MonthDial>
         <div className="tri">
           <span><small>Dia a dia</small><b>{eur(m.everyday, 0)} €</b></span>
@@ -233,6 +264,7 @@ export function N2Money() {
       </section>
 
       <GuideOnce k="dinheiro" />
+      <Link to="/dinheiro" className="more press" style={{ alignSelf: 'center' }}>Todas as despesas, acertos e categorias</Link>
       <Sec n="" t={`Movimentos`} aside={<span className="sec-k">{moves.length}</span>}>
         <table className="tbl mv">
           <tbody>{moves.slice(0, n).map((e) => (

@@ -146,16 +146,25 @@ function BottomBar() {
  * voltar ao início de todos os dias, desliga. Com ela, a app inteira veste o azul-noite, o vidro e a luz, e a barra
  * de baixo passa a Hoje · Agenda · + · Casa · Ideias.
  */
-function n2Mode(pathname: string): boolean {
-  let on = pathname.startsWith('/n2');
-  try { if (pathname === '/') sessionStorage.removeItem('nikki:n2'); else on = on || sessionStorage.getItem('nikki:n2') === '1'; } catch { /* sem armazenamento */ }
-  return on;
+function n2Mode(_pathname?: string): boolean {
+  return true; // o novo visual é o de toda a gente
 }
 const N2_DESTS = [{ to: '/n2', ic: 'home', n: 'Hoje' }, { to: '/n2/tempo', ic: 'cal', n: 'Agenda' }, { to: '/n2/casa', ic: 'grid', n: 'Casa' }, { to: '/melhorar', ic: 'chat', n: 'Ideias e problemas' }];
 function N2Skin() {
   const { pathname } = useLocation();
   const on = n2Mode(pathname);
   useEffect(() => { document.body.classList.toggle('n2x', on); return () => document.body.classList.remove('n2x'); }, [on]);
+  // O fundo reage: ao scroll (--sc, de 0 a 1 nos primeiros 240px) e à inclinação do telemóvel (--gx, --gy), onde o
+  // sistema a dá sem pedir licença. Uma só escrita por frame.
+  useEffect(() => {
+    if (!on || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const st = document.body.style; let raf = 0, gx = 0, gy = 0;
+    const paint = () => { raf = 0; st.setProperty('--sc', Math.min(1, scrollY / 240).toFixed(3)); st.setProperty('--gx', gx.toFixed(3)); st.setProperty('--gy', gy.toFixed(3)); };
+    const ask = () => { if (!raf) raf = requestAnimationFrame(paint); };
+    const tilt = (e: DeviceOrientationEvent) => { gx = Math.max(-1, Math.min(1, (e.gamma ?? 0) / 30)); gy = Math.max(-1, Math.min(1, ((e.beta ?? 45) - 45) / 30)); ask(); };
+    addEventListener('scroll', ask, { passive: true }); addEventListener('deviceorientation', tilt);
+    return () => { removeEventListener('scroll', ask); removeEventListener('deviceorientation', tilt); if (raf) cancelAnimationFrame(raf); ['--sc', '--gx', '--gy'].forEach((k) => st.removeProperty(k)); };
+  }, [on]);
   return on ? <Aurora /> : null;
 }
 
@@ -251,7 +260,7 @@ function Shell() {
       <div className={`app${pathname === '/' || pathname === '/agenda' ? ' is-hub' : ''}`}><main className={`screen enter pg-${dir}`} key={pathname}>
         <Suspense fallback={<Loading label="A abrir" />}>
         <Routes>
-          <Route path="/" element={<Hub />} />
+          <Route path="/" element={n2Mode() ? <Navigate to="/n2" replace /> : <Hub />} />
           <Route path="/espacos" element={<Spaces />} />
           <Route path="/agenda" element={<AgendaScreen />} />
           <Route path="/nos" element={<Nos />} />
@@ -279,10 +288,10 @@ function Shell() {
           <Route path="/modulos" element={<Modules />} />
           <Route path="/melhorar" element={<Tickets />} />
           {appAdmin && <Route path="/admin" element={<Admin />} />}
-          {(appAdmin || DEMO) && <Route path="/n2" element={<N2Home />} />}
-          {(appAdmin || DEMO) && <Route path="/n2/tempo" element={<N2Time />} />}
-          {(appAdmin || DEMO) && <Route path="/n2/dinheiro" element={<N2Money />} />}
-          {(appAdmin || DEMO) && <Route path="/n2/casa" element={<N2Casa />} />}
+          <Route path="/n2" element={<N2Home />} />
+          <Route path="/n2/tempo" element={<N2Time />} />
+          <Route path="/n2/dinheiro" element={<N2Money />} />
+          <Route path="/n2/casa" element={<N2Casa />} />
           {appAdmin && <Route path="/salvados" element={<Salvage />} />}
           {appAdmin && <Route path="/salvados/:id" element={<SalvageCarScreen />} />}
           <Route path="/pessoas" element={<People />} />

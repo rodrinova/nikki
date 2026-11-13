@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { startDemo, supabase } from '@/lib/supabase';
 import { useSession } from '@/data/session';
 import { useOverlays } from '@/ui/overlays';
@@ -80,11 +79,6 @@ export function Admin() {
         <span className="st2"><span>Casa de demonstração</span><span className="s">Tiago e Marta, em Almada. Tudo a funcionar, nada a sério.</span></span>
         <Icon n="chev" s={16} />
       </button>
-      <Link className="tile salv-link press" to="/n2" aria-label="Abrir a pré-visualização da NIKKI 2">
-        <span className="ic"><Face h={16} /></span>
-        <span className="st2"><span>NIKKI 2</span><span className="s">A pré-visualização: o novo Hoje e a nova Casa, com os dados da tua casa.</span></span>
-        <Icon n="chev" s={16} />
-      </Link>
       <div className="chips" role="tablist" aria-label="Secções">{TABS.map((t) => <button key={t} role="tab" className="press" aria-pressed={cur === t} aria-selected={cur === t} onClick={() => setTab(t)}>{label[t]}</button>)}</div>
       {err && <p className="err">{err === 'só para a administração da app' ? 'Este painel é só para a administração da app.' : err}</p>}
       {!d && !err && <Loading />}
