@@ -3,13 +3,16 @@ import type React from 'react';
 // com o laranja para «agora» e para o que pede atenção. O movimento só desenha (uma vez, à entrada).
 
 /** O dia num arco: 24 horas, o que já passou a cheio, o que falta a tracejado, um ponto por compromisso e o «agora». */
-export function DayArc({ now, marks }: { now: number; marks: number[] }) {
+export function DayArc({ now, marks, onScrub }: { now: number; marks: number[]; onScrub?: (h: number | null) => void }) {
+  const at = (e: React.PointerEvent<SVGSVGElement>) => { const r = e.currentTarget.getBoundingClientRect(); onScrub?.(Math.max(0, Math.min(24, ((e.clientX - r.left) / r.width - 26 / 300) / (248 / 300) * 24))); };
   const W = 300, H = 150, cx = 150, cy = 150, R = 124;
   const pt = (h: number, r = R) => { const a = Math.PI * (1 - Math.max(0, Math.min(24, h)) / 24); return [cx + Math.cos(a) * r, cy - Math.sin(a) * r] as const; };
   const arc = (h0: number, h1: number) => { const [x0, y0] = pt(h0), [x1, y1] = pt(h1); return `M${x0.toFixed(1)} ${y0.toFixed(1)}A${R} ${R} 0 0 1 ${x1.toFixed(1)} ${y1.toFixed(1)}`; };
   const [nx, ny] = pt(now);
   return (
-    <svg className="viz day-arc" viewBox={`0 -8 ${W} ${H + 18}`} role="img" aria-label="O dia, das 0 às 24 horas">
+    <svg className="viz day-arc" viewBox={`0 -8 ${W} ${H + 18}`} role="img" aria-label="O dia, das 0 às 24 horas. Arrasta para percorrer as horas."
+      onPointerDown={onScrub ? (e) => { e.currentTarget.setPointerCapture(e.pointerId); at(e); } : undefined} onPointerMove={onScrub ? (e) => { if (e.buttons || e.pointerType === 'touch') at(e); } : undefined}
+      onPointerUp={onScrub ? () => onScrub(null) : undefined} onPointerCancel={onScrub ? () => onScrub(null) : undefined}>
       {Array.from({ length: 25 }, (_, h) => { const [a, b] = pt(h, R + 9), [c, d] = pt(h, R + (h % 6 === 0 ? 17 : 13)); return <line key={h} className="tick" x1={a} y1={b} x2={c} y2={d} />; })}
       <path className="rest" d={arc(now, 24)} />
       <path className="done-glow" d={arc(0, now)} pathLength={1} />
@@ -61,18 +64,25 @@ export function Gauge({ v }: { v: number }) {
  * O mês num mostrador: um raio por dia, à volta de um arco de 270°. O comprimento é o que se gastou nesse dia;
  * o dia de hoje acende a laranja, os dias que faltam ficam em ponto. Uma agulha de luz varre o mostrador, sempre.
  */
-export function MonthDial({ days, today, children }: { days: number[]; today: number | null; children?: React.ReactNode }) {
+export function MonthDial({ days, today, children, pick = null, onPick }: { days: number[]; today: number | null; children?: React.ReactNode; pick?: number | null; onPick?: (d: number | null) => void }) {
+  const hit = (e: React.PointerEvent<SVGSVGElement>) => {
+    const r = e.currentTarget.getBoundingClientRect(), x = ((e.clientX - r.left) / r.width) * 300 - 150, y = ((e.clientY - r.top) / r.height) * 262 - 150;
+    let a = (Math.atan2(y, x) * 180) / Math.PI - 135; a = ((a % 360) + 360) % 360;
+    onPick?.(a > 270 ? (a > 315 ? 1 : days.length) : Math.max(1, Math.min(days.length, Math.floor((a / 270) * days.length) + 1)));
+  };
   const n = days.length, max = Math.max(1, ...days), C = 150, R0 = 96, R1 = 138;
   const ang = (k: number) => ((135 + (270 * (k + 0.5)) / n) * Math.PI) / 180;
   const pt = (k: number, r: number) => [C + Math.cos(ang(k)) * r, C + Math.sin(ang(k)) * r] as const;
   return (
-    <div className="mdial">
-      <svg className="viz" viewBox="0 0 300 262" role="img" aria-label="O mês, dia a dia">
+    <div className={`mdial${pick ? ' picking' : ''}`}>
+      <svg className="viz" viewBox="0 0 300 262" role="img" aria-label="O mês, dia a dia. Arrasta à volta para ver cada dia."
+        onPointerDown={onPick ? (e) => { e.currentTarget.setPointerCapture(e.pointerId); hit(e); } : undefined} onPointerMove={onPick ? (e) => { if (e.buttons || e.pointerType === 'touch') hit(e); } : undefined}
+        onPointerUp={onPick ? () => onPick(null) : undefined} onPointerCancel={onPick ? () => onPick(null) : undefined}>
         <circle className="md-ring" cx={C} cy={C} r={R0 - 10} />
         {days.map((v, k) => {
-          const fut = today !== null && k + 1 > today, r = fut || v <= 0 ? R0 + 2 : R0 + 4 + (v / max) * (R1 - R0 - 4);
+          const fut = today !== null && k + 1 > today, r = (fut || v <= 0 ? R0 + 2 : R0 + 4 + (v / max) * (R1 - R0 - 4)) + (pick === k + 1 ? 8 : 0);
           const [a, b] = pt(k, R0), [c, d] = pt(k, r);
-          return <line key={k} className={`md-d${today === k + 1 ? ' now' : fut ? ' fut' : v <= 0 ? ' zero' : ''}`} x1={a} y1={b} x2={c} y2={d} style={{ ['--k' as string]: k }} />;
+          return <line key={k} className={`md-d${pick === k + 1 ? ' pick' : today === k + 1 ? ' now' : fut ? ' fut' : v <= 0 ? ' zero' : ''}`} x1={a} y1={b} x2={c} y2={d} style={{ ['--k' as string]: k }} />;
         })}
         <g className="md-sweep"><line x1={C} y1={C - R0 + 14} x2={C} y2={C - R1} /></g>
       </svg>

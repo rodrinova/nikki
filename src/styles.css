@@ -1762,3 +1762,10 @@ body.n2x .gbar i::after{content:"";position:absolute;inset:0;background:linear-g
 .tour .viz .tick{stroke:rgba(226,232,242,.34);stroke-width:1}
 .tour .viz text{font-size:9px;fill:rgba(226,232,242,.5)}
 @media (prefers-reduced-motion: reduce){.tour *{animation-duration:1ms!important;animation-iteration-count:1!important}.tour-bars i.run{animation:none;width:100%}.tour-type span{width:auto;border:0}}
+
+/* NIKKI: o ecrã que nasce de um cartão; o fundo que reage ao scroll e à inclinação do telemóvel. */
+html.vt-open .app > .screen{view-transition-name:front}
+body.n2x .aurora{transform:translate3d(calc(var(--gx,0) * 14px),calc(var(--sc,0) * -60px + var(--gy,0) * 14px),0) scale(1.08);transition:transform 400ms ease-out}
+body.n2x .tile,body.n2x .cd,body.n2x .dayc{background-position:calc(50% + var(--gx,0) * 30%) calc(50% + var(--gy,0) * 30%)}
+body.n2x .mh{transform:translateY(calc(var(--sc,0) * -14px)) scale(calc(1 - var(--sc,0) * .05));opacity:calc(1 - var(--sc,0) * 1.4);transform-origin:left top}
+@media (prefers-reduced-motion: reduce){body.n2x .aurora,body.n2x .mh{transform:none;opacity:1}}

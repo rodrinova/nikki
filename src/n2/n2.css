@@ -395,3 +395,31 @@ a.lead:hover{text-decoration:underline;text-decoration-thickness:1px;text-underl
 .dcol.sel{background:rgba(255,255,255,.09);color:var(--ink)}
 .n2v .tbl{width:100%;border-collapse:collapse}
 @media (prefers-reduced-motion: reduce){.md-d,.md-sweep,.md-ring,.cap i,.cap i::after,.dcol i{animation:none!important}.md-sweep{display:none}}
+
+/* Inclinação 3D dos cartões de vidro: acompanham o dedo. */
+.n2v .cards,.n2v{perspective:1100px}
+.n2v .cd,.n2v .dayc{transform:rotateX(var(--tx,0deg)) rotateY(var(--ty,0deg));transition:transform 500ms var(--ease-out);transform-style:preserve-3d;will-change:transform}
+
+
+/* ——— Percorrer o dia com o dedo: o sol acompanha a hora; de noite é lua (azul). ——— */
+.n2v .dayc{touch-action:pan-y;cursor:ew-resize}
+.n2v .dayc::before{left:var(--sx,50%);bottom:calc(-88% + var(--sy,.6) * 42%);width:104%;transition:left 500ms var(--ease-out),bottom 500ms var(--ease-out),background 600ms ease}
+.n2v .dayc.scrub::before{transition:background 600ms ease}
+.n2v .dayc.night::before{background:radial-gradient(closest-side,rgba(150,170,255,.9),rgba(61,91,255,.5) 38%,rgba(61,91,255,.14) 62%,transparent 72%)}
+.n2v .dayc.scrub .day-arc .done,.n2v .dayc.scrub .done-glow{animation:none;stroke-dashoffset:0}
+.n2v .dayc.scrub .comet{display:none}
+.n2v .dayc.scrub .now{r:8}
+.dayc-go{position:absolute;top:10px;right:10px;width:40px;height:40px;border-radius:50%;display:grid;place-items:center;color:var(--sub);z-index:2}
+/* Percorrer o mês: o raio do dia escolhido cresce e acende. */
+.mdial .viz{touch-action:pan-y;cursor:crosshair}
+.md-d.pick{stroke:#FFB070;stroke-width:5;filter:drop-shadow(0 0 8px #FF6A1F)}
+.mdial.picking .md-sweep{display:none}
+.md-c small.day{font-size:var(--t-s);color:var(--sub);letter-spacing:.06em;text-transform:uppercase}
+
+/* ——— O cartão abre-se e vira ecrã (View Transitions). ——— */
+::view-transition-group(front){animation-duration:520ms;animation-timing-function:cubic-bezier(.32,.72,0,1)}
+::view-transition-old(front),::view-transition-new(front){height:100%;width:100%;object-fit:cover;object-position:top center;border-radius:26px;overflow:clip}
+::view-transition-old(front){animation:vt-fade-out 260ms ease-out both}
+::view-transition-new(front){animation:vt-fade-in 380ms ease-out 80ms both}
+@keyframes vt-fade-out{to{opacity:0}}
+@keyframes vt-fade-in{from{opacity:0}}

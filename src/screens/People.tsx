@@ -185,7 +185,6 @@ export function Profile() {
         <Link className="press" to="/historia"><span className="k">A história da NIKKI</span><span className="v"><Icon n="arrow" s={16} /></span></Link>
         <button type="button" className="press" onClick={() => dispatchEvent(new Event('nikki:tour'))}><span className="k">Guia da NIKKI<span className="s" style={{ display: 'block' }}>Onde está tudo e como se usa, em dois minutos</span></span><span className="v"><Icon n="arrow" s={16} /></span></button>
         <button type="button" className="press" onClick={() => open(<AppInvite />)}><span className="k">Convidar para a NIKKI<span className="s" style={{ display: 'block' }}>Um QR para quem quer a NIKKI na casa dele</span></span><span className="v"><Icon n="arrow" s={16} /></span></button>
-        {appAdmin && <Link className="press" to="/n2"><span className="k">Experimentar a NIKKI 2</span><span className="v s">protótipo<Icon n="arrow" s={16} /></span></Link>}
         {appAdmin && <Link className="press" to="/admin"><span className="k">Administração da app</span><span className="v">{adm.pending + adm.novo > 0 && <span className="badge">{adm.pending + adm.novo}</span>}<Icon n="arrow" s={16} /></span></Link>}
       </div>
       <Devices />
