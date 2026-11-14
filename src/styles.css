@@ -1777,3 +1777,39 @@ body.n2x .mh{transform:translateY(calc(var(--sc,0) * -14px)) scale(calc(1 - var(
 .lite .now-row{flex-wrap:wrap}
 .lite .now-row.open .now-main .st2 > .s{display:block!important;-webkit-line-clamp:unset;animation:fadeIn 260ms ease-out both}
 .lite .now-row.open .now-act{display:inline-flex!important;order:5;margin:0 0 14px 22px;animation:fadeIn 260ms ease-out both}
+
+/* ——— Mapa da NIKKI: a barra em cima, as zonas por baixo, cada página com as suas funções penduradas por uma linha. ——— */
+.mp-find{display:flex;align-items:center;gap:10px;height:50px;padding:0 16px;border-radius:999px;background:var(--glass);border:1px solid var(--glass-line);color:var(--sub)}
+.mp-find input{flex:1;min-width:0;border:0;background:none;color:var(--ink);font:inherit;outline:none}
+.mp-dock{display:flex;justify-content:space-between;gap:6px;padding:8px;border-radius:26px;background:var(--glass);border:1px solid var(--glass-line);box-shadow:var(--glass-hi)}
+.mp-dock a{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 0;border-radius:18px;color:var(--ink);text-decoration:none;animation:tour-pop 460ms var(--ease-out) calc(var(--k) * 70ms) both}
+.mp-dock a.add{background:linear-gradient(160deg,#FF8A3D,#FF5A12);color:#0B1017}
+.mp-dock small{font-size:var(--t-xs)}
+.mp-zone{display:flex;flex-direction:column;gap:8px;scroll-margin-top:16px;animation:fadeIn 420ms ease-out calc(var(--k) * 60ms) both}
+.mp-zone h2{margin:8px 0 0;display:flex;align-items:center;gap:10px;font-weight:400;font-size:var(--t-l);letter-spacing:-.02em}
+.mp-zone h2 small{margin-left:auto;font-size:var(--t-xs);color:var(--sub);letter-spacing:0;text-align:right}
+.mp-ic{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:var(--accent);color:var(--on-accent);flex:none}
+.mp-tree,.mp-sub,.mp-fns,.mp-hits{list-style:none;margin:0;padding:0}
+.mp-tree{margin-left:16px;border-left:1px solid var(--line);display:flex;flex-direction:column;gap:6px;padding:4px 0}
+.mp-page{position:relative;padding-left:18px}
+.mp-page::before{content:"";position:absolute;left:0;top:25px;width:14px;height:1px;background:var(--line)}
+.mp-head{display:flex;gap:6px}
+.mp-tog{flex:1;min-width:0;display:flex;align-items:center;gap:10px;min-height:50px;padding:0 14px;border-radius:16px;border:1px solid var(--glass-line);background:var(--glass);color:var(--ink);text-align:left}
+.mp-n{flex:1;min-width:0;font-size:var(--t-m)}
+.mp-c{font-size:var(--t-xs);color:var(--sub);font-variant-numeric:tabular-nums}
+.mp-tog svg{color:var(--sub);transform:rotate(90deg);transition:transform 260ms var(--ease-out)}
+.mp-page.open > .mp-head .mp-tog svg{transform:rotate(-90deg)}
+.mp-page.open > .mp-head .mp-tog{border-color:rgba(var(--glow),.5)}
+.mp-go{width:50px;height:50px;border-radius:16px;display:grid;place-items:center;background:var(--tile-2);color:var(--ink);flex:none}
+.mp-body{margin:6px 0 4px 16px;padding-left:16px;border-left:1px dashed var(--line);display:flex;flex-direction:column;gap:8px;animation:fadeIn 260ms ease-out both}
+.mp-via{margin:0;font-size:var(--t-xs);color:var(--accent);letter-spacing:.02em}
+.mp-fns li{position:relative;display:flex;flex-direction:column;gap:2px;padding:8px 0 8px 14px;border-bottom:1px solid var(--line)}
+.mp-fns li:last-child{border-bottom:0}
+.mp-fns li::before{content:"";position:absolute;left:0;top:16px;width:5px;height:5px;border-radius:50%;background:var(--sub)}
+.mp-fns b{font-weight:400;font-size:var(--t-r);line-height:1.3}
+.mp-fns small{font-size:var(--t-s);color:var(--sub);line-height:1.3}
+.mp-sub{display:flex;flex-direction:column;gap:6px;margin-left:-16px}
+.mp-hits{display:flex;flex-direction:column;gap:14px}
+.mp-hit{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 14px;border-radius:16px;background:var(--glass);border:1px solid var(--glass-line);color:var(--ink);text-decoration:none}
+.mp-hit span{display:flex;flex-direction:column;gap:2px}.mp-hit b{font-weight:400}.mp-hit small{font-size:var(--t-xs);color:var(--accent)}
+.mp-hits .mp-fns{margin:4px 0 0 14px}
