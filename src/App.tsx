@@ -54,6 +54,7 @@ const SalvageLinkPage = later(() => import('@/screens/Salvage'), 'SalvageLinkPag
 const HkLinkPage = later(() => import('@/screens/HkLink'), 'HkLinkPage');
 const JoinLinkPage = later(() => import('@/screens/JoinLink'), 'JoinLinkPage');
 // NIKKI 2 (protótipo à parte): só para quem administra a app e na demonstração.
+const MapScreen = later(() => import('@/screens/MapScreen'), 'MapScreen');
 const N2Home = later(() => import('@/n2/N2'), 'N2Home');
 const N2Time = later(() => import('@/n2/N2'), 'N2Time');
 const N2Money = later(() => import('@/n2/N2'), 'N2Money');
@@ -287,6 +288,7 @@ function Shell() {
           <Route path="/garagem/:id" element={<Gate k="garagem"><CarScreen /></Gate>} />
           <Route path="/modulos" element={<Modules />} />
           <Route path="/melhorar" element={<Tickets />} />
+          <Route path="/mapa" element={<MapScreen />} />
           {appAdmin && <Route path="/admin" element={<Admin />} />}
           <Route path="/n2" element={<N2Home />} />
           <Route path="/n2/tempo" element={<N2Time />} />
