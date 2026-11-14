@@ -14,13 +14,15 @@ import { useShopPresence } from '@/data/presence';
 import { store } from '@/lib/store';
 import { seenKey } from '@/screens/Housekeeping';
 import { buckets, LEVELS, type Ghost, type Level } from '@/lib/thread';
-import { INVEST, catLabel, catNormals, useLedger, useMonth } from '@/screens/Money';
+import { ExpenseDetail, INVEST, catLabel, catNormals, useLedger, useMonth } from '@/screens/Money';
+import { useOverlays } from '@/ui/overlays';
 import { Face } from '@/brand/Face';
 import { Odometer } from './Odometer';
 import { Now, useSpaceVals } from '@/screens/Home';
 import { MODULES } from '@/lib/modules';
 import { Icon } from '@/ui/Icon';
 import { GuideOnce } from '@/ui/Tour';
+import { isV3, useN2 } from './shell';
 import { DayArc, DotCols, Dots, Gauge, MonthDial, Ruler } from './Viz';
 
 // NIKKI 2 (protótipo): «a revista da casa». Escuro, como hoje; um serifado de jornal (Newsreader) para títulos e
@@ -55,12 +57,10 @@ function openFrom(e: React.MouseEvent<HTMLElement>, to: string, nav: (to: string
   } catch { card.style.removeProperty('view-transition-name'); root.classList.remove('vt', 'vt-open'); nav(to); }
 }
 
-function useN2() {
-  useEffect(() => { document.body.classList.add('n2'); return () => document.body.classList.remove('n2'); }, []);
-}
 
 /** O cabeçalho da revista: a cara, a edição (o dia do ano) e a data; por baixo, os destinos, sempre à vista. */
-function Masthead({ pill }: { pill?: boolean } = {}) {
+export function Masthead({ pill }: { pill?: boolean } = {}) {
+  const v3 = isV3();
   const { me, partner } = useSession();
   const d = new Date();
   return (
@@ -68,7 +68,8 @@ function Masthead({ pill }: { pill?: boolean } = {}) {
       <div className="mh-top">
         <Link to="/historia" className="mh-face press" aria-label="NIKKI: a história"><Face h={18} mode="still" /></Link>
         <span className="mh-ed">{cap(d.toLocaleDateString('pt-PT', { weekday: 'long', day: 'numeric', month: 'long' }))}</span>
-        <Link to="/nos" className="mh-us press" aria-label="Nós">
+        {v3 && <Link to="/v3/procurar" className="mh-find press" aria-label="Procurar em tudo"><Icon n="ask" s={18} /></Link>}
+        <Link to="/nos" className="mh-us press" aria-label={v3 ? 'Conta' : 'Nós'}>
           <i style={{ ['--c' as string]: me?.color }}>{me?.name?.[0]}</i>{partner && <i style={{ ['--c' as string]: partner.color }}>{partner.name?.[0]}</i>}
         </Link>
       </div>
@@ -97,7 +98,7 @@ function useFrontRows(money: { total: number; pct: number | null }) {
     eventos: /^\d+$/.test(val.eventos[0]) && Number(val.eventos[0]) <= 14 && !/depois/.test(val.eventos[1] ?? ''),
   };
   const rows = [
-    { k: 'dinheiro', to: '/n2/dinheiro', ic: 'coins', n: 'Dinheiro', v: `${eur(money.total, 0)} €`, u: money.pct === null ? '' : money.pct >= 10 ? `+${Math.round(money.pct)}%` : money.pct <= -10 ? `−${Math.round(-money.pct)}%` : 'normal', hot: money.pct !== null && money.pct >= 10 },
+    { k: 'dinheiro', to: isV3() ? '/v3/dinheiro' : '/n2/dinheiro', ic: 'coins', n: 'Dinheiro', v: `${eur(money.total, 0)} €`, u: money.pct === null ? '' : money.pct >= 10 ? `+${Math.round(money.pct)}%` : money.pct <= -10 ? `−${Math.round(-money.pct)}%` : 'normal', hot: money.pct !== null && money.pct >= 10 },
     ...MODULES.filter((x) => x.k !== 'contas' && x.k !== 'agenda' && on(x.k)).map((x) => ({ k: x.k as string, to: x.to, ic: x.ic, n: x.k === 'housekeeping' ? 'Ajuda em casa' : x.name, v: val[x.k]?.[0] ?? '—', u: val[x.k]?.[1] ?? '', hot: !!hot[x.k] })),
   ];
   return rows;
@@ -199,7 +200,7 @@ export function N2Home() {
 }
 
 /** Dinheiro, como numa página de economia: o número do mês, onde se gastou (tabela), 12 meses (com valores) e os movimentos. */
-export function N2Money() {
+export function N2Money({ bare }: { bare?: boolean } = {}) {
   useN2();
   const { me, partner } = useSession();
   const { spendRows, expenses } = useHouse();
@@ -225,9 +226,9 @@ export function N2Money() {
   const [n, setN] = useState(8);
   const [pick, setPick] = useState<number | null>(null);
   const name = (id: string | null) => (id === me?.id ? 'tu' : id === partner?.id ? partner?.name ?? '' : '');
-  return (
-    <div className="n2-page n2v">
-      <Masthead />
+  const { open } = useOverlays();
+  const body = (
+    <>
       <div className="mnav">
         <button type="button" className="press" aria-label="Mês anterior" onClick={() => setKey(prevMonth(key))}>‹</button>
         <span>{cap(monthName(key))}{key.slice(0, 4) !== cur.slice(0, 4) ? ` ${key.slice(0, 4)}` : ''}</span>
@@ -268,7 +269,7 @@ export function N2Money() {
       <Sec n="" t={`Movimentos`} aside={<span className="sec-k">{moves.length}</span>}>
         <table className="tbl mv">
           <tbody>{moves.slice(0, n).map((e) => (
-            <tr key={e.id}>
+            <tr key={e.id} className="press" style={{ cursor: 'pointer' }} onClick={() => open(<ExpenseDetail e={e} label={e.note || catLabel(e.category)} />)}>
               <td className="num d">{Number(e.spent_on.slice(8, 10))}</td>
               <td>{e.note || catLabel(e.category)}<small>{e.split === 'shared' ? (e.paid_by === me?.id ? 'Partilhada' : `Pagou ${name(e.paid_by)}`) : e.split === 'mine' ? (e.paid_by === me?.id ? 'Minha' : name(e.paid_by)) : `De ${name(e.other_id)}`}</small></td>
               <td className="r num">{eur(toU(e.amount))} €</td>
@@ -277,9 +278,11 @@ export function N2Money() {
         </table>
         {moves.length > n && <button type="button" className="more press" onClick={() => setN(n + 20)}>Mais {Math.min(20, moves.length - n)} de {moves.length - n}</button>}
       </Sec>
-    </div>
+    </>
   );
+  return bare ? body : <div className="n2-page n2v"><Masthead />{body}</div>;
 }
+
 
 /**
  * O fio do tempo: o mesmo tempo a quatro escalas. Afastar dois dedos (ou Ctrl + roda, ou as teclas − e +) muda de

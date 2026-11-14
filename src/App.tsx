@@ -55,6 +55,10 @@ const HkLinkPage = later(() => import('@/screens/HkLink'), 'HkLinkPage');
 const JoinLinkPage = later(() => import('@/screens/JoinLink'), 'JoinLinkPage');
 // NIKKI 2 (protótipo à parte): só para quem administra a app e na demonstração.
 const MapScreen = later(() => import('@/screens/MapScreen'), 'MapScreen');
+const V3Money = later(() => import('@/v3/V3'), 'V3Money');
+const V3Casa = later(() => import('@/v3/V3'), 'V3Casa');
+const V3Thing = later(() => import('@/v3/V3'), 'V3Thing');
+const V3Search = later(() => import('@/v3/V3'), 'V3Search');
 const N2Home = later(() => import('@/n2/N2'), 'N2Home');
 const N2Time = later(() => import('@/n2/N2'), 'N2Time');
 const N2Money = later(() => import('@/n2/N2'), 'N2Money');
@@ -128,9 +132,10 @@ function BottomBar() {
   }, []);
   useEffect(() => setHide(false), [pathname]);
   const n2 = n2Mode(pathname);
-  const D: readonly { to: string; ic: string; n: string }[] = n2 ? N2_DESTS : DESTS;
+  const v3 = isV3();
+  const D: readonly { to: string; ic: string; n: string }[] = v3 ? V3_DESTS : n2 ? N2_DESTS : DESTS;
   const tab = (d: { to: string; ic: string; n: string }) => {
-    const cur = n2 ? (d.to === '/n2' ? pathname === '/n2' : d.to === '/n2/casa' ? !['/n2', '/n2/tempo', '/melhorar', '/agenda'].includes(pathname) : pathname === d.to) : under(pathname, d.to);
+    const cur = v3 ? (d.to === '/v3' ? pathname === '/v3' : d.to === '/v3/dinheiro' ? pathname.startsWith('/v3/dinheiro') || pathname.startsWith('/dinheiro') : d.to === '/n2/tempo' ? pathname === '/n2/tempo' || pathname === '/agenda' : !['/v3', '/n2/tempo', '/agenda'].includes(pathname) && !pathname.startsWith('/v3/dinheiro') && !pathname.startsWith('/dinheiro')) : n2 ? (d.to === '/n2' ? pathname === '/n2' : d.to === '/n2/casa' ? !['/n2', '/n2/tempo', '/melhorar', '/agenda'].includes(pathname) : pathname === d.to) : under(pathname, d.to);
     return <Link key={d.to} className="press" to={d.to} aria-label={d.n} aria-current={cur ? 'page' : undefined}><Icon n={d.ic as any} /></Link>;
   };
   return (
@@ -150,6 +155,8 @@ function BottomBar() {
 function n2Mode(_pathname?: string): boolean {
   return true; // o novo visual é o de toda a gente
 }
+const isV3 = () => store.get('nikki:v3') === '1';
+const V3_DESTS = [{ to: '/v3', ic: 'home', n: 'Hoje' }, { to: '/v3/dinheiro', ic: 'coins', n: 'Dinheiro' }, { to: '/n2/tempo', ic: 'cal', n: 'Agenda' }, { to: '/v3/casa', ic: 'grid', n: 'Casa' }];
 const N2_DESTS = [{ to: '/n2', ic: 'home', n: 'Hoje' }, { to: '/n2/tempo', ic: 'cal', n: 'Agenda' }, { to: '/n2/casa', ic: 'grid', n: 'Casa' }, { to: '/melhorar', ic: 'chat', n: 'Ideias e problemas' }];
 function N2Skin() {
   const { pathname } = useLocation();
@@ -261,7 +268,7 @@ function Shell() {
       <div className={`app${pathname === '/' || pathname === '/agenda' ? ' is-hub' : ''}`}><main className={`screen enter pg-${dir}`} key={pathname}>
         <Suspense fallback={<Loading label="A abrir" />}>
         <Routes>
-          <Route path="/" element={n2Mode() ? <Navigate to="/n2" replace /> : <Hub />} />
+          <Route path="/" element={isV3() ? <Navigate to="/v3" replace /> : n2Mode() ? <Navigate to="/n2" replace /> : <Hub />} />
           <Route path="/espacos" element={<Spaces />} />
           <Route path="/agenda" element={<AgendaScreen />} />
           <Route path="/nos" element={<Nos />} />
@@ -289,6 +296,11 @@ function Shell() {
           <Route path="/modulos" element={<Modules />} />
           <Route path="/melhorar" element={<Tickets />} />
           <Route path="/mapa" element={<MapScreen />} />
+          {(appAdmin || DEMO) && <Route path="/v3" element={<N2Home />} />}
+          {(appAdmin || DEMO) && <Route path="/v3/dinheiro" element={<V3Money />} />}
+          {(appAdmin || DEMO) && <Route path="/v3/casa" element={<V3Casa />} />}
+          {(appAdmin || DEMO) && <Route path="/v3/coisa/:kind/:id" element={<V3Thing />} />}
+          {(appAdmin || DEMO) && <Route path="/v3/procurar" element={<V3Search />} />}
           {appAdmin && <Route path="/admin" element={<Admin />} />}
           <Route path="/n2" element={<N2Home />} />
           <Route path="/n2/tempo" element={<N2Time />} />
