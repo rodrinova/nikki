@@ -3,6 +3,8 @@ import { Link, Navigate, useParams } from 'react-router-dom';
 import '@/n2/n2.css';
 import './v3.css';
 import { useHouse } from '@/data/house';
+import { useSession } from '@/data/session';
+import { totals as salvageTotals } from '@/lib/salvage';
 import { Icon } from '@/ui/Icon';
 import { eur, toU } from '@/lib/money';
 import { addDays, monthKey, todayStr } from '@/lib/dates';
@@ -36,11 +38,12 @@ export function V3Money() {
   );
 }
 
-interface Thing { kind: string; id: string; n: string; ic: string; v: string; u: string; hot: boolean }
+interface Thing { kind: string; id: string; n: string; ic: string; v: string; u: string; hot: boolean; to?: string }
 
 /** As coisas da casa, com o seu sinal: a(s) casa(s), cada carro, quem ajuda, cada evento, e tu. */
 function useThings(): Thing[] {
-  const { homes, cars, hk, occasions, deadlines, shop, gym, on } = useHouse();
+  const { homes, cars, hk, occasions, deadlines, shop, gym, on, salvage } = useHouse();
+  const { appAdmin } = useSession();
   const today = todayStr(), soon = addDays(today, 30);
   return useMemo(() => {
     const due = (f: (d: (typeof deadlines.rows)[number]) => boolean) => deadlines.rows.filter((d) => !d.paid_at && d.due_on <= soon && f(d)).sort((a, b) => (a.due_on < b.due_on ? -1 : 1))[0];
@@ -51,8 +54,14 @@ function useThings(): Thing[] {
     if (on('housekeeping')) for (const h of hk.rows.filter((x) => !x.archived)) out.push({ kind: 'ajuda', id: h.id, n: h.name, ic: 'broom', v: h.monthly_pay ? `${eur(toU(h.monthly_pay), 0)} €` : '—', u: 'por mês', hot: false });
     if (on('eventos')) for (const o of occasions.rows.filter((x) => !x.archived && !x.purchase)) { const n = o.on_date ? inDays(o.on_date, today) : null; out.push({ kind: 'evento', id: o.id, n: o.name, ic: 'gift', v: n === null ? '—' : n >= 0 ? String(n) : 'foi', u: n === null ? 'sem data' : n >= 0 ? (n === 1 ? 'dia' : 'dias') : day(o.on_date!), hot: n !== null && n >= 0 && n <= 14 }); }
     if (on('ginasio')) out.push({ kind: 'eu', id: 'eu', n: 'Eu', ic: 'pulse', v: String(gym.rows.length), u: gym.rows.length === 1 ? 'avaliação' : 'avaliações', hot: false });
+    // Carros de investimento (salvados): só para quem administra a app. Abrem no ecrã completo de cada um.
+    if (appAdmin && salvage.length) {
+      const tot = salvageTotals(salvage, today);
+      out.push({ kind: 'salvados', id: 'todos', n: 'Investimentos', ic: 'wrench', v: `${eur(tot.myProfit, 0)} €`, u: 'lucro, a tua metade', hot: false, to: '/salvados' });
+      for (const c of salvage) out.push({ kind: 'salvado', id: c.id, n: c.name, ic: 'wrench', v: `${eur(toU(c.sold_for ?? c.price), 0)} €`, u: c.sold_on ? 'vendido' : 'compra · em curso', hot: false, to: `/salvados/${c.id}` });
+    }
     return out;
-  }, [homes.rows, cars.rows, hk.rows, occasions.rows, deadlines.rows, shop.rows, gym.rows, on, today, soon]);
+  }, [appAdmin, salvage, homes.rows, cars.rows, hk.rows, occasions.rows, deadlines.rows, shop.rows, gym.rows, on, today, soon]);
 }
 
 /** Casa: as coisas de que cuidamos, todas com a mesma cara. */
@@ -64,7 +73,7 @@ export function V3Casa() {
       <Masthead />
       <div className="cards">
         {things.map((t, k) => (
-          <Link key={t.kind + t.id} to={`/v3/coisa/${t.kind}/${t.id}`} className={`cd press${t.hot ? ' hot' : ''}`} style={{ ['--i' as string]: k }} aria-label={`${t.n}: ${t.v} ${t.u}`}>
+          <Link key={t.kind + t.id} to={t.to ?? `/v3/coisa/${t.kind}/${t.id}`} className={`cd press${t.hot ? ' hot' : ''}`} style={{ ['--i' as string]: k }} aria-label={`${t.n}: ${t.v} ${t.u}`}>
             <span className="cd-h"><span>{t.n}</span><Icon n="arrow" s={14} /></span>
             <span className="cd-g"><span className="cd-ic"><Icon n={t.ic as never} s={30} w={1.1} /></span></span>
             <span className="cd-v"><span>{t.v}</span><small>{t.u}</small></span>
@@ -154,7 +163,7 @@ export function V3Thing() {
 /** Uma procura para tudo: despesas, eventos, prazos, tarefas, garantias, compras e coisas. */
 export function V3Search() {
   useN2();
-  const { expenses, events, deadlines, chores, warranties, shop, cars, occasions } = useHouse();
+  const { expenses, events, deadlines, chores, warranties, shop, cars, occasions, salvage } = useHouse();
   const [q, setQ] = useState('');
   const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
   const t = norm(q.trim());
@@ -162,14 +171,14 @@ export function V3Search() {
     if (t.length < 2) return [];
     const has = (s?: string | null) => !!s && norm(s).includes(t);
     const g: { n: string; rows: { a: string; b?: string; c?: string; to: string }[] }[] = [
-      { n: 'Coisas', rows: [...cars.rows.filter((c) => !c.archived && (has(c.name) || has(c.plate))).map((c) => ({ a: c.name, b: c.plate ?? undefined, to: `/v3/coisa/carro/${c.id}` })), ...occasions.rows.filter((o) => has(o.name)).map((o) => ({ a: o.name, b: o.on_date ? day(o.on_date) : undefined, to: `/v3/coisa/evento/${o.id}` }))] },
+      { n: 'Coisas', rows: [...cars.rows.filter((c) => !c.archived && (has(c.name) || has(c.plate))).map((c) => ({ a: c.name, b: c.plate ?? undefined, to: `/v3/coisa/carro/${c.id}` })), ...occasions.rows.filter((o) => has(o.name)).map((o) => ({ a: o.name, b: o.on_date ? day(o.on_date) : undefined, to: `/v3/coisa/evento/${o.id}` })), ...salvage.filter((c) => has(c.name) || has(c.plate) || has(c.brand)).map((c) => ({ a: c.name, b: 'investimento', to: `/salvados/${c.id}` }))] },
       { n: 'A seguir', rows: [...deadlines.rows.filter((d) => !d.paid_at && has(d.title)).map((d) => ({ a: d.title, b: 'prazo', c: day(d.due_on), to: d.car_id ? `/v3/coisa/carro/${d.car_id}` : '/casa/prazos' })), ...chores.rows.filter((c) => !c.archived && has(c.title)).map((c) => ({ a: c.title, b: c.kind === 'maintenance' ? 'manutenção' : 'tarefa', c: day(c.next_on), to: c.kind === 'maintenance' ? '/casa/manutencao' : '/casa/tarefas' })), ...events.rows.filter((e) => has(e.title)).slice(0, 8).map((e) => ({ a: e.title, b: 'agenda', c: day(e.starts_at.slice(0, 10)), to: '/n2/tempo' }))] },
       { n: 'Dinheiro', rows: expenses.rows.filter((e) => has(e.note) || has(catLabel(e.category))).sort((a, b) => (a.spent_on < b.spent_on ? 1 : -1)).slice(0, 12).map((e) => ({ a: e.note || catLabel(e.category), b: day(e.spent_on), c: `${eur(toU(e.amount))} €`, to: `/v3/dinheiro?mes=${monthKey(e.spent_on)}` })) },
       { n: 'Papéis', rows: warranties.rows.filter((w) => has(w.item) || has(w.store)).map((w) => ({ a: w.item, b: w.store ?? undefined, to: '/casa/garantias' })) },
       { n: 'Compras', rows: shop.rows.filter((i) => !i.done && has(i.name)).map((i) => ({ a: i.name, b: 'na lista', to: '/compras' })) },
     ];
     return g.filter((x) => x.rows.length);
-  }, [t, cars.rows, occasions.rows, deadlines.rows, chores.rows, events.rows, expenses.rows, warranties.rows, shop.rows]);
+  }, [t, salvage, cars.rows, occasions.rows, deadlines.rows, chores.rows, events.rows, expenses.rows, warranties.rows, shop.rows]);
   return (
     <div className="n2-page n2v">
       <Masthead />
