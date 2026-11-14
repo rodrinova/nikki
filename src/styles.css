@@ -1666,7 +1666,7 @@ body.n2x .tile{-webkit-backdrop-filter:none;backdrop-filter:none}
 body.n2x .sheet{background:linear-gradient(180deg,#18202D,#111722);border:1px solid rgba(255,255,255,.1);border-bottom:0;box-shadow:0 -30px 80px -20px rgba(0,0,0,.8)}
 body.n2x .scrim{background:rgba(5,8,13,.6);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
 body.n2x .side{display:none!important}
-body.n2x .bottom{display:block!important;z-index:40}
+body.n2x .bottom{display:block!important;z-index:20}
 body.n2x .bottom .in{background:linear-gradient(150deg,rgba(255,255,255,.16),rgba(255,255,255,.05));border:1px solid rgba(255,255,255,.14);-webkit-backdrop-filter:blur(22px) saturate(160%);backdrop-filter:blur(22px) saturate(160%);
   box-shadow:inset 0 1px 0 rgba(255,255,255,.28),0 18px 44px -12px rgba(0,0,0,.75)}
 body.n2x .bottom .in > a{border-color:transparent;color:var(--sub)}
