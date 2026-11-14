@@ -256,11 +256,12 @@ function NowRow({ it, onDismiss }: { it: Need; onDismiss: () => void }) {
   const nav = useNavigate();
   const [dx, setDx] = useState(0);
   const [gone, setGone] = useState(false);
+  const [more, setMore] = useState(false); // sem ecrã para onde ir: o toque abre o detalhe e a ação, ali mesmo
   const start = useRef<{ x: number; y: number; moved: boolean } | null>(null);
   const swiped = useRef(false); // depois de deslizar, o toque não abre
   const leave = () => { setGone(true); setTimeout(onDismiss, 200); };
   return (
-    <li className={`now-row${gone ? ' gone' : ''}${it.urgent ? ' urgent' : ''}`}
+    <li className={`now-row${gone ? ' gone' : ''}${it.urgent ? ' urgent' : ''}${more ? ' open' : ''}`}
       style={{ transform: dx ? `translateX(${dx}px)` : undefined, opacity: dx ? Math.max(0.3, 1 - Math.abs(dx) / 260) : undefined, transition: start.current ? 'none' : undefined }}
       onPointerDown={(e) => { start.current = { x: e.clientX, y: e.clientY, moved: false }; }}
       onPointerMove={(e) => {
@@ -272,10 +273,10 @@ function NowRow({ it, onDismiss }: { it: Need; onDismiss: () => void }) {
       onPointerUp={() => { const s = start.current; start.current = null; swiped.current = !!s?.moved; if (s?.moved && Math.abs(dx) > 90) leave(); else setDx(0); }}
       onPointerCancel={() => { start.current = null; setDx(0); }}>
       {it.tick && <button type="button" className="tick press" role="checkbox" aria-checked="false" aria-label={`Feito: ${it.t}`} onClick={it.tick}><i /></button>}
-      <button type="button" className="now-main press" onClick={() => { if (!swiped.current && it.to) nav(it.to); swiped.current = false; }} disabled={!it.to}>
+      <button type="button" className="now-main press" aria-expanded={it.to ? undefined : more} onClick={() => { if (!swiped.current) { if (it.to) nav(it.to); else setMore((v) => !v); } swiped.current = false; }}>
         {!it.tick && <span className="now-dot" aria-hidden="true" />}
         <span className="st2"><span>{it.t}</span><span className="s">{it.s}</span></span>
-        {it.to && !it.act && <Icon n="chev" s={16} />}
+        {it.to ? !it.act && <Icon n="chev" s={16} /> : <span className="now-more" aria-hidden="true"><Icon n="chev" s={16} /></span>}
       </button>
       {it.act && <button type="button" className="tb press now-act" onClick={it.act.run}>{it.act.label}</button>}
       <button type="button" className="x-btn press" aria-label={`Dispensar: ${it.t}`} onClick={leave}><Icon n="close" s={14} /></button>

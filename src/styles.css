@@ -1769,3 +1769,11 @@ body.n2x .aurora{transform:translate3d(calc(var(--gx,0) * 14px),calc(var(--sc,0)
 body.n2x .tile,body.n2x .cd,body.n2x .dayc{background-position:calc(50% + var(--gx,0) * 30%) calc(50% + var(--gy,0) * 30%)}
 body.n2x .mh{transform:translateY(calc(var(--sc,0) * -14px)) scale(calc(1 - var(--sc,0) * .05));opacity:calc(1 - var(--sc,0) * 1.4);transform-origin:left top}
 @media (prefers-reduced-motion: reduce){body.n2x .aurora,body.n2x .mh{transform:none;opacity:1}}
+
+/* «A fazer»: o que não tem ecrã próprio abre ali mesmo (o detalhe e a ação), com um toque. */
+.now-more{display:none}
+.lite .now-more{display:inline-flex;color:var(--sub);transform:rotate(90deg);transition:transform 260ms var(--ease-out)}
+.lite .now-row.open .now-more{transform:rotate(-90deg)}
+.lite .now-row{flex-wrap:wrap}
+.lite .now-row.open .now-main .st2 > .s{display:block!important;-webkit-line-clamp:unset;animation:fadeIn 260ms ease-out both}
+.lite .now-row.open .now-act{display:inline-flex!important;order:5;margin:0 0 14px 22px;animation:fadeIn 260ms ease-out both}
