@@ -332,7 +332,7 @@ function EntryDetail({ x, label }: { x: IncomeEntryRow; label: string }) {
   );
 }
 
-function ExpenseDetail({ e, label }: { e: ExpenseRow; label: string }) {
+export function ExpenseDetail({ e, label }: { e: ExpenseRow; label: string }) {
   const { me, house } = useSession();
   const { close, toast } = useOverlays();
   const { expenses, receiptItems } = useHouse();

@@ -1,0 +1,19 @@
+/* NIKKI 3 (experiência): três sítios, e todas as coisas com a mesma página. */
+.v3-seg{display:flex;gap:6px;padding:5px;border-radius:999px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);align-self:center;flex:none}
+.v3-seg button{height:40px;padding:0 26px;border:0;border-radius:999px;background:none;color:var(--sub);font-size:var(--t-r);transition:background-color 220ms ease,color 220ms ease}
+.v3-seg button[aria-selected="true"]{background:#F3F5F8;color:#0B1017}
+.v3-embed{display:flex;flex-direction:column;gap:16px;flex:none}
+.v3-embed .back{display:none}
+.v3-h{margin:10px 0 0;font-weight:400;font-size:var(--t-xs);letter-spacing:.09em;text-transform:uppercase;color:var(--sub)}
+.v3-hero{flex:none}
+.v3-hero::before{display:none}
+.v3-block{gap:0!important}
+.v3-block .cd-h{margin-bottom:6px}
+.v3-row{display:flex;align-items:center;gap:10px;min-height:52px;padding:8px 0;border-top:1px solid rgba(255,255,255,.08);color:var(--ink);text-decoration:none}
+.v3-a{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;font-size:var(--t-m)}
+.v3-a small{font-size:var(--t-s);color:var(--sub)}
+.v3-row em{font-style:normal;font-variant-numeric:tabular-nums;color:var(--sub);white-space:nowrap}
+.v3-row em.hot{color:#FFB070}
+.v3-row > svg{color:var(--faint);flex:none}
+.mh-find{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;color:var(--sub);background:rgba(255,255,255,.07)}
+.n2v .mp-find{flex:none}
