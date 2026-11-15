@@ -22,6 +22,8 @@ import { Now, useSpaceVals } from '@/screens/Home';
 import { MODULES } from '@/lib/modules';
 import { Icon } from '@/ui/Icon';
 import { GuideOnce } from '@/ui/Tour';
+import { useSalvagePartnerCode } from '@/data/salvagePartner';
+import { DEMO } from '@/lib/supabase';
 import { isV3, useN2 } from './shell';
 import { DayArc, DotCols, Dots, Gauge, MonthDial, Ruler } from './Viz';
 
@@ -92,7 +94,9 @@ function Sec({ n, t, aside, children, className }: { n: string; t: string; aside
  * e a legenda). No Hoje (short) só aparecem as que pedem atenção; na Casa, todas.
  */
 function useFrontRows(money: { total: number; pct: number | null }) {
-  const { val, on } = useSpaceVals();
+  const { val, on, sv, appAdmin } = useSpaceVals();
+  const { me } = useSession();
+  const salvCode = useSalvagePartnerCode(!!me && !appAdmin && !DEMO);
   const hot: Record<string, boolean> = {
     compras: Number(val.compras[0]) > 0, casa: val.casa[1] === 'por confirmar' || /aviso/.test(val.casa[1] ?? ''), housekeeping: val.housekeeping[0] === 'hoje',
     eventos: /^\d+$/.test(val.eventos[0]) && Number(val.eventos[0]) <= 14 && !/depois/.test(val.eventos[1] ?? ''),
@@ -100,6 +104,8 @@ function useFrontRows(money: { total: number; pct: number | null }) {
   const rows = [
     { k: 'dinheiro', to: isV3() ? '/v3/dinheiro' : '/n2/dinheiro', ic: 'coins', n: 'Dinheiro', v: `${eur(money.total, 0)} €`, u: money.pct === null ? '' : money.pct >= 10 ? `+${Math.round(money.pct)}%` : money.pct <= -10 ? `−${Math.round(-money.pct)}%` : 'normal', hot: money.pct !== null && money.pct >= 10 },
     ...MODULES.filter((x) => x.k !== 'contas' && x.k !== 'agenda' && on(x.k)).map((x) => ({ k: x.k as string, to: x.to, ic: x.ic, n: x.k === 'housekeeping' ? 'Ajuda em casa' : x.name, v: val[x.k]?.[0] ?? '—', u: val[x.k]?.[1] ?? '', hot: !!hot[x.k] })),
+    // Salvados: só para o dono (administração) e para o sócio com conta. Mais ninguém.
+    ...(appAdmin || salvCode ? [{ k: 'salvados', to: '/salvados', ic: 'wrench', n: 'Salvados', v: sv ? `${eur(sv.myProfit, 0)} €` : '—', u: sv ? 'lucro, a tua metade' : 'carros de investimento', hot: false }] : []),
   ];
   return rows;
 }

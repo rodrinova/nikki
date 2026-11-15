@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { store } from '@/lib/store';
-import { DEMO } from '@/lib/supabase';
+import { DEMO, startDemo } from '@/lib/supabase';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { useSession } from '@/data/session';
@@ -186,6 +186,7 @@ export function Profile() {
         <Link className="press" to="/melhorar"><span className="k">Ideias e problemas</span><span className="v"><Icon n="arrow" s={16} /></span></Link>
         <Link className="press" to="/historia"><span className="k">A história da NIKKI</span><span className="v"><Icon n="arrow" s={16} /></span></Link>
         <button type="button" className="press" onClick={() => dispatchEvent(new Event('nikki:tour'))}><span className="k">Guia da NIKKI<span className="s" style={{ display: 'block' }}>Onde está tudo e como se usa, em dois minutos</span></span><span className="v"><Icon n="arrow" s={16} /></span></button>
+        {appAdmin && !DEMO && <button type="button" className="press" onClick={startDemo}><span className="k">Casa de demonstração<span className="s" style={{ display: 'block' }}>Tiago e Marta, com dados de exemplo. Só tu vês esta entrada.</span></span><span className="v"><Icon n="arrow" s={16} /></span></button>}
         {(appAdmin || DEMO) && <Link className="press" to="/" onClick={() => { if (store.get('nikki:v3') === '1') store.remove('nikki:v3'); else store.set('nikki:v3', '1'); }}><span className="k">Experimentar a NIKKI 3<span className="s" style={{ display: 'block' }}>A estrutura simples: Hoje, Dinheiro, Agenda, Casa. Só tu vês, só neste aparelho.</span></span><span className="v s">{store.get('nikki:v3') === '1' ? 'ligada' : 'desligada'}</span></Link>}
         <Link className="press" to="/mapa"><span className="k">Mapa da NIKKI<span className="s" style={{ display: 'block' }}>Todas as páginas e funções, e por onde se chega</span></span><span className="v"><Icon n="arrow" s={16} /></span></Link>
         <button type="button" className="press" onClick={() => open(<AppInvite />)}><span className="k">Convidar para a NIKKI<span className="s" style={{ display: 'block' }}>Um QR para quem quer a NIKKI na casa dele</span></span><span className="v"><Icon n="arrow" s={16} /></span></button>

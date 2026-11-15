@@ -87,10 +87,10 @@ const ownerApi: Api = {
 };
 
 /** O lado do sócio: tudo pela ligação, com os dados trocados para o lado dele. */
-function linkApi(code: string): Api {
+function linkApi(code: string, base = `/p/${code}`): Api {
   const go = async (op: string, a: Row) => msg(await supabase.rpc('salvage_link_do', { t: code, op, a }));
   return {
-    side: 'partner', base: `/p/${code}`,
+    side: 'partner', base,
     async load() {
       const { data } = await supabase.rpc('salvage_link_view', { t: code });
       const v = data as { partner: string; owner: string | null; rate: number | string; cars: SalvageCar[] } | null;
@@ -547,6 +547,13 @@ function LinkSheet({ link, onDone }: { link: { token: string; partner_name: stri
 export function SalvageLinkPage() {
   const { code = '', token = '', id } = useParams();
   const api = useMemo(() => linkApi(code || token), [code, token]);
+  return <ApiCtx.Provider value={api}>{id ? <SalvageCarScreen /> : <Salvage />}</ApiCtx.Provider>;
+}
+
+/** O sócio com conta na NIKKI: o mesmo lado da ligação, dentro da app dele, em /salvados. */
+export function SalvagePartnerPage({ code }: { code: string }) {
+  const { id } = useParams();
+  const api = useMemo(() => linkApi(code, '/salvados'), [code]);
   return <ApiCtx.Provider value={api}>{id ? <SalvageCarScreen /> : <Salvage />}</ApiCtx.Provider>;
 }
 
