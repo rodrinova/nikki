@@ -1813,3 +1813,5 @@ body.n2x .mh{transform:translateY(calc(var(--sc,0) * -14px)) scale(calc(1 - var(
 .mp-hit{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 14px;border-radius:16px;background:var(--glass);border:1px solid var(--glass-line);color:var(--ink);text-decoration:none}
 .mp-hit span{display:flex;flex-direction:column;gap:2px}.mp-hit b{font-weight:400}.mp-hit small{font-size:var(--t-xs);color:var(--accent)}
 .mp-hits .mp-fns{margin:4px 0 0 14px}
+/* O fundo vivo mexe-se com o scroll e com a inclinação: é maior do que o ecrã para nunca mostrar as arestas. */
+body.n2x .aurora{inset:-140px}
