@@ -15,12 +15,12 @@ import type { Repeat } from '@/lib/agenda';
 import type { HkLog, HkTask } from '@/lib/hk';
 import type { Assessment, GymField } from '@/lib/gym';
 
-export interface ExpenseRow extends Expense { created_by: string; note: string | null; created_at: string; car_id?: string | null; source?: string; occasion_id?: string | null; receipt_path?: string | null; receipt_read_at?: string | null; merchant_nif?: string | null }
+export interface ExpenseRow extends Expense { created_by: string; note: string | null; created_at: string; car_id?: string | null; source?: string; occasion_id?: string | null; receipt_path?: string | null; receipt_read_at?: string | null; merchant_nif?: string | null; joint?: boolean }
 export interface ReceiptItemRow { product: string; qty: number | string | null; unit: 'kg' | 'l' | 'un' | null; bought_on: string; expense_id: string }
 export interface TransferRow extends Transfer { id: string; created_by: string }
 /** Saldo de abertura do par (vindo da app antiga): amount_a > 0 = profile_a adiantou mais até ao corte. */
 export interface OpeningRow { profile_a: string; profile_b: string; cutover: string; amount_a: number | string }
-export interface ShopItem { id: string; name: string; aisle: string; done: boolean; done_by: string | null; created_by: string; created_at: string }
+export interface ShopItem { id: string; name: string; aisle: string; done: boolean; done_by: string | null; created_by: string; created_at: string; store?: string | null }
 export interface InviteRow { id: string; email: string; role: 'admin' | 'member' | 'staff'; token: string; code: string; expires_at: string; accepted_at: string | null }
 export interface DeadlineRow { id: string; title: string; due_on: string; amount: string | null; paid_at: string | null; recurrence: 'none' | 'monthly' | 'yearly'; car_id: string | null; bill_id: string | null; home_id?: string | null; kind: 'iuc' | 'insurance' | 'inspection' | 'service' | 'imi' | 'contract' | 'other' | null; remind_days: number }
 export interface ChoreRow extends Chore { note: string | null; created_at: string }
@@ -141,12 +141,12 @@ function useHouseData() {
   const eh = on('eventos') ? h : null;
   const d = {
     modules,
-    expenses: useLive<ExpenseRow>('expenses', h, 'id, paid_by, other_id, amount, split, payer_share, spent_on, category, created_by, note, created_at, car_id, source, occasion_id, receipt_path, receipt_read_at, merchant_nif', { column: 'spent_on', ascending: false }),
+    expenses: useLive<ExpenseRow>('expenses', h, 'id, paid_by, other_id, amount, split, payer_share, spent_on, category, created_by, note, created_at, car_id, source, occasion_id, receipt_path, receipt_read_at, merchant_nif, joint', { column: 'spent_on', ascending: false }),
     transfers: useLive<TransferRow>('transfers', h, 'id, from_id, to_id, amount, made_on, created_by', { column: 'made_on', ascending: false }),
     openings: useLive<OpeningRow>('ledger_openings', h, 'profile_a, profile_b, cutover, amount_a'),
     // O que se comprou (das faturas do supermercado lidas): para as sugestões das Compras.
     receiptItems: useLive<ReceiptItemRow>('receipt_items', h, 'product, qty, unit, bought_on, expense_id', { column: 'bought_on', ascending: false }),
-    shop: useLive<ShopItem>('shopping_items', h, 'id, name, aisle, done, done_by, created_by, created_at', { column: 'created_at' }),
+    shop: useLive<ShopItem>('shopping_items', h, 'id, name, aisle, done, done_by, created_by, created_at, store', { column: 'created_at' }),
     deadlines: useLive<DeadlineRow>('deadlines', h, 'id, title, due_on, amount, paid_at, recurrence, car_id, bill_id, home_id, kind, remind_days', { column: 'due_on' }),
     events: useLive<EventRow>('events', h, 'id, title, starts_at, ends_at, all_day, owner_id, private, created_by, location, kind, repeat, weekdays, month_mode, until_on, skip_dates, remind_days, ask_share', { column: 'starts_at' }),
     goals: useLive<GoalRow>('goals', h, 'id, owner_id, title, metric, target, start_value, due_on, status, created_by, created_at', { column: 'created_at' }),
@@ -169,7 +169,7 @@ function useHouseData() {
     hkMessages: useLive<HkMessageRow>('hk_messages', kh, 'id, author_id, body, photo_path, created_at', { column: 'created_at' }),
     hkPaid: useLive<HkPaidRow>('hk_paid', kh, 'hk_id, month, expense_id, paid_by, created_at', { column: 'month' }),
     // Os eventos e as compras extraordinárias (estas não dependem do módulo Eventos).
-    occasions: useLive<Occasion>('occasions', h, 'id, name, kind, on_date, place, budget, archived, created_at, purchase, car_id', { column: 'created_at' }),
+    occasions: useLive<Occasion>('occasions', h, 'id, name, kind, on_date, place, budget, archived, created_at, purchase, car_id, notes', { column: 'created_at' }),
     occGuests: useLive<Guest>('occasion_guests', eh, 'id, occasion_id, name, people, rsvp, grp, note', { column: 'created_at' }),
     occItems: useLive<OccItem>('occasion_items', eh, 'id, occasion_id, kind, title, due_on, done', { column: 'created_at' }),
     occVendors: useLive<Vendor>('occasion_vendors', eh, 'id, occasion_id, name, service, contact, total, paid', { column: 'created_at' }),
@@ -187,7 +187,8 @@ function useHouseData() {
   // Gastos com os reembolsos e acertos a abater; contas a dois com todas as entradas partilhadas.
   const inRows = d.incomeEntries.rows;
   const spendRows = useMemo<ExpenseRow[]>(() => [...d.expenses.rows, ...inRows.filter((x) => abates(x.kind, x.category)).map(asRow)], [d.expenses.rows, inRows]);
-  const pairRows = useMemo<ExpenseRow[]>(() => [...d.expenses.rows, ...inRows.filter((x) => x.split !== 'mine').map(asRow)], [d.expenses.rows, inRows]);
+  // A conta conjunta paga pelos dois: ninguém adiantou nada, fica fora do «Entre nós».
+  const pairRows = useMemo<ExpenseRow[]>(() => [...d.expenses.rows.filter((e) => !e.joint), ...inRows.filter((x) => x.split !== 'mine').map(asRow)], [d.expenses.rows, inRows]);
   return { ...d, busy, monthTotals, gym, on, reloadAll, spendRows, pairRows, salvage };
 }
 

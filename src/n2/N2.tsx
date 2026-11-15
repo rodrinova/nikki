@@ -277,7 +277,7 @@ export function N2Money({ bare }: { bare?: boolean } = {}) {
           <tbody>{moves.slice(0, n).map((e) => (
             <tr key={e.id} className="press" style={{ cursor: 'pointer' }} onClick={() => open(<ExpenseDetail e={e} label={e.note || catLabel(e.category)} />)}>
               <td className="num d">{Number(e.spent_on.slice(8, 10))}</td>
-              <td>{e.note || catLabel(e.category)}<small>{e.split === 'shared' ? (e.paid_by === me?.id ? 'Partilhada' : `Pagou ${name(e.paid_by)}`) : e.split === 'mine' ? (e.paid_by === me?.id ? 'Minha' : name(e.paid_by)) : `De ${name(e.other_id)}`}</small></td>
+              <td>{e.note || catLabel(e.category)}<small>{e.joint ? 'Conta conjunta' : e.split === 'shared' ? (e.paid_by === me?.id ? 'Partilhada' : `Pagou ${name(e.paid_by)}`) : e.split === 'mine' ? (e.paid_by === me?.id ? 'Minha' : name(e.paid_by)) : `De ${name(e.other_id)}`}</small></td>
               <td className="r num">{eur(toU(e.amount))} €</td>
             </tr>
           ))}</tbody>

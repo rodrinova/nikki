@@ -28,6 +28,11 @@ export function Shop() {
   const { shop, receiptItems } = useHouse();
   const { toast, open } = useOverlays();
   const [name, setName] = useState('');
+  // Por supermercado: escolhe-se a loja em cima; o que se junta vai para essa loja. «Todas» mostra loja a loja.
+  const SK = `nikki:shop-store:${house?.id ?? ''}`;
+  const [store, setStoreS] = useState<string | null>(() => store0(SK));
+  const setStore = (v: string | null) => { setStoreS(v); try { if (v) localStorage.setItem(SK, v); else localStorage.removeItem(SK); } catch { /* sem armazenamento */ } };
+  const stores = [...new Set([...shop.rows.map((i) => i.store), store].filter((x): x is string => !!x))].sort((a, b) => a.localeCompare(b, 'pt'));
   const left = shop.rows.filter((i) => !i.done).length, done = shop.rows.filter((i) => i.done);
 
   // Em direto só quando outra pessoa da casa também tem as compras abertas (ex.: os dois no supermercado).
@@ -53,9 +58,9 @@ export function Shop() {
     if (!n || !me || !house) return;
     const nice = n[0].toUpperCase() + n.slice(1);
     setName('');
-    const tmp: ShopItem = { id: 'tmp-' + Date.now(), name: nice, aisle: aisleOf(n), done: false, done_by: null, created_by: me.id, created_at: new Date().toISOString() };
+    const tmp: ShopItem = { id: 'tmp-' + Date.now(), name: nice, aisle: aisleOf(n), done: false, done_by: null, created_by: me.id, created_at: new Date().toISOString(), store };
     shop.setRows((r) => [...r, tmp]); // otimista; o tempo real confirma
-    const { error } = await supabase.from('shopping_items').insert({ household_id: house.id, name: nice, aisle: tmp.aisle, created_by: me.id });
+    const { error } = await supabase.from('shopping_items').insert({ household_id: house.id, name: nice, aisle: tmp.aisle, created_by: me.id, store });
     if (error) { shop.setRows((r) => r.filter((x) => x.id !== tmp.id)); toast('Não ficou na lista. Tenta outra vez.'); }
   }
   async function tick(it: ShopItem) {
@@ -80,7 +85,18 @@ export function Shop() {
     const { error } = await supabase.from('shopping_items').insert({ household_id: house.id, name: nm, aisle: aisleOf(x.product), created_by: me.id });
     if (error) toast('Não ficou na lista. Tenta outra vez.'); else { shop.reload(); toast(`${nm}: na lista.`, { ok: true }); }
   }
-  const groups = ORDER.map((a) => [a, shop.rows.filter((i) => i.aisle === a)] as const).filter(([, l]) => l.length);
+  async function moveTo(it: ShopItem, st: string | null) {
+    shop.setRows((r) => r.map((x) => (x.id === it.id ? { ...x, store: st } : x)));
+    const { error } = await supabase.from('shopping_items').update({ store: st }).eq('id', it.id);
+    if (error) { shop.reload(); toast('Não deu para mudar de loja.'); }
+  }
+  // Loja → corredor → artigo. Com uma loja escolhida: essa loja e, à parte, o que se compra em qualquer uma.
+  const byAisle = (rows: ShopItem[]) => ORDER.map((a) => [a, rows.filter((i) => i.aisle === a)] as const).filter(([, l]) => l.length);
+  const sections: [string | null, string, ShopItem[]][] = store
+    ? [[store, store, shop.rows.filter((i) => i.store === store)], [null, 'Em qualquer loja', shop.rows.filter((i) => !i.store)]]
+    : stores.length ? [...stores.map((st) => [st, st, shop.rows.filter((i) => i.store === st)] as [string, string, ShopItem[]]), [null, 'Em qualquer loja', shop.rows.filter((i) => !i.store)]]
+    : [[null, '', shop.rows]];
+  const groups = sections.filter(([, , l]) => l.length).flatMap(([k, t, l]) => byAisle(l).map(([a, g], j) => [`${k ?? '-'}:${a}`, a, g, j === 0 ? t : ''] as const));
   const who = (id: string | null) => members.find((m) => m.id === id);
   // Os pedidos de quem faz o housekeeping entram sozinhos na lista e vêm marcados com o nome.
   const asker = (id: string) => staff.find((p) => p.id === id);
@@ -91,15 +107,20 @@ export function Shop() {
       <p className="s">{left} por comprar{asked.length ? ` · ${asked.length} ${asked.length === 1 ? 'pedido' : 'pedidos'} de ${[...new Set(asked.map((i) => asker(i.created_by)!.name))].join(' e ')}` : ''}{partner && !live ? ' · a lista atualiza-se sozinha' : ''}</p>
       {live && <p className="live-bar" role="status"><span className="dot" aria-hidden="true" />Em direto com {company.map((m) => m.name).join(' e ')}</p>}
       {sug.length > 0 && <button type="button" className="sug-pill press" onClick={() => open(<Suggestions list={sug} onAdd={addSug} />)}><Icon n="ask" s={16} />{sug.length} {sug.length === 1 ? 'sugestão' : 'sugestões'} pelas vossas compras</button>}
+      <div className="chips shop-stores" role="group" aria-label="Loja">
+        <button type="button" className="press" aria-pressed={!store} onClick={() => setStore(null)}>Todas</button>
+        {stores.map((st) => <button key={st} type="button" className="press" aria-pressed={store === st} onClick={() => setStore(st)}>{st}</button>)}
+        <button type="button" className="press" onClick={() => open(<NewStore onPick={(v) => setStore(v)} />)}>+ Loja</button>
+      </div>
       <form className="add-row" onSubmit={add} autoComplete="off"><label className="sr" htmlFor="new-item">Novo artigo</label><input id="new-item" className="field" placeholder="Adicionar" value={name} onChange={(e) => setName(e.target.value)} /><button className="sq press" aria-label="Adicionar"><Icon n="plus" /></button></form>
       {groups.length ? (
-        <div className="tile card">{groups.map(([a, l]) => (
-          <div key={a}><p className="aisle s">{a}{live && <span className="aisle-who">{[...(mine === a ? [me!] : []), ...company.filter((m) => here[m.id].aisle === a)].map((m) => <span key={m.id} className="who" style={{ ['--c' as any]: m.color }} title={`${m.id === me?.id ? 'Tu' : m.name} neste corredor`}>{m.name[0]}</span>)}</span>}</p><ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>{l.map((it) => {
+        <div className="tile card">{groups.map(([key, a, l, head]) => (
+          <div key={key}>{head && <p className="shop-store-h">{head}</p>}<p className="aisle s">{a}{live && <span className="aisle-who">{[...(mine === a ? [me!] : []), ...company.filter((m) => here[m.id].aisle === a)].map((m) => <span key={m.id} className="who" style={{ ['--c' as any]: m.color }} title={`${m.id === me?.id ? 'Tu' : m.name} neste corredor`}>{m.name[0]}</span>)}</span>}</p><ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>{l.map((it) => {
             const b = it.done ? who(it.done_by) : null;
             return (
               <li key={it.id} className={`item${it.done ? ' done' : ''}${flash.has(it.id) ? ' flash' : ''}`}>
                 <button className="check" aria-pressed={it.done} aria-label={it.name} onClick={() => tick(it)}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ground)" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 12.5l4 4 8-9" /></svg></button>
-                <span className="nm">{it.name}{asker(it.created_by) && <span className="asked">pedido por {asker(it.created_by)!.name}</span>}</span>
+                <span className="nm" role="button" tabIndex={0} onClick={() => open(<StorePick it={it} stores={stores} onPick={(v) => moveTo(it, v)} />)}>{it.name}{asker(it.created_by) && <span className="asked">pedido por {asker(it.created_by)!.name}</span>}</span>
                 <span className="q s">{b && <span className="who" style={{ ['--c' as any]: b.color }}>{b.name[0]}</span>}</span>
               </li>
             );
@@ -130,6 +151,43 @@ function Suggestions({ list, onAdd }: { list: Suggestion[]; onAdd: (x: Suggestio
         );
       })}</div>
       <p className="s">Pelas faturas do supermercado que juntaram às despesas.</p>
+    </div>
+  );
+}
+
+const store0 = (k: string) => { try { return localStorage.getItem(k); } catch { return null; } };
+
+/** Uma loja nova (Continente, Lidl, Pingo Doce…): passa a ser a escolhida, e o que se juntar vai para lá. */
+function NewStore({ onPick }: { onPick: (v: string) => void }) {
+  const { close } = useOverlays();
+  const [v, setV] = useState('');
+  return (
+    <form className="form" onSubmit={(e) => { e.preventDefault(); const n = v.trim().slice(0, 40); if (!n) return; onPick(n[0].toUpperCase() + n.slice(1)); close(); }} autoComplete="off">
+      <p className="l">Que loja?</p>
+      <input className="field" autoFocus value={v} onChange={(e) => setV(e.target.value)} placeholder="ex.: Continente, Lidl, Mercado" maxLength={40} />
+      <div className="chips">{['Continente', 'Pingo Doce', 'Lidl', 'Auchan', 'Mercadona', 'Aldi'].map((x) => <button key={x} type="button" className="press" onClick={() => { onPick(x); close(); }}>{x}</button>)}</div>
+      <button className="btn wide press">Escolher <Icon n="arrow" s={20} /></button>
+    </form>
+  );
+}
+
+/** Mudar um artigo de loja: um toque no nome. */
+function StorePick({ it, stores, onPick }: { it: ShopItem; stores: string[]; onPick: (v: string | null) => void }) {
+  const { close } = useOverlays();
+  const [v, setV] = useState('');
+  const pick = (x: string | null) => { onPick(x); close(); };
+  return (
+    <div className="form">
+      <p className="l">{it.name}</p>
+      <p className="s">Onde se compra?</p>
+      <div className="chips">
+        <button type="button" className="press" aria-pressed={!it.store} onClick={() => pick(null)}>Em qualquer loja</button>
+        {stores.map((st) => <button key={st} type="button" className="press" aria-pressed={it.store === st} onClick={() => pick(st)}>{st}</button>)}
+      </div>
+      <form className="add-row" onSubmit={(e) => { e.preventDefault(); const n = v.trim().slice(0, 40); if (n) pick(n[0].toUpperCase() + n.slice(1)); }}>
+        <input className="field" value={v} onChange={(e) => setV(e.target.value)} placeholder="Outra loja" maxLength={40} aria-label="Outra loja" />
+        <button className="sq press" aria-label="Escolher"><Icon n="plus" /></button>
+      </form>
     </div>
   );
 }

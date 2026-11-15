@@ -1815,3 +1815,11 @@ body.n2x .mh{transform:translateY(calc(var(--sc,0) * -14px)) scale(calc(1 - var(
 .mp-hits .mp-fns{margin:4px 0 0 14px}
 /* O fundo vivo mexe-se com o scroll e com a inclinação: é maior do que o ecrã para nunca mostrar as arestas. */
 body.n2x .aurora{inset:-140px}
+.field.notes{min-height:220px;resize:vertical;line-height:1.5}
+.btn.danger{background:#E2532F;color:#fff}
+.shop-stores{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+.shop-stores::-webkit-scrollbar{display:none}
+.shop-stores button{flex:none}
+.shop-store-h{margin:14px 0 2px;font-size:var(--t-l);letter-spacing:-.02em}
+.tile.card > div:first-child .shop-store-h{margin-top:2px}
+.item .nm[role="button"]{cursor:pointer}
