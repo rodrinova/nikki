@@ -5,6 +5,8 @@ import './v3.css';
 import { useHouse } from '@/data/house';
 import { useSession } from '@/data/session';
 import { totals as salvageTotals } from '@/lib/salvage';
+import { useSalvagePartnerCode } from '@/data/salvagePartner';
+import { DEMO } from '@/lib/supabase';
 import { Icon } from '@/ui/Icon';
 import { eur, toU } from '@/lib/money';
 import { addDays, monthKey, todayStr } from '@/lib/dates';
@@ -43,7 +45,8 @@ interface Thing { kind: string; id: string; n: string; ic: string; v: string; u:
 /** As coisas da casa, com o seu sinal: a(s) casa(s), cada carro, quem ajuda, cada evento, e tu. */
 function useThings(): Thing[] {
   const { homes, cars, hk, occasions, deadlines, shop, gym, on, salvage } = useHouse();
-  const { appAdmin } = useSession();
+  const { appAdmin, me } = useSession();
+  const salvCode = useSalvagePartnerCode(!!me && !appAdmin && !DEMO);
   const today = todayStr(), soon = addDays(today, 30);
   return useMemo(() => {
     const due = (f: (d: (typeof deadlines.rows)[number]) => boolean) => deadlines.rows.filter((d) => !d.paid_at && d.due_on <= soon && f(d)).sort((a, b) => (a.due_on < b.due_on ? -1 : 1))[0];
@@ -55,13 +58,14 @@ function useThings(): Thing[] {
     if (on('eventos')) for (const o of occasions.rows.filter((x) => !x.archived && !x.purchase)) { const n = o.on_date ? inDays(o.on_date, today) : null; out.push({ kind: 'evento', id: o.id, n: o.name, ic: 'gift', v: n === null ? '—' : n >= 0 ? String(n) : 'foi', u: n === null ? 'sem data' : n >= 0 ? (n === 1 ? 'dia' : 'dias') : day(o.on_date!), hot: n !== null && n >= 0 && n <= 14 }); }
     if (on('ginasio')) out.push({ kind: 'eu', id: 'eu', n: 'Eu', ic: 'pulse', v: String(gym.rows.length), u: gym.rows.length === 1 ? 'avaliação' : 'avaliações', hot: false });
     // Carros de investimento (salvados): só para quem administra a app. Abrem no ecrã completo de cada um.
+    if (!appAdmin && salvCode) out.push({ kind: 'salvados', id: 'todos', n: 'Salvados', ic: 'wrench', v: '—', u: 'carros de investimento', hot: false, to: '/salvados' });
     if (appAdmin && salvage.length) {
       const tot = salvageTotals(salvage, today);
       out.push({ kind: 'salvados', id: 'todos', n: 'Investimentos', ic: 'wrench', v: `${eur(tot.myProfit, 0)} €`, u: 'lucro, a tua metade', hot: false, to: '/salvados' });
       for (const c of salvage) out.push({ kind: 'salvado', id: c.id, n: c.name, ic: 'wrench', v: `${eur(toU(c.sold_for ?? c.price), 0)} €`, u: c.sold_on ? 'vendido' : 'compra · em curso', hot: false, to: `/salvados/${c.id}` });
     }
     return out;
-  }, [appAdmin, salvage, homes.rows, cars.rows, hk.rows, occasions.rows, deadlines.rows, shop.rows, gym.rows, on, today, soon]);
+  }, [appAdmin, salvCode, salvage, homes.rows, cars.rows, hk.rows, occasions.rows, deadlines.rows, shop.rows, gym.rows, on, today, soon]);
 }
 
 /** Casa: as coisas de que cuidamos, todas com a mesma cara. */

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useSalvagePartnerCode } from '@/data/salvagePartner';
 import { sortOccasions } from '@/lib/occasions';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { store } from '@/lib/store';
@@ -16,7 +17,7 @@ import { ExpenseSheet, INVEST, catLabel, catNormals, useLedger, useMonth } from 
 import { driver, expected } from '@/lib/forecast';
 import { suggestions, qtyText } from '@/lib/pantry';
 import { aisleOf } from './Shop';
-import { supabase } from '@/lib/supabase';
+import { DEMO, supabase } from '@/lib/supabase';
 import { InviteForm } from './People';
 import { arrange, parseHidden, prune, type Hidden, type NowItem } from '@/lib/now';
 import { ContractSheet, PaidSheet, useCasa } from './Casa';
@@ -565,6 +566,8 @@ export function useSpaceVals() {
 
 export function Spaces() {
   const { val, on, modules, sv, appAdmin } = useSpaceVals();
+  const { me } = useSession();
+  const salvCode = useSalvagePartnerCode(!!me && !appAdmin && !DEMO);
   const lit = MODULES.filter((x) => on(x.k));
   const off = MODULES.filter((x) => !on(x.k));
   return (
@@ -572,7 +575,7 @@ export function Spaces() {
       <Top title="Casa" />
       <div className="lib">
         {lit.map((x) => <Space key={x.k} to={x.to} ic={x.ic} n={x.name} v={val[x.k]?.[0] ?? '—'} u={val[x.k]?.[1]} />)}
-        {appAdmin && <Space to="/salvados" ic="wrench" n="Salvados" v={sv ? `${eur(sv.myProfit, 0)} €` : '—'} u={sv ? 'lucro, a tua metade' : 'por começar'} />}
+        {(appAdmin || salvCode) && <Space to="/salvados" ic="wrench" n="Salvados" v={sv ? `${eur(sv.myProfit, 0)} €` : '—'} u={sv ? 'lucro, a tua metade' : 'por começar'} />}
       </div>
       {!modules.loading && off.length > 0 && <>
         <p className="s">Por ligar</p>

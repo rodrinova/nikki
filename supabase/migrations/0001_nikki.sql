@@ -2061,3 +2061,22 @@ grant all on nikki.join_links to service_role;
 -- Um ativo pode ser os dois fundos ao mesmo tempo («both»): enche primeiro o de imprevistos, o resto vai para o de emergência.
 alter table nikki.assets drop constraint if exists assets_role_check;
 alter table nikki.assets add constraint assets_role_check check (role in ('emergency', 'cushion', 'both'));
+
+-- Salvados a dois: o sócio com conta na NIKKI vê e edita os mesmos carros dentro da app dele, pelo lado de sócio (o mesmo
+-- da ligação secreta, com os papéis trocados). Quem é sócio de quem fica aqui; só o servidor lê. A função devolve o código
+-- da ligação ativa do dono a quem for sócio (e nada a mais ninguém).
+create table if not exists nikki.salvage_partners (
+  profile_id uuid primary key references nikki.profiles (id) on delete cascade,
+  owner_id uuid not null references nikki.profiles (id) on delete cascade,
+  created_at timestamptz not null default now()
+);
+alter table nikki.salvage_partners enable row level security;
+revoke all on nikki.salvage_partners from anon, authenticated, public;
+grant all on nikki.salvage_partners to service_role;
+create or replace function nikki.salvage_partner_code() returns text
+language sql stable security definer set search_path = nikki, public as $$
+  select l.token from nikki.salvage_partners s join nikki.salvage_links l on l.owner_id = s.owner_id and l.revoked_at is null
+  where s.profile_id = auth.uid() order by l.created_at desc limit 1;
+$$;
+revoke all on function nikki.salvage_partner_code() from public, anon;
+grant execute on function nikki.salvage_partner_code() to authenticated;

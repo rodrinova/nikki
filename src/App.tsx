@@ -25,6 +25,7 @@ import { Goals } from '@/screens/Goals';
 import { DESTS, isRoot, under } from '@/lib/nav';
 import { Aurora } from '@/n2/Aurora';
 import { isNewcomer, tourKey } from '@/lib/guide';
+import { useSalvagePartnerCode } from '@/data/salvagePartner';
 import { useToggleModule } from '@/screens/Modules';
 import type { ModuleKey } from '@/lib/modules';
 import { Tour } from '@/ui/Tour';
@@ -50,6 +51,7 @@ const Admin = later(() => import('@/screens/Admin'), 'Admin');
 const Housekeeper = later(() => import('@/screens/Housekeeper'), 'Housekeeper');
 const Salvage = later(() => import('@/screens/Salvage'), 'Salvage');
 const SalvageCarScreen = later(() => import('@/screens/Salvage'), 'SalvageCarScreen');
+const SalvagePartnerPage = later(() => import('@/screens/Salvage'), 'SalvagePartnerPage');
 const SalvageLinkPage = later(() => import('@/screens/Salvage'), 'SalvageLinkPage');
 const HkLinkPage = later(() => import('@/screens/HkLink'), 'HkLinkPage');
 const JoinLinkPage = later(() => import('@/screens/JoinLink'), 'JoinLinkPage');
@@ -222,6 +224,7 @@ function usePageDir(pathname: string): 'fwd' | 'back' | 'fade' {
 
 function Shell() {
   const { ready, session, house, me, appAdmin } = useSession();
+  const salvCode = useSalvagePartnerCode(!!me && !appAdmin && !DEMO);
   const { pathname } = useLocation();
   const dir = usePageDir(pathname);
   usePendingInvite();
@@ -308,6 +311,8 @@ function Shell() {
           <Route path="/n2/casa" element={<N2Casa />} />
           {appAdmin && <Route path="/salvados" element={<Salvage />} />}
           {appAdmin && <Route path="/salvados/:id" element={<SalvageCarScreen />} />}
+          {!appAdmin && salvCode && <Route path="/salvados" element={<SalvagePartnerPage code={salvCode} />} />}
+          {!appAdmin && salvCode && <Route path="/salvados/:id" element={<SalvagePartnerPage code={salvCode} />} />}
           <Route path="/pessoas" element={<People />} />
           <Route path="/perfil" element={<Profile />} />
           <Route path="/historia" element={<Story />} />
