@@ -346,22 +346,46 @@ function useIntro() {
 }
 
 /**
- * Uma versão nova da app ficou pronta enquanto esta estava aberta (o service worker trocou): um aviso discreto
- * para atualizar já, em vez de esperar pela próxima abertura.
+ * Atualizar sem pedir: quando o service worker troca para uma versão nova, a app recarrega sozinha num momento
+ * sossegado (sem folha aberta e sem estar a escrever; ou logo que a app vá para segundo plano) e, ao voltar, diz
+ * «A NIKKI foi atualizada». Procura versões novas ao voltar à app e de meia em meia hora.
  */
-function UpdateReady() {
-  const [ready, setReady] = useState(false);
+const UPDATED = 'nikki:updated';
+function AutoUpdate() {
+  const { isOpen, toast } = useOverlays();
+  const [pending, setPending] = useState(false);
+  // depois de recarregar: dizer que se atualizou
+  useEffect(() => {
+    let was = false;
+    try { was = sessionStorage.getItem(UPDATED) === '1'; sessionStorage.removeItem(UPDATED); } catch { /* sem armazenamento */ }
+    if (was) setTimeout(() => toast('A NIKKI foi atualizada.', { ok: true }), 900);
+  }, [toast]);
   useEffect(() => {
     const sw = typeof navigator !== 'undefined' ? navigator.serviceWorker : undefined;
     if (!sw || DEMO) return;
-    const had = !!sw.controller; // na primeira instalação não há versão anterior: nada a avisar
-    const on = () => { if (had) setReady(true); };
+    const had = !!sw.controller; // na primeira instalação não há versão anterior
+    const on = () => { if (had) setPending(true); };
     sw.addEventListener('controllerchange', on);
-    return () => sw.removeEventListener('controllerchange', on);
+    const check = () => { sw.getRegistration().then((r) => r?.update()).catch(() => {}); };
+    const vis = () => { if (document.visibilityState === 'visible') check(); };
+    document.addEventListener('visibilitychange', vis);
+    const t = setInterval(check, 30 * 60_000);
+    return () => { sw.removeEventListener('controllerchange', on); document.removeEventListener('visibilitychange', vis); clearInterval(t); };
   }, []);
-  if (!ready) return null;
-  return <button type="button" className="update-pill press" onClick={() => location.reload()}>Versão nova da NIKKI · <b>Atualizar</b></button>;
+  useEffect(() => {
+    if (!pending) return;
+    const go = () => { try { sessionStorage.setItem(UPDATED, '1'); } catch { /* sem armazenamento */ } location.reload(); };
+    const busy = () => isOpen || !!document.activeElement?.matches('input, textarea, select, [contenteditable="true"]');
+    if (document.visibilityState === 'hidden') { go(); return; }
+    // em segundo plano, logo; à vista, quando estiver sossegada (vê de 2 em 2 segundos)
+    const hide = () => { if (document.visibilityState === 'hidden') go(); };
+    document.addEventListener('visibilitychange', hide);
+    const t = setInterval(() => { if (!busy()) go(); }, 2000);
+    return () => { document.removeEventListener('visibilitychange', hide); clearInterval(t); };
+  }, [pending, isOpen]);
+  return null;
 }
+
 
 /**
  * Os olhos da marca são um traço de luz: do branco ao laranja, com brilho no escuro (no claro, do preto ao laranja,
@@ -386,7 +410,7 @@ export default function App() {
       {intro && <Intro onDone={endIntro} />}
       <OverlayProvider>
         <SessionProvider><Shell /></SessionProvider>
-        <UpdateReady />
+        <AutoUpdate />
         {DEMO_VISIT && <button type="button" className="demo-pill press" onClick={stopDemo} aria-label="Sair da demonstração">Demonstração · Sair</button>}
       </OverlayProvider>
     </Router>
