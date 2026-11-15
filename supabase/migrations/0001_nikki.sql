@@ -2080,3 +2080,31 @@ language sql stable security definer set search_path = nikki, public as $$
 $$;
 revoke all on function nikki.salvage_partner_code() from public, anon;
 grant execute on function nikki.salvage_partner_code() to authenticated;
+
+
+-- Pedidos do Nuno (tickets): conta conjunta, notas nos eventos, compras por supermercado.
+-- Conta conjunta: a despesa sai do dinheiro dos dois. Conta na parte de cada um (pela divisão), mas ninguém adiantou
+-- nada: fica fora do «Entre nós».
+alter table nikki.expenses add column if not exists joint boolean not null default false;
+alter table nikki.occasions add column if not exists notes text check (length(notes) <= 4000);
+alter table nikki.shopping_items add column if not exists store text check (length(trim(store)) between 1 and 40);
+create or replace function nikki.pair_balance(h uuid, a uuid, b uuid) returns numeric
+language sql stable security invoker set search_path = '' as $$
+  with o as (select coalesce((select case when lo.profile_a = a then lo.amount_a else -lo.amount_a end
+                               from nikki.ledger_openings lo
+                               where lo.household_id = h and lo.profile_a = least(a, b) and lo.profile_b = greatest(a, b)), 0) as v,
+                    coalesce((select lo.cutover from nikki.ledger_openings lo
+                               where lo.household_id = h and lo.profile_a = least(a, b) and lo.profile_b = greatest(a, b)), '-infinity'::date) as since)
+  select o.v
+    + coalesce((select sum(case when e.paid_by = a then e.owed else -e.owed end) from nikki.expenses e
+                where e.household_id = h and e.split <> 'mine' and not e.joint and e.spent_on >= o.since
+                  and ((e.paid_by = a and e.other_id = b) or (e.paid_by = b and e.other_id = a))), 0)
+    + coalesce((select sum(case when t.from_id = a then t.amount else -t.amount end) from nikki.transfers t
+                where t.household_id = h and t.made_on >= o.since
+                  and ((t.from_id = a and t.to_id = b) or (t.from_id = b and t.to_id = a))), 0)
+    - coalesce((select sum(case when x.received_by = a then 1 else -1 end * nikki.entry_owed(x.split, x.amount, x.payer_share))
+                from nikki.income_entries x
+                where x.household_id = h and x.split <> 'mine' and x.received_on >= o.since
+                  and ((x.received_by = a and x.other_id = b) or (x.received_by = b and x.other_id = a))), 0)
+  from o;
+$$;

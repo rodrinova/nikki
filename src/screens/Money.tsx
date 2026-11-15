@@ -1,4 +1,5 @@
-import { Fragment, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { PasteButton, usePasteImage } from '@/ui/Paste';
 import { GuideOnce } from '@/ui/Tour';
 import { Link, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
@@ -265,9 +266,9 @@ function Movements({ monthKey: key }: { monthKey: string }) {
   const list = (who === 'me' && partner ? month.filter((e) => e.paid_by === me?.id) : month)
     .sort((a, b) => (a.spent_on !== b.spent_on ? (a.spent_on < b.spent_on ? 1 : -1) : a.created_at < b.created_at ? 1 : -1));
   const name = (id: string | null) => members.find((m) => m.id === id)?.name ?? '';
-  const lbl = (e: ExpenseRow) => e.split === 'mine' ? (e.paid_by === me?.id ? 'Minha' : name(e.paid_by)) : e.split === 'shared' ? `Partilhada · pagou ${e.paid_by === me?.id ? 'tu' : name(e.paid_by)}` : e.other_id === me?.id ? `Tua · pagou ${name(e.paid_by)}` : ofName(name(e.other_id));
+  const lbl = (e: ExpenseRow) => e.joint ? 'Partilhada · conta conjunta' : e.split === 'mine' ? (e.paid_by === me?.id ? 'Minha' : name(e.paid_by)) : e.split === 'shared' ? `Partilhada · pagou ${e.paid_by === me?.id ? 'tu' : name(e.paid_by)}` : e.other_id === me?.id ? `Tua · pagou ${name(e.paid_by)}` : ofName(name(e.other_id));
   // Na lista, dois factos no máximo (o dia e um): o resto está no detalhe.
-  const short = (e: ExpenseRow) => e.split === 'shared' ? (e.paid_by === me?.id || !partner ? 'Partilhada' : `pagou ${name(e.paid_by)}`) : e.split === 'mine' ? (e.paid_by === me?.id ? 'Minha' : name(e.paid_by)) : e.other_id === me?.id ? `pagou ${name(e.paid_by)}` : ofName(name(e.other_id));
+  const short = (e: ExpenseRow) => e.joint ? 'conta conjunta' : e.split === 'shared' ? (e.paid_by === me?.id || !partner ? 'Partilhada' : `pagou ${name(e.paid_by)}`) : e.split === 'mine' ? (e.paid_by === me?.id ? 'Minha' : name(e.paid_by)) : e.other_id === me?.id ? `pagou ${name(e.paid_by)}` : ofName(name(e.other_id));
   const paidMe = month.filter((e) => e.paid_by === me?.id).length;
   // As entradas do mês que te dizem respeito (recebidas por ti, ou partilhadas contigo).
   const ins = incomeEntries.rows.filter((x) => monthKey(x.received_on) === key && (x.received_by === me?.id || x.other_id === me?.id))
@@ -378,6 +379,7 @@ export function ExpenseDetail({ e, label }: { e: ExpenseRow; label: string }) {
         <input type="file" accept="image/*,application/pdf" hidden onChange={(ev) => { attach(ev.target.files?.[0] ?? null); ev.target.value = ''; }} />
         <Icon n="cam" s={18} /><span>{busyR ? 'A tratar…' : e.receipt_path ? 'Trocar a fatura' : 'Juntar a fatura'}</span>
       </label>
+      <PasteButton onFile={(f) => void attach(f)} onNone={(w) => toast(w)} />
       {e.receipt_path && e.category === 'Supermercado' && <button className="btn quiet wide press" disabled={busyR} onClick={reread}>{e.receipt_read_at ? 'Ler outra vez' : 'Ler os produtos'} <Icon n="arrow" s={20} /></button>}
       {mine && <button className="btn wide press" onClick={() => open(<ExpenseEdit e={e} />)}>Editar <Icon n="arrow" s={20} /></button>}
       {mine && <button className="btn quiet wide press" onClick={del}>Apagar <Icon n="arrow" s={20} /></button>}
@@ -400,7 +402,7 @@ function ExpenseEdit({ e }: { e: ExpenseRow }) {
   const [note, setNote] = useState(e.note ?? '');
   const [cat, setCat] = useState(e.category);
   const [split, setSplit] = useState<Split>(split0);
-  const [paid, setPaid] = useState<'me' | 'partner'>(iPaid || !partner ? 'me' : 'partner');
+  const [paid, setPaid] = useState<'me' | 'partner' | 'joint'>(e.joint ? 'joint' : iPaid || !partner ? 'me' : 'partner');
   const [pct, setPct] = useState(String(Math.round(mine0 * 100)));
   const [day, setDay] = useState(e.spent_on);
   const [occ, setOcc] = useState<string | null>(e.occasion_id ?? null);
@@ -431,10 +433,12 @@ function ExpenseEdit({ e }: { e: ExpenseRow }) {
     if (!v) return setErr('O valor escreve-se assim: 12,35.');
     if (!me) return;
     const p = Math.min(100, Math.max(0, Number(pct) || 0)) / 100;
-    const payerShare = paid === 'me' ? p : 1 - p;
-    const who = paid === 'partner' && partner
-      ? { paid_by: partner.id, split: split === 'shared' ? 'shared' : split === 'mine' ? 'other' : 'mine', other_id: split === 'other' ? null : me.id, payer_share: split === 'shared' ? payerShare : null }
-      : { paid_by: me.id, split, other_id: split === 'mine' || !partner ? null : partner.id, payer_share: split === 'shared' ? payerShare : null };
+    const payerShare = paid === 'partner' ? 1 - p : p;
+    const who = paid === 'joint' && partner
+      ? { paid_by: me.id, split: 'shared', other_id: partner.id, payer_share: payerShare, joint: true }
+      : paid === 'partner' && partner
+      ? { paid_by: partner.id, split: split === 'shared' ? 'shared' : split === 'mine' ? 'other' : 'mine', other_id: split === 'other' ? null : me.id, payer_share: split === 'shared' ? payerShare : null, joint: false }
+      : { paid_by: me.id, split, other_id: split === 'mine' || !partner ? null : partner.id, payer_share: split === 'shared' ? payerShare : null, joint: false };
     const { error } = await supabase.from('expenses').update({ amount: v, note: note.trim().slice(0, 120) || null, category: cat, spent_on: day, occasion_id: occ, merchant_nif: nif, ...who }).eq('id', e.id);
     if (error) return setErr(error.message);
     expenses.reload(); close(); close(); toast(`Despesa mudada: ${eur(toU(v))} €.`, { ok: true });
@@ -447,6 +451,7 @@ function ExpenseEdit({ e }: { e: ExpenseRow }) {
         <input type="file" accept="image/*,application/pdf" hidden onChange={(x) => { receipt(x.target.files?.[0] ?? null); x.target.value = ''; }} />
         <Icon n="cam" s={18} /><span>{busyR ? 'A tratar…' : hasR ? 'Trocar a fatura (foto ou PDF)' : 'Juntar a fatura: foto ou PDF (com QR, acerta tudo)'}</span>{hasR && !busyR && <Icon n="check" s={16} />}
       </label>
+      <PasteButton onFile={(f) => void receipt(f)} onNone={(w) => setErr(w)} />
       {nif && <p className="s" style={{ marginTop: -6 }}>NIF da loja {nif}</p>}
       <div className="form">
         <div className="two">
@@ -458,7 +463,7 @@ function ExpenseEdit({ e }: { e: ExpenseRow }) {
       <div className="chips wrap" role="group" aria-label="Categoria">{CATEGORIES.map((c) => chip(cat === c, catLabel(c), () => setCat(c)))}</div>
       {partner && <div className="seg" role="group" aria-label="De quem é">{chip(split === 'mine', 'Minha', () => setSplit('mine'))}{chip(split === 'shared', 'Partilhada', () => setSplit('shared'))}{chip(split === 'other', ofName(partner.name), () => setSplit('other'))}</div>}
       {partner && split === 'shared' && <label className="s salv-date">A tua parte (%) <input className="field" inputMode="numeric" value={pct} onChange={(x) => setPct(x.target.value.replace(/[^0-9]/g, '').slice(0, 3))} /></label>}
-      {partner && <div className="seg" role="group" aria-label="Quem pagou">{chip(paid === 'me', 'Paguei eu', () => setPaid('me'))}{chip(paid === 'partner', `Pagou ${partner.name}`, () => setPaid('partner'))}</div>}
+      {partner && <div className="seg" role="group" aria-label="Quem pagou">{chip(paid === 'me', 'Paguei eu', () => setPaid('me'))}{chip(paid === 'partner', `Pagou ${partner.name}`, () => setPaid('partner'))}{chip(paid === 'joint', 'Conta conjunta', () => { setPaid('joint'); setSplit('shared'); })}</div>}
       {allOccs.length > 0 && <div className="chips wrap" role="group" aria-label="Evento">{chip(!occ, 'Sem evento', () => setOcc(null))}{allOccs.filter((o) => !o.archived || o.id === occ).map((o) => chip(occ === o.id, `${o.purchase ? '◆ ' : ''}${o.name}`, () => setOcc(o.id)))}</div>}
       {err && <p className="s" style={{ color: 'var(--accent)' }}>{err}</p>}
       <button className="btn wide press">Guardar <Icon n="check" s={20} /></button>
@@ -502,8 +507,9 @@ export function ExpenseSheet({ init }: { init?: ExpenseInit } = {}) {
   const [catSet, setCat] = useState<string | null>(null);
   const cat = catSet ?? q.category ?? g.category;
   const occ = occSet === undefined ? q.occasion ?? null : occSet;
-  const [paidSet, setPaid] = useState<'me' | 'partner' | null>(null);
-  const paidBy = partner ? paidSet ?? q.paidBy ?? 'me' : 'me';
+  const [paidSet, setPaid] = useState<'me' | 'partner' | 'joint' | null>(null);
+  const paidBy: 'me' | 'partner' | 'joint' = partner ? paidSet ?? q.paidBy ?? 'me' : 'me';
+  const joint = paidBy === 'joint' && !incoming;
   const [splitSet, setSplit] = useState<Split | null>(null);
   const [daySet, setDay] = useState<'hoje' | 'ontem' | 'outro' | null>(init?.day && init.day !== todayStr() ? 'outro' : null);
   const day = daySet ?? (q.day && q.day !== todayStr() ? 'outro' : 'hoje');
@@ -516,6 +522,8 @@ export function ExpenseSheet({ init }: { init?: ExpenseInit } = {}) {
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
   const [rfile, setRfile] = useState<File | null>(init?.file ?? null); // a fatura (foto ou PDF), se houver
+  // Colar um recorte (Cmd+V ou colar) junta-o como fatura, sem passar pelas fotografias.
+  usePasteImage(useCallback((f: File) => { void fromQrRef.current(f); }, []));
   // «Guardar e outra»: a folha fica aberta, com a mesma categoria, divisão e dia, para registar várias seguidas.
   const [done, setDone] = useState<{ n: number; total: number; last: string } | null>(null);
   const amtRef = useRef<HTMLInputElement>(null);
@@ -535,7 +543,7 @@ export function ExpenseSheet({ init }: { init?: ExpenseInit } = {}) {
   // Numa entrada, por omissão é de quem recebe (só partilhada se escrito ou escolhido).
   const split: Split = splitSet ?? q.split ?? (incoming ? 'mine' : cat === 'Carros' && pick && !buying ? splitFor(pick) : cat !== g.category ? splitOf(cat, expenses.rows as Past[], me?.id ?? '', !!partner) : g.split);
   // A parte de quem paga numa partilhada: a escrita («60/40») ou a combinada (de quem pagou).
-  const payerShare = q.share ?? (paidBy === 'me' ? myShare : 1 - myShare);
+  const payerShare = q.share ?? (paidBy === 'partner' ? 1 - myShare : myShare);
   const partnerPaid = !!partner && paidBy === 'partner';
   const splitWord = partner ? (split === 'shared' ? 'partilhada' : split === 'mine' ? 'só tua' : `de ${partner.name}`) : '';
   const [entry, setEntry] = useState<{ car: string; f: CarEntry } | null>(null);
@@ -557,13 +565,15 @@ export function ExpenseSheet({ init }: { init?: ExpenseInit } = {}) {
   const ask = (cat === 'Carros' && car && f ? `${KIND_ASK[f.kind]} do ${car.name}${partner ? `, ${splitWord}` : ''}` : `${bc.bill ? bc.bill.name : catLabel(cat)}${partner ? `, ${splitWord}` : ''}`) + (occName ? `, ${occName}` : '') + '?';
   const saveBill = useSaveBill();
   const pct = Math.round(myShare * 100);
-  const mineShare = paidBy === 'me' ? payerShare : 1 - payerShare;
+  const mineShare = paidBy === 'partner' ? 1 - payerShare : payerShare;
   const mp = Math.round(mineShare * 100);
   const hint = !v ? '' : !partner ? 'Em teu nome.' : split === 'shared'
-    ? `Partilhada ${mp}/${100 - mp}${q.share === undefined ? '' : ' (escrito)'}: ${eur(sv * mineShare)} € na tua parte, ${eur(sv * (1 - mineShare))} € na parte de ${partner.name}.${partnerPaid ? ` Pagou ${partner.name}.` : ''}${q.share === undefined && pct === mp ? ' A percentagem muda-se em Pessoas.' : ''}`
+    ? `Partilhada ${mp}/${100 - mp}${q.share === undefined ? '' : ' (escrito)'}: ${eur(sv * mineShare)} € na tua parte, ${eur(sv * (1 - mineShare))} € na parte de ${partner.name}.${joint ? ' Saiu da conta conjunta: fica fora do «Entre nós».' : ''}${partnerPaid ? ` Pagou ${partner.name}.` : ''}${q.share === undefined && pct === mp ? ' A percentagem muda-se em Pessoas.' : ''}`
     : split === 'other' ? `Toda na parte de ${partner.name}. ${partnerPaid ? `Pagou ${partner.name}.` : 'Pagaste tu.'}` : partnerPaid ? `Só tua. Pagou ${partner.name}.` : 'Só tua.';
 
   // Ler o QR da fatura (fotografia): valor, dia e NIF; a loja e o resto vêm do que se fez antes com o mesmo NIF.
+  const fromQrRef = useRef<(f: File | null) => Promise<void>>(async () => {});
+  fromQrRef.current = fromQr;
   async function fromQr(file: File | null) {
     if (!file) return;
     setQrBusy(true); setErr('');
@@ -601,7 +611,9 @@ export function ExpenseSheet({ init }: { init?: ExpenseInit } = {}) {
     const { data, error } = await supabase.from('expenses').insert({
       household_id: house.id, created_by: me.id, amount: v, category: cat, spent_on, car_id: car?.id ?? null, merchant_nif: nif, occasion_id: allOccs.some((o) => o.id === occ) ? occ : null,
       // Quem pagou: tu, ou a outra pessoa (escrito «pagou a Inês» ou escolhido em «Mudar»).
-      ...(partnerPaid
+      ...(joint && partner
+        ? { paid_by: me.id, split: 'shared', other_id: partner.id, payer_share: payerShare, joint: true }
+        : partnerPaid
         ? { paid_by: partner!.id, split: split === 'shared' ? 'shared' : split === 'mine' ? 'other' : 'mine', other_id: split === 'other' ? null : me.id, payer_share: split === 'shared' ? payerShare : null }
         : { paid_by: me.id, split, other_id: split === 'mine' || !partner ? null : partner.id, payer_share: split === 'shared' ? payerShare : null }),
       note: (car ? `${note.trim() || (f!.kind === 'fuel' ? 'Combustível' : f!.kind === 'charge' ? 'Carregamento' : f!.kind === 'toll' ? 'Portagens' : f!.kind === 'service' ? 'Oficina' : 'Carro')} · ${car.name}` : note.trim()).slice(0, 120) || null,
@@ -708,7 +720,7 @@ export function ExpenseSheet({ init }: { init?: ExpenseInit } = {}) {
       {more && partner && <div className="seg" role="group" aria-label="Quem pagou">
         {incoming
           ? <>{chip(paidBy === 'me', 'Recebi eu', () => setPaid('me'))}{chip(paidBy === 'partner', `Recebeu ${partner.name}`, () => setPaid('partner'))}</>
-          : <>{chip(paidBy === 'me', 'Paguei eu', () => setPaid('me'))}{chip(paidBy === 'partner', `Pagou ${partner.name}`, () => setPaid('partner'))}</>}
+          : <>{chip(paidBy === 'me', 'Paguei eu', () => setPaid('me'))}{chip(paidBy === 'partner', `Pagou ${partner.name}`, () => setPaid('partner'))}{chip(paidBy === 'joint', 'Conta conjunta', () => { setPaid('joint'); setSplit('shared'); })}</>}
       </div>}
       {more && <div className="chips" role="group" aria-label="Dia">{chip(day === 'hoje', 'Hoje', () => setDay('hoje'))}{chip(day === 'ontem', 'Ontem', () => setDay('ontem'))}{chip(day === 'outro', 'Outro dia', () => setDay('outro'))}</div>}
       {more && day === 'outro' && <input className="field" type="date" aria-label="Dia da despesa" max={todayStr()} value={date} onChange={(e) => setDate(e.target.value)} />}
@@ -716,6 +728,7 @@ export function ExpenseSheet({ init }: { init?: ExpenseInit } = {}) {
         <input type="file" accept="image/*,application/pdf" hidden onChange={(e) => { fromQr(e.target.files?.[0] ?? null); e.target.value = ''; }} />
         <Icon n="cam" s={18} /><span>{qrBusy ? 'A ler…' : rfile ? 'Fatura junta · trocar' : cat === 'Supermercado' ? 'Juntar a fatura: foto ou PDF (lê os produtos)' : 'Juntar a fatura: foto ou PDF'}</span>{rfile && !qrBusy && <Icon n="check" s={16} />}
       </label>}
+      {!incoming && !rfile && <PasteButton onFile={(f) => void fromQr(f)} onNone={(w) => setErr(w)} />}
       <div className="save-two">
         <button className="btn quiet press" data-again="1" disabled={busy}>Guardar e outra</button>
         <button className="btn press" disabled={busy}>{done ? 'Guardar e fechar' : incoming ? 'Guardar entrada' : `Guardar · ${me?.name}`} <Icon n="arrow" s={20} /></button>

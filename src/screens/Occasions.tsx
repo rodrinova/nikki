@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { useSession } from '@/data/session';
@@ -108,8 +108,32 @@ function OccasionSheet({ o }: { o?: Occasion }) {
   );
 }
 
-type Part = 'convidados' | 'lista' | 'fornecedores' | 'presentes' | 'gastos';
-const PARTS: [Part, string][] = [['convidados', 'Convidados'], ['lista', 'Lista'], ['fornecedores', 'Fornecedores'], ['presentes', 'Presentes'], ['gastos', 'Gastos']];
+type Part = 'convidados' | 'lista' | 'fornecedores' | 'presentes' | 'gastos' | 'notas';
+const PARTS: [Part, string][] = [['convidados', 'Convidados'], ['lista', 'Lista'], ['fornecedores', 'Fornecedores'], ['presentes', 'Presentes'], ['gastos', 'Gastos'], ['notas', 'Notas']];
+
+/** Notas do evento: texto livre, guardado sozinho ao sair do campo (e 1,2 s depois de parar de escrever). */
+function Notes({ o }: { o: Occasion }) {
+  const { occasions } = useHouse();
+  const { toast } = useOverlays();
+  const [t, setT] = useState(o.notes ?? '');
+  const [state, setState] = useState<'' | 'a guardar' | 'guardado'>('');
+  const last = useRef(o.notes ?? '');
+  const save = useCallback(async (v: string) => {
+    if (v === last.current) return;
+    setState('a guardar');
+    const { error } = await supabase.from('occasions').update({ notes: v.trim() ? v.slice(0, 4000) : null }).eq('id', o.id);
+    if (error) { setState(''); return toast('As notas não ficaram guardadas. Tenta outra vez.'); }
+    last.current = v; setState('guardado'); occasions.reload();
+  }, [o.id, occasions, toast]);
+  useEffect(() => { const k = setTimeout(() => void save(t), 1200); return () => clearTimeout(k); }, [t, save]);
+  return (
+    <section className="stack">
+      <textarea className="field notes" rows={10} value={t} onChange={(e) => setT(e.target.value)} onBlur={() => void save(t)} maxLength={4000}
+        placeholder="O que não cabe nas listas: ideias, horários, contactos, o que ficou combinado…" aria-label="Notas do evento" />
+      <p className="s" aria-live="polite">{state === 'a guardar' ? 'A guardar…' : state === 'guardado' ? 'Guardado.' : 'Guarda-se sozinho.'}</p>
+    </section>
+  );
+}
 
 export function OccasionScreen() {
   const { id } = useParams();
@@ -138,6 +162,7 @@ export function OccasionScreen() {
       {part === 'lista' && <Items o={o} />}
       {part === 'fornecedores' && <Vendors o={o} />}
       {part === 'presentes' && <Gifts o={o} />}
+      {part === 'notas' && <Notes o={o} />}
       {part === 'gastos' && <Spent o={o} total={s.spent} />}
       <button className="back press" onClick={() => archive(!o.archived)}>{o.archived ? 'Reativar o evento' : 'Arquivar o evento (no fim)'}</button>
     </>

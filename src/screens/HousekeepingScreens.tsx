@@ -71,7 +71,38 @@ function HkMain({ h }: { h: HkRow }) {
         <button type="button" className="tile ctile press" onClick={() => open(<HkForm h={h} />)}><Icon n="cal" s={22} /><span className="l">Dias e valor</span><span className="s">{daysLabel(h.weekdays).toLowerCase()}</span></button>
         {tile('historico', 'bars', 'Visitas feitas', lastVisit ? `última ${dayLabel(lastVisit.day)}` : 'ainda nenhuma')}
       </div>
+      <button type="button" className="btn quiet wide press" onClick={() => open(<HkRemove h={h} />)}>Remover {h.name} ou trocar de pessoa</button>
     </>
+  );
+}
+
+/**
+ * Remover quem ajuda em casa: deixa de entrar na NIKKI desta casa (sai da casa e os convites pendentes caem), o
+ * pagamento sai das contas fixas e fica o histórico das visitas. A seguir pode juntar-se outra pessoa.
+ */
+function HkRemove({ h }: { h: HkRow }) {
+  const { house } = useSession();
+  const { hk, bills } = useHouse();
+  const { close, toast } = useOverlays();
+  const [busy, setBusy] = useState(false);
+  async function go() {
+    if (!house) return;
+    setBusy(true);
+    const { error } = await supabase.from('housekeeping').update({ archived: true }).eq('id', h.id);
+    if (error) { setBusy(false); return toast('Não deu para remover. Tenta outra vez.'); }
+    if (h.bill_id) await supabase.from('bills').update({ archived: true }).eq('id', h.bill_id);
+    if (h.profile_id) await supabase.from('memberships').delete().eq('household_id', house.id).eq('profile_id', h.profile_id).eq('role', 'staff');
+    await supabase.from('invites').delete().eq('household_id', house.id).eq('role', 'staff').is('accepted_at', null);
+    hk.reload(); bills.reload(); setBusy(false); close();
+    toast(`${h.name} saiu. Fica o histórico das visitas. Já podes juntar outra pessoa.`, { ok: true });
+  }
+  return (
+    <div className="form">
+      <p className="l">Remover {h.name}?</p>
+      <p className="s" style={{ fontSize: 'var(--t-m)' }}>{h.profile_id ? `${h.name} deixa de entrar na NIKKI desta casa. ` : ''}O pagamento sai das contas fixas. O histórico das visitas fica guardado. A seguir, podes juntar outra pessoa.</p>
+      <button type="button" className="btn wide press danger" disabled={busy} onClick={() => void go()}>{busy ? 'A remover…' : `Remover ${h.name}`}</button>
+      <button type="button" className="back press" onClick={close}>Cancelar</button>
+    </div>
   );
 }
 
@@ -273,12 +304,7 @@ function HkForm({ h }: { h?: HkRow }) {
     hk.reload(); bills.reload();
     open(<HkInvite h={data as HkRow} first />);
   }
-  async function archive() {
-    await supabase.from('housekeeping').update({ archived: true }).eq('id', h!.id);
-    if (h!.bill_id) await supabase.from('bills').update({ archived: true }).eq('id', h!.bill_id);
-    hk.reload(); bills.reload(); close();
-    toast(`${h!.name} saiu do housekeeping. Fica o histórico.`);
-  }
+  const archive = () => open(<HkRemove h={h!} />);
   return (
     <>
       <form className="form" onSubmit={save} autoComplete="off">
