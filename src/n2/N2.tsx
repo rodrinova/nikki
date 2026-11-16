@@ -335,7 +335,7 @@ export function N2Time() {
       }}
       onTouchEnd={() => { pinch.current = null; }}>
       <Masthead />
-      <div className="levels" role="tablist" aria-label="Escala">
+      <div className="n2-scale" role="tablist" aria-label="Escala">
         {LEVELS.map((x, k) => <button key={x} type="button" role="tab" aria-selected={k === level} className="press" onClick={() => zoom(k as Level)}>{x}</button>)}
       </div>
       <p className="note">Afasta ou junta dois dedos para mudar de escala.</p>
