@@ -26,7 +26,7 @@ import { GoalStrip } from '@/screens/Goals';
 import { useSalvagePartnerCode } from '@/data/salvagePartner';
 import { DEMO } from '@/lib/supabase';
 import { isV3, useN2 } from './shell';
-import { DayArc, DotCols, Dots, Gauge, MonthLines, Ruler } from './Viz';
+import { DayArc, Dots, Gauge, MonthBars, MonthLines, Ruler } from './Viz';
 import { Whiskers } from '@/ui/Whiskers';
 
 // NIKKI 2 (protótipo): «a revista da casa». Escuro, como hoje; um serifado de jornal (Newsreader) para títulos e
@@ -234,7 +234,6 @@ export function N2Money({ bare }: { bare?: boolean } = {}) {
   const catN = useMemo(() => (me ? catNormals(daily, me.id, todayStr()) : {}), [daily, me]);
   const series = useMemo(() => monthlySeries(daily, me?.id ?? '', todayStr(), 12).months, [daily, me?.id]);
   const cats = m.dailyByCat.filter(([, v]) => v > 0).slice(0, 7);
-  const cmax = Math.max(1, ...cats.map(([c, v]) => Math.max(v, catN[c] ?? 0)));
   const fcast = m.current && !m.pace.fresh ? m.pace.forecast : 0;
   const moves = expenses.rows.filter((e) => monthKey(e.spent_on) === key).sort((a, b) => (a.spent_on < b.spent_on ? 1 : -1));
   const pct = m.current ? (m.pace.fresh ? null : m.pace.pct) : m.normal ? Math.round((m.everyday / m.normal - 1) * 100) : null;
@@ -290,13 +289,17 @@ export function N2Money({ bare }: { bare?: boolean } = {}) {
       </section>
 
       <section className="cd wide" aria-label="Onde">
-        <span className="cd-h"><span>Onde</span></span>
+        <span className="cd-h"><span>Onde</span><span>{m.current ? 'face ao normal até hoje' : 'face ao normal'}</span></span>
         {cats.length ? cats.slice(0, 6).map(([c, v], k) => {
-          const nn = catN[c] ?? 0, over = nn > 0 && v > nn * 1.1;
+          // O normal da categoria até este dia do mês (no mês a decorrer, pela parte do mês que já passou).
+          const nn = (catN[c] ?? 0) * (m.current && !m.pace.fresh ? m.pace.share : 1), d = nn ? v - nn : 0, over = nn > 0 && d > Math.max(nn * 0.1, 500_000);
+          const tot = cats.reduce((t, [, x]) => t + x, 0);
           return (
-            <div key={c} className={`cap${over ? ' hot' : ''}`} style={{ ['--w' as string]: `${Math.max(4, (v / cmax) * 100)}%`, ['--k' as string]: k }}>
-              <i />{nn > 0 && <b style={{ left: `${(nn / cmax) * 100}%` }} />}
-              <span>{catLabel(c)}</span><em>{eur(v, 0)} €</em>
+            <div key={c} className={`crow${over ? ' hot' : ''}`} style={{ ['--w' as string]: `${Math.max(2, (v / tot) * 100)}%`, ['--k' as string]: k }}>
+              <span className="crow-n">{catLabel(c)}</span>
+              <span className="crow-v">{eur(v, 0)} €</span>
+              <span className="crow-bar"><i /></span>
+              <span className="crow-d">{!nn ? 'sem normal ainda' : over ? `+${eur(d, 0)} € acima do normal` : d < -500_000 ? `${eur(-d, 0)} € abaixo do normal` : 'dentro do normal'}</span>
             </div>
           );
         }) : <p className="note">—</p>}
@@ -304,7 +307,7 @@ export function N2Money({ bare }: { bare?: boolean } = {}) {
 
       <section className="cd wide" aria-label="Doze meses">
         <span className="cd-h"><span>12 meses</span>{m.normal ? <span>normal {eur(m.normal, 0)} €</span> : null}</span>
-        <DotCols normal={m.normal} onPick={setKey} cols={series.map((x) => ({ key: x.key, label: monthName(x.key).slice(0, 1).toUpperCase(), v: x.total, ghost: x.current && fcast > x.total ? fcast : 0, cur: x.current, sel: x.key === key }))} />
+        <MonthBars normal={m.normal} onPick={setKey} cols={series.map((x) => ({ key: x.key, label: monthName(x.key).slice(0, 3), v: x.total, ghost: x.current && fcast > x.total ? fcast : 0, cur: x.current, sel: x.key === key, val: `${k1(x.total)} €` }))} />
       </section>
 
       <GuideOnce k="dinheiro" />
