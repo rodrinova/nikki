@@ -69,7 +69,7 @@ describe('mês, normal e ritmo', () => {
     const p = pace(toU(200), toU(310), '2026-10-27');
     expect(p.fresh).toBe(false);
     if (!p.fresh) {
-      expect(p.pct).toBe(-26); // 200 vs 270 esperados
+      expect(p.pct).toBe(-31); // 200 vs 290 esperados (com dois dias de folga)
       expect(Math.round(p.forecast / 1000)).toBe(24_000); // 200 + 10 × 4 dias
     }
   });
@@ -278,7 +278,7 @@ describe('ritmo do mês com a curva habitual', () => {
     const curve = monthCurve(hist, R, '2026-10-05');
     const p = pace(spent, normal, '2026-10-05', curve), lin = pace(spent, normal, '2026-10-05');
     if (p.fresh || lin.fresh) throw new Error('sem histórico');
-    expect(lin.pct).toBeGreaterThan(300);
+    expect(lin.pct).toBeGreaterThan(200);
     expect(Math.abs(p.pct)).toBeLessThan(25);
     expect(Math.round(p.forecast / 100_000)).toBeGreaterThan(950); // fecha perto dos 1 000 €
   });

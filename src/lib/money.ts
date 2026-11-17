@@ -186,10 +186,10 @@ export function pace(spent: number, normal: number | null, today: string, curve:
   const days = daysInMonth(monthKey(today)), day = Number(today.slice(8, 10));
   if (!normal) return { fresh: true as const, days, day };
   const daily = normal / days;
-  const linear = day / days;
-  const shaped = curve ? curve[Math.max(1, Math.min(31, Math.round((day / days) * 31)))] : linear;
-  const share = 0.8 * shaped + 0.2 * linear; // fração do mês que costuma estar gasta até hoje
-  const expected = Math.max(normal * share, normal * 0.03);
+  const at = (d: number) => { const l = Math.min(1, d / days); return curve ? 0.8 * curve[Math.max(1, Math.min(31, Math.round(l * 31)))] + 0.2 * l : l; };
+  const share = at(day); // fração do mês que costuma estar gasta até hoje
+  // Para dizer «acima do normal» dá-se folga de dois dias: a renda que costuma sair a 2 e saiu a 1 não é um alarme.
+  const expected = Math.max(normal * Math.max(share, at(day + 1), at(day + 2)), normal * 0.03);
   return {
     fresh: false as const, days, day, share,
     pct: Math.round((spent / expected - 1) * 100), // % acima (+) ou abaixo (−) do habitual até este dia
@@ -283,4 +283,12 @@ export function monthlySeries(expenses: Expense[], who: string, today: string, n
   const months = keys.map((key) => ({ key, total: by.get(key) ?? 0, current: key === cur }));
   const done = months.filter((m) => !m.current && first !== null && m.key >= first);
   return { months, first, avg: done.length ? Math.round(done.reduce((t, m) => t + m.total, 0) / done.length) : null };
+}
+
+/**
+ * Onde é normal estar em cada dia do mês (acumulado, dia 0 a dia N): o normal do mês distribuído pela forma dos
+ * vossos meses (a curva) e, sem histórico, a direito. É a linha tracejada do mês.
+ */
+export function expectedPath(normal: number, curve: number[] | null, days: number): number[] {
+  return Array.from({ length: days + 1 }, (_, d) => { const l = d / days; return normal * (curve ? 0.8 * curve[Math.max(0, Math.min(31, Math.round(l * 31)))] + 0.2 * l : l); });
 }
