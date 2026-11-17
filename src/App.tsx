@@ -315,6 +315,7 @@ function Shell() {
           {!appAdmin && salvCode && <Route path="/salvados/:id" element={<SalvagePartnerPage code={salvCode} />} />}
           <Route path="/pessoas" element={<People />} />
           <Route path="/perfil" element={<Profile />} />
+          <Route path="/perfil/:part" element={<Profile />} />
           <Route path="/historia" element={<Story />} />
           <Route path="/em-breve/:k" element={<SoonRoute />} />
           <Route path="*" element={<Navigate to="/" replace />} />

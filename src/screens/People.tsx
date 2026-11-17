@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { store } from '@/lib/store';
 import { DEMO, startDemo } from '@/lib/supabase';
-import { Link } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { useSession } from '@/data/session';
 import { useLive } from '@/data/live';
@@ -46,6 +46,31 @@ function AppInvite() {
       <h2 className="l">Convidar para a NIKKI</h2>
       <p className="s" style={{ fontSize: 'var(--t-m)' }}>Para quem quer a NIKKI na casa dele. Aponta a câmara, cria a conta e fica à espera de aprovação. Para entrar na vossa casa, o convite é em Pessoas.</p>
       <LinkShare url={url} msg={`Experimenta a NIKKI, a app que põe ordem na vida da casa: ${url}`} qrLabel="Código QR para abrir a NIKKI" />
+    </div>
+  );
+}
+
+const COLORS = ['#8EA6BD', '#D29B7A', '#94B096', '#C9A0DC', '#E2B85C', '#7FB8B0', '#E28E8E', '#9AA3B5'];
+/** Editar o nome e a cor de uma pessoa da casa (quem administra a casa; ou cada um os seus). */
+function MemberSheet({ m }: { m: { id: string; name: string; color: string } }) {
+  const { me, reload } = useSession();
+  const { close, toast } = useOverlays();
+  const [n, setN] = useState(m.name), [c, setC] = useState(m.color);
+  const [busy, setBusy] = useState(false);
+  async function save() {
+    setBusy(true);
+    const { error } = await supabase.rpc('set_member_profile', { p: m.id, n: n.trim(), c });
+    setBusy(false);
+    if (error) return toast(error.message === 'sem acesso' ? 'Só quem administra a casa pode mudar isto.' : 'Não ficou guardado. Tenta outra vez.');
+    reload(); close(); toast('Guardado.', { ok: true });
+  }
+  return (
+    <div className="form">
+      <p className="l">{m.id === me?.id ? 'O teu nome e cor' : m.name}</p>
+      {m.id !== me?.id && <p className="s">É o nome que {m.name} vê na app.</p>}
+      <label>Nome<input value={n} onChange={(e) => setN(e.target.value)} maxLength={60} /></label>
+      <div className="chips" role="group" aria-label="Cor">{COLORS.map((x) => <button key={x} type="button" className="press swatch" aria-pressed={c === x} aria-label={x} style={{ ['--c' as any]: x }} onClick={() => setC(x)}><span className="avatar" style={{ ['--c' as any]: x }}>{n.trim()[0] ?? '?'}</span></button>)}</div>
+      <button type="button" className="btn wide press" disabled={busy || !n.trim()} onClick={() => void save()}>{busy ? 'A guardar…' : 'Guardar'} <Icon n="arrow" s={20} /></button>
     </div>
   );
 }
@@ -146,9 +171,10 @@ export function People() {
       {partner && !ratioRow && admin && <p className="hint">Ainda a 50/50 por defeito.</p>}
       <div className="tile card rows">
         {members.map((m) => (
-          <div key={m.id}>
+          <button key={m.id} type="button" className="press" disabled={!admin && m.id !== me?.id} onClick={() => open(<MemberSheet m={m} />)}>
             <span style={{ display: 'flex', alignItems: 'center', gap: 12 }}><span className="avatar" style={{ ['--c' as any]: m.color }}>{m.name[0]}</span><span>{m.name}{m.id === me?.id ? ' (tu)' : ''}</span></span>
-          </div>
+            {(admin || m.id === me?.id) && <span className="v s">Editar<Icon n="arrow" s={16} /></span>}
+          </button>
         ))}
         {pending.map((i) => (
           <div key={i.id}><span>{i.email}<span className="role" style={{ display: 'block' }}>convite{i.role === 'staff' ? ' de housekeeping' : ''} · código {i.code}</span></span>
@@ -164,7 +190,8 @@ export function People() {
 }
 
 export function Profile() {
-  const { me, members, appAdmin, reload } = useSession();
+  const { part = '' } = useParams();
+  const { me, appAdmin, reload } = useSession();
   const adm = useAdminBadge();
   const { toast, open } = useOverlays();
   const [name, setName] = useState(me?.name ?? '');
@@ -174,26 +201,37 @@ export function Profile() {
     const { error } = await supabase.from('profiles').update({ name: name.trim() }).eq('id', me.id);
     if (error) toast(error.message); else { toast('Nome guardado.', { ok: true }); reload(); }
   }
-  return (
+  // As definições por temas: «O meu perfil» (aqui), «Aparelhos» e «Ajuda» (/perfil/…).
+  if (part === 'aparelhos') return (
     <>
-      <Top title="Perfil" />
-      <form className="add-row" onSubmit={save}><label className="sr" htmlFor="p-name">Nome</label><input id="p-name" className="field" value={name} onChange={(e) => setName(e.target.value)} /><button className="sq press" aria-label="Guardar nome"><Icon n="check" /></button></form>
-      <Notifications />
+      <Top title="Aparelhos" />
+      <Devices />
       <div className="tile card rows">
-        <Link className="press" to="/pessoas"><span className="k">Casa</span><span className="v">{members.length} {members.length === 1 ? 'pessoa' : 'pessoas'}<Icon n="arrow" s={16} /></span></Link>
         <button type="button" className="press" onClick={() => open(<ApplePaySheet />)}><span className="k">Apple Pay → NIKKI</span><span className="v"><Icon n="arrow" s={16} /></span></button>
-        <Link className="press" to="/modulos"><span className="k">Módulos</span><span className="v"><Icon n="arrow" s={16} /></span></Link>
-        <Link className="press" to="/melhorar"><span className="k">Ideias e problemas</span><span className="v"><Icon n="arrow" s={16} /></span></Link>
-        <Link className="press" to="/historia"><span className="k">A história da NIKKI</span><span className="v"><Icon n="arrow" s={16} /></span></Link>
+      </div>
+      <Speed />
+    </>
+  );
+  if (part === 'ajuda') return (
+    <>
+      <Top title="Ajuda" />
+      <div className="tile card rows">
         <button type="button" className="press" onClick={() => dispatchEvent(new Event('nikki:tour'))}><span className="k">Guia da NIKKI<span className="s" style={{ display: 'block' }}>Onde está tudo e como se usa, em dois minutos</span></span><span className="v"><Icon n="arrow" s={16} /></span></button>
+        <Link className="press" to="/mapa"><span className="k">Mapa da NIKKI<span className="s" style={{ display: 'block' }}>Todas as páginas e funções, e por onde se chega</span></span><span className="v"><Icon n="arrow" s={16} /></span></Link>
+        <Link className="press" to="/melhorar"><span className="k">Ideias e problemas</span><span className="v"><Icon n="arrow" s={16} /></span></Link>
+        <button type="button" className="press" onClick={() => open(<AppInvite />)}><span className="k">Convidar para a NIKKI<span className="s" style={{ display: 'block' }}>Um QR para quem quer a NIKKI na casa dele</span></span><span className="v"><Icon n="arrow" s={16} /></span></button>
+        <Link className="press" to="/historia"><span className="k">A história da NIKKI</span><span className="v"><Icon n="arrow" s={16} /></span></Link>
         {appAdmin && !DEMO && <button type="button" className="press" onClick={startDemo}><span className="k">Casa de demonstração<span className="s" style={{ display: 'block' }}>Tiago e Marta, com dados de exemplo. Só tu vês esta entrada.</span></span><span className="v"><Icon n="arrow" s={16} /></span></button>}
         {(appAdmin || DEMO) && <Link className="press" to="/" onClick={() => { if (store.get('nikki:v3') === '1') store.remove('nikki:v3'); else store.set('nikki:v3', '1'); }}><span className="k">Experimentar a NIKKI 3<span className="s" style={{ display: 'block' }}>A estrutura simples: Hoje, Dinheiro, Agenda, Casa. Só tu vês, só neste aparelho.</span></span><span className="v s">{store.get('nikki:v3') === '1' ? 'ligada' : 'desligada'}</span></Link>}
-        <Link className="press" to="/mapa"><span className="k">Mapa da NIKKI<span className="s" style={{ display: 'block' }}>Todas as páginas e funções, e por onde se chega</span></span><span className="v"><Icon n="arrow" s={16} /></span></Link>
-        <button type="button" className="press" onClick={() => open(<AppInvite />)}><span className="k">Convidar para a NIKKI<span className="s" style={{ display: 'block' }}>Um QR para quem quer a NIKKI na casa dele</span></span><span className="v"><Icon n="arrow" s={16} /></span></button>
         {appAdmin && <Link className="press" to="/admin"><span className="k">Administração da app</span><span className="v">{adm.pending + adm.novo > 0 && <span className="badge">{adm.pending + adm.novo}</span>}<Icon n="arrow" s={16} /></span></Link>}
       </div>
-      <Devices />
-      <Speed />
+    </>
+  );
+  return (
+    <>
+      <Top title="O meu perfil" />
+      <form className="add-row" onSubmit={save}><label className="sr" htmlFor="p-name">Nome</label><input id="p-name" className="field" value={name} onChange={(e) => setName(e.target.value)} /><button className="sq press" aria-label="Guardar nome"><Icon n="check" /></button></form>
+      <Notifications />
       <button className="btn quiet wide press" onClick={() => supabase.auth.signOut()}>Sair <Icon n="arrow" s={20} /></button>
     </>
   );

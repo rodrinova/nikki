@@ -1,4 +1,5 @@
 import { useMemo, useState, type FormEvent } from 'react';
+import { AddGoal } from '@/screens/Goals';
 import { Link, Navigate, useParams } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { useSession } from '@/data/session';
@@ -43,7 +44,7 @@ export function Gym() {
   ].filter((r) => r.v !== null) as { k: string; n: string; v: number }[];
   return (
     <>
-      <Top title="Ginásio" right={<button className="tb press" onClick={() => open(<AssessSheet />)}>Nova</button>} />
+      <Top title="Ginásio" right={<span style={{ display: 'flex', gap: 8 }}><AddGoal kind="body" /><button className="tb press" onClick={() => open(<AssessSheet />)}>Nova</button></span>} />
       {hero?.s ? (
         <Link className="tile gym-hero press" to={`/ginasio/${hero.f.key}`}>
           <span className="hero-top"><span className="s">{hero.f.label} · {dt(hero.s.on)}</span>{judged > 0 && <span className="pill">{better} de {judged} a melhorar</span>}</span>

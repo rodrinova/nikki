@@ -1824,3 +1824,4 @@ body.n2x .aurora{inset:-140px}
 .tile.card > div:first-child .shop-store-h{margin-top:2px}
 .item .nm[role="button"]{cursor:pointer}
 .hk-day.past{opacity:.75}
+.chips .swatch{padding:3px;border-radius:50%}.chips .swatch[aria-pressed="true"]{box-shadow:0 0 0 2px var(--accent)}

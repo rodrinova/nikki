@@ -54,6 +54,32 @@ function Bar({ p }: { p: Progress }) {
   return <span className={`gbar st-${p.state}`} aria-hidden="true"><i style={{ width: `${Math.max(2, p.pct * 100)}%` }} /></span>;
 }
 
+/** No Hoje: até três objetivos com a barra, só se houver; «+ Objetivo» ao lado. */
+export function GoalStrip() {
+  const { goals } = useHouse();
+  const { open } = useOverlays();
+  const prog = useGoalProgress();
+  const list = goals.rows.filter((g) => g.status === 'active').map((g) => ({ g, p: prog(g) }));
+  if (!list.length) return null;
+  return (
+    <section className="stack goal-strip" aria-label="Objetivos">
+      <div className="wbar"><span className="s">Objetivos</span><button type="button" className="tb press" onClick={() => open(<GoalSheet />)}>+ Objetivo</button></div>
+      {list.slice(0, 3).map(({ g, p }) => (
+        <Link key={g.id} className="tile goal-line press" to="/objetivos" aria-label={`${g.title}, ${p.label}, ${STATE[p.state]}`}>
+          <span className="st2"><span>{g.title}</span><span className="goal-row"><Bar p={p} /><span className="s">{p.label} · <span className={`st-t st-${p.state}`}>{STATE[p.state]}</span></span></span></span>
+          <Icon n="chev" s={16} />
+        </Link>
+      ))}
+    </section>
+  );
+}
+
+/** «+ Objetivo» dentro de cada frente, já com o tipo certo (Património: saúde financeira; Ginásio: medidas; Garagem: casa e carros). */
+export function AddGoal({ kind }: { kind: Kind }) {
+  const { open } = useOverlays();
+  return <button type="button" className="tb press" onClick={() => open(<GoalSheet kind0={kind} />)}>+ Objetivo</button>;
+}
+
 /** No início: o objetivo principal (o que está pior, ou o de prazo mais perto), sempre à vista. */
 export function GoalLine() {
   const { goals, on } = useHouse();
@@ -131,10 +157,10 @@ function useAddGoal() {
   };
 }
 
-type Kind = 'cap' | 'health' | 'home' | 'body';
+export type Kind = 'cap' | 'health' | 'home' | 'body';
 
 /** Novo objetivo ou editar: limite por categoria, saúde financeira ou hábitos da casa (consumo de uma conta, carro). */
-function GoalSheet({ g }: { g?: GoalRow }) {
+export function GoalSheet({ g, kind0 }: { g?: GoalRow; kind0?: Kind }) {
   const { me, partner } = useSession();
   const { goals, bills, homes, cars, carLogs, gym, on } = useHouse();
   const { close, toast } = useOverlays();
@@ -142,7 +168,7 @@ function GoalSheet({ g }: { g?: GoalRow }) {
   const body = on('ginasio') ? gym.fields.filter((f) => gym.prefs?.fields.includes(f.key)) : [];
   const casa = useWealth('casa');
   const today = todayStr();
-  const [kind, setKind] = useState<Kind>(g ? (goalKind(g.metric) === 'cap' ? 'cap' : goalKind(g.metric) === 'health' ? 'health' : goalKind(g.metric) === 'body' ? 'body' : 'home') : 'cap');
+  const [kind, setKind] = useState<Kind>(g ? (goalKind(g.metric) === 'cap' ? 'cap' : goalKind(g.metric) === 'health' ? 'health' : goalKind(g.metric) === 'body' ? 'body' : 'home') : kind0 ?? 'cap');
   const [cat, setCat] = useState(g && goalKind(g.metric) === 'cap' ? metricRef(g.metric) : 'Restaurantes');
   const [val, setVal] = useState(g ? String(g.target).replace('.', ',') : '');
   const [who, setWho] = useState<'me' | 'casa'>(g ? (g.owner_id ? 'me' : 'casa') : partner ? 'casa' : 'me');
