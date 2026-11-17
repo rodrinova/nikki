@@ -2,7 +2,7 @@
    em vez de caixas; cada número com rótulo e comparação; nada animado atrás do texto. */
 @font-face{font-family:"NIKKI Serif";font-style:normal;font-weight:400 560;font-display:swap;src:url("./newsreader-nikki.woff2") format("woff2")}
 
-body.n2 .status,body.n2 .side,body.n2 .update-pill{display:none!important}
+body.n2 .status,body.n2 .side{display:none!important}
 body.n2{background:#121110}
 body.n2 .app{max-width:none!important;width:auto;margin:0!important;padding:0!important}
 body.n2 .app > .screen{max-width:none!important;padding:0;gap:0}

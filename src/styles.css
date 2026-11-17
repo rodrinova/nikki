@@ -1825,3 +1825,6 @@ body.n2x .aurora{inset:-140px}
 .item .nm[role="button"]{cursor:pointer}
 .hk-day.past{opacity:.75}
 .chips .swatch{padding:3px;border-radius:50%}.chips .swatch[aria-pressed="true"]{box-shadow:0 0 0 2px var(--accent)}
+/* O aviso de versão nova, por cima da barra de baixo, em todos os ecrãs. */
+body.n2x .update-pill{bottom:calc(env(safe-area-inset-bottom,0px) + 104px)!important;z-index:2000;background:linear-gradient(160deg,#FF8A3D,#FF5A12);color:#0B1017;box-shadow:0 10px 30px -8px rgba(255,106,31,.8);animation:tour-pop 400ms var(--ease-out) both}
+body.n2x .update-pill b{color:#0B1017;font-weight:600}
