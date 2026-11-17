@@ -88,21 +88,25 @@ export function MonthLines({ spent, expected, today, onPick, pick = null }: { sp
   );
 }
 
-/** Doze meses em matriz de pontos: cada coluna é um mês, cada ponto uma fatia; a linha do normal atravessa. */
-export function DotCols({ cols, normal, onPick }: { cols: { key: string; label: string; v: number; ghost?: number; cur?: boolean; sel?: boolean }[]; normal: number | null; onPick: (key: string) => void }) {
-  const ROWS = 9, max = Math.max(1, normal ?? 0, ...cols.map((c) => Math.max(c.v, c.ghost ?? 0)));
-  const rows = (v: number) => Math.round((v / max) * ROWS), nr = normal ? rows(normal) : -1;
+/**
+ * Doze meses em colunas: a altura é o gasto do mês; a linha tracejada é o normal. O mês a decorrer a laranja (com a
+ * previsão em contorno), o escolhido a branco e com o valor. Tocar numa coluna muda o mês.
+ */
+export function MonthBars({ cols, normal, onPick }: { cols: { key: string; label: string; v: number; ghost?: number; cur?: boolean; sel?: boolean; val: string }[]; normal: number | null; onPick: (key: string) => void }) {
+  const max = Math.max(1, normal ?? 0, ...cols.map((c) => Math.max(c.v, c.ghost ?? 0))) * 1.12;
   return (
-    <div className="dcols" style={{ ['--n' as string]: cols.length }}>
-      {cols.map((c, j) => {
-        const on = rows(c.v), gh = rows(c.ghost ?? 0);
-        return (
-          <button key={c.key} type="button" className={`dcol press${c.sel ? ' sel' : ''}${c.cur ? ' cur' : ''}`} onClick={() => onPick(c.key)} aria-label={`${c.label}: ${Math.round(c.v / 100_000)} €`}>
-            {Array.from({ length: ROWS }, (_, i) => { const r = ROWS - i; return <i key={i} className={`${r <= on ? 'on' : r <= gh ? 'gh' : ''}${r === nr ? ' nr' : ''}`} style={{ ['--k' as string]: j * 2 + r }} />; })}
-            <span>{c.label}</span>
-          </button>
-        );
-      })}
+    <div className="mbars" role="group" aria-label="Doze meses">
+      {normal ? <span className="mb-norm" style={{ bottom: `calc(26px + (100% - 52px) * ${normal / max})` }}><em>normal</em></span> : null}
+      {cols.map((c, j) => (
+        <button key={c.key} type="button" className={`mb press${c.sel ? ' sel' : ''}${c.cur ? ' cur' : ''}`} onClick={() => onPick(c.key)} aria-label={`${c.label}: ${c.val}`} style={{ ['--k' as string]: j }}>
+          <span className="mb-v">{c.sel || c.cur ? c.val : ''}</span>
+          <span className="mb-col">
+            {c.ghost ? <i className="gh" style={{ height: `${(c.ghost / max) * 100}%` }} /> : null}
+            <i style={{ height: `${Math.max(1.5, (c.v / max) * 100)}%` }} />
+          </span>
+          <span className="mb-m">{c.label}</span>
+        </button>
+      ))}
     </div>
   );
 }
