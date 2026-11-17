@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
+import { AddGoal } from '@/screens/Goals';
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { store } from '@/lib/store';
@@ -59,7 +60,7 @@ export function Wealth() {
   const invested = w.mine.filter((a) => !a.role && a.liq !== 'out').reduce((t, a) => t + a.mine, 0);
   return (
     <>
-      <Top title="Património" right={<ViewSeg view={view} setView={(v) => { setView(v); setCheer(null); }} />} />
+      <Top title="Património" right={<span style={{ display: 'flex', gap: 8, alignItems: 'center' }}><AddGoal kind="health" /><ViewSeg view={view} setView={(v) => { setView(v); setCheer(null); }} /></span>} />
       {house && w.ready && <Celebrations w={w} k={`nikki_cheer_${house.id}_${w.casa ? 'casa' : 'eu'}`} onCheer={setCheer} />}
       <Score w={w} cheer={cheer} />
       <Levels w={w} />

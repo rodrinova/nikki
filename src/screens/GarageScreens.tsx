@@ -1,4 +1,5 @@
 // Os ecrãs de Garage que só se abrem pela rota: carregam-se à parte, quando se abrem.
+import { AddGoal } from '@/screens/Goals';
 import { useMemo, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
@@ -117,7 +118,7 @@ export function Garage() {
   if (!cars.loading && !active.length && !archived.length) return <><Top title="Garagem" /><GarageSetup /></>;
   return (
     <>
-      <Top title="Garagem" right={admin ? <button className="tb press" onClick={() => open(<CarSheet />)}>Juntar carro</button> : null} />
+      <Top title="Garagem" right={<span style={{ display: 'flex', gap: 8 }}><AddGoal kind="home" />{admin && <button className="tb press" onClick={() => open(<CarSheet />)}>Juntar carro</button>}</span>} />
       <GarageArt small />
       <Fleet />
       {active.length >= 2 && <Compare cars={active} />}

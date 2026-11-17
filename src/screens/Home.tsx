@@ -11,7 +11,7 @@ import { Wordmark } from '@/brand/Wordmark';
 import { Poster } from '@/ui/Poster';
 import { How, Year } from '@/ui/Year';
 import { eur, monthClose, toU } from '@/lib/money';
-import { addDays, dayLabel, monthKey, monthName, parseDate, toDateStr, todayStr } from '@/lib/dates';
+import { addDays, dayLabel, monthKey, monthName, toDateStr, todayStr } from '@/lib/dates';
 import { MODULES } from '@/lib/modules';
 import { ExpenseSheet, INVEST, catLabel, catNormals, useLedger, useMonth } from './Money';
 import { driver, expected } from '@/lib/forecast';
@@ -36,10 +36,7 @@ import { totals as salvageTotals } from '@/lib/salvage';
 import { useWealth } from '@/data/wealth';
 import { isRoot } from '@/lib/nav';
 import { useShopPresence } from '@/data/presence';
-import { Balance } from '@/ui/Balance';
-import { Stories } from '@/ui/Stories';
-import { Face } from '@/brand/Face';
-import { rangeLabel, weekRange, weekStory, yearStory } from '@/lib/story';
+import { Whiskers } from '@/ui/Whiskers';
 import { withVT } from '@/ui/vt';
 
 export function Top({ title, right }: { title: string; right?: ReactNode }) {
@@ -337,7 +334,6 @@ export function Hub() {
         <NextLine />
       </div>
       <LiveShop />
-      <StoryDoor />
       {/* Em ecrãs largos, uma grelha: a agenda ao lado do dinheiro e dos avisos. */}
       <div className={`hub${eve ? ' eve' : ''}`}>
         <div className="hub-a"><AgendaPane home /></div>
@@ -376,73 +372,6 @@ function LiveShop() {
   );
 }
 
-/** A semana da casa, em histórias (lib/story.ts): só se monta quando se abre. */
-function WeekStory({ onClose }: { onClose: () => void }) {
-  const { me, partner } = useSession();
-  const { spendRows, todos } = useHouse();
-  const today = todayStr(), { from, to } = weekRange(today);
-  const items = useAgendaItems(from, to), next = useAgendaItems(addDays(to, 1), addDays(to, 7));
-  const m = useMonth();
-  const s = useMemo(() => weekStory({
-    today, me: me!.id, meName: me!.name, partner: partner ? { id: partner.id, name: partner.name } : null,
-    expenses: spendRows.filter((e) => e.category !== INVEST), items, next, todosDone: todos.rows, normalMonth: m.normal,
-  }), [today, me, partner, spendRows, items, next, todos.rows, m.normal]);
-  return <Stories cards={s.cards} title="A semana da casa" onClose={onClose} />;
-}
-
-/** O vosso ano, em histórias. */
-function YearStory({ onClose }: { onClose: () => void }) {
-  const { me, partner } = useSession();
-  const { spendRows, receiptItems, transfers, occasions } = useHouse();
-  const L = useLedger();
-  const y = Number(todayStr().slice(0, 4));
-  const items = useAgendaItems(`${y}-01-01`, `${y}-12-31`);
-  const cards = useMemo(() => yearStory({
-    year: y, today: todayStr(), me: me!.id, meName: me!.name, partner: partner ? { id: partner.id, name: partner.name } : null,
-    expenses: spendRows.filter((e) => e.category !== INVEST), items, products: receiptItems.rows, transfers: transfers.rows,
-    occasions: occasions.rows, lead: L ? (L.even ? 'em equilíbrio' : L.lead) : null,
-  }), [y, me, partner, spendRows, items, receiptItems.rows, transfers.rows, occasions.rows, L]);
-  return <Stories cards={cards} title={`O vosso ${y}`} onClose={onClose} />;
-}
-
-/** As histórias que se podem abrir (o «Nós» abre-as sempre; o Hoje mostra a porta quando é altura). */
-export function useStories() {
-  const [open, setOpen] = useState<'week' | 'year' | null>(null);
-  const node = open === 'week' ? <WeekStory onClose={() => setOpen(null)} /> : open === 'year' ? <YearStory onClose={() => setOpen(null)} /> : null;
-  return { node, open: setOpen };
-}
-
-/**
- * A porta no Hoje: ao domingo e à segunda, «A semana da casa»; em dezembro, «O vosso ano». Depois de vista, some
- * até à próxima (por pessoa, neste aparelho).
- */
-function StoryDoor() {
-  const { me, house } = useSession();
-  const st = useStories();
-  const today = todayStr(), wd = parseDate(today).getDay();
-  const year = today.slice(5, 7) === '12' ? today.slice(0, 4) : null;
-  const week = wd === 0 || wd === 1 ? weekRange(today).to : null;
-  const k = (x: string) => `nikki_story_${house?.id}_${me?.id}_${x}`;
-  const [seen, setSeen] = useState(() => ({ y: year ? store.get(k(`y${year}`)) === '1' : true, w: week ? store.get(k(`w${week}`)) === '1' : true }));
-  const which = !seen.y && year ? 'year' : !seen.w && week ? 'week' : null;
-  const go = () => {
-    if (which === 'year') { store.set(k(`y${year}`), '1'); setSeen((s) => ({ ...s, y: true })); }
-    if (which === 'week') { store.set(k(`w${week}`), '1'); setSeen((s) => ({ ...s, w: true })); }
-    st.open(which);
-  };
-  return (
-    <>
-      {which && (
-        <button type="button" className="story-door press" onClick={go}>
-          <span className="ring"><span><Face h={16} /></span></span>
-          <span className="st2"><span>{which === 'year' ? `O vosso ${year}` : 'A semana da casa'}</span><span className="s">{which === 'year' ? 'O ano em números, em meio minuto.' : `${rangeLabel(weekRange(today).from, weekRange(today).to)}. Meio minuto.`}</span></span>
-          <Icon n="chev" s={16} />
-        </button>
-      )}
-      {st.node}
-    </>
-  );
-}
 
 /** A Agenda: o mês inteiro (ou a semana, como a pessoa a deixar), a lista do dia e a ligação ao telemóvel. */
 export function AgendaScreen() {
@@ -462,31 +391,30 @@ function Pair() {
 
 /** Nós: vocês os dois. Como estão as contas entre vocês, o objetivo principal, as pessoas da casa e o perfil. */
 export function Nos() {
-  const { me, partner, members, house } = useSession();
+  const { me, partner, members, house, appAdmin } = useSession();
+  const { modules } = useHouse();
   const L = useLedger();
-  const st = useStories();
+  const row = (to: string, k: string, d: string, v?: ReactNode) => <Link className="press" to={to}><span className="k">{k}<span className="s" style={{ display: 'block' }}>{d}</span></span><span className="v">{v}<Icon n="arrow" s={16} /></span></Link>;
   return (
     <>
-      {st.node}
-      <Top title="Nós" />
+      <Top title="Definições" />
       <section className="nos-head">
         <Pair />
         <div className="st2"><span className="l">{partner ? `${me?.name} e ${partner.name}` : me?.name}</span><span className="s">{house?.name}</span></div>
       </section>
       {partner && L && (
-        <Link className="tile nos-us press" to="/dinheiro?ver=entre-nos" aria-label={`Entre nós: ${L.even ? 'em equilíbrio' : `${L.lead}, ${eur(Math.abs(L.v))} €`}`}>
-          <span className="st2"><span className="s">Entre nós</span><span className="nos-lead">{L.even ? 'Em equilíbrio' : L.lead}</span>{!L.even && <span className="nos-v">{eur(Math.abs(L.v), 0)}<small>€</small></span>}</span>
-          <Balance small lean={L.lean} me={{ name: me!.name, color: me!.color }} other={{ name: partner.name, color: partner.color }} label="" />
+        <Link className="tile nos-us press" to="/n2/dinheiro?ver=equilibrio" aria-label={`Equilíbrio: ${L.even ? 'em equilíbrio' : `${L.lead}, ${eur(Math.abs(L.v))} €`}`}>
+          <span className="st2"><span className="s">Equilíbrio</span><span className="nos-lead">{L.even ? 'Em equilíbrio' : L.lead}</span>{!L.even && <span className="nos-v">{eur(Math.abs(L.v), 0)}<small>€</small></span>}</span>
+          <Whiskers lean={L.lean} h={40} enter={false} />
           <Icon n="chev" s={16} />
         </Link>
       )}
-      <GoalLine />
       <div className="tile card rows">
-        <button type="button" className="press" onClick={() => st.open('week')}><span className="k">A semana da casa</span><span className="v"><Icon n="arrow" s={16} /></span></button>
-        <button type="button" className="press" onClick={() => st.open('year')}><span className="k">O vosso {todayStr().slice(0, 4)}</span><span className="v"><Icon n="arrow" s={16} /></span></button>
-        <Link className="press" to="/pessoas"><span className="k">Pessoas da casa</span><span className="v">{members.length}<Icon n="arrow" s={16} /></span></Link>
-        <Link className="press" to="/perfil"><span className="k">O teu perfil</span><span className="v"><Icon n="arrow" s={16} /></span></Link>
-        <Link className="press" to="/melhorar"><span className="k">Ideias e problemas</span><span className="v"><Icon n="arrow" s={16} /></span></Link>
+        {row('/pessoas', 'Pessoas', 'Quem vive cá, a partilha das despesas e quem ajuda', members.length)}
+        {row('/modulos', 'Módulos', 'O que a casa usa', modules.rows.length || undefined)}
+        {row('/perfil', 'O meu perfil', 'Nome, notificações e o resumo das 8h')}
+        {row('/perfil/aparelhos', 'Aparelhos', 'Entrar noutro aparelho, Apple Pay, rapidez')}
+        {row('/perfil/ajuda', 'Ajuda', `Guia, mapa, ideias, convidar${appAdmin ? ', administração' : ''}`)}
       </div>
     </>
   );

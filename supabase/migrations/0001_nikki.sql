@@ -2112,3 +2112,18 @@ $$;
 -- Contas fixas: tipos «subscrição» (Apple One, Claude, Netflix…) e «ajuda em casa».
 alter table nikki.bills drop constraint if exists bills_kind_check;
 alter table nikki.bills add constraint bills_kind_check check (kind in ('luz', 'gas', 'agua', 'internet', 'telemovel', 'renda', 'credito', 'condominio', 'seguro', 'subscricao', 'ajuda', 'outra'));
+
+-- Pessoas da casa: quem administra a casa pode mudar o nome e a cor de quem lá vive (e cada um os seus).
+create or replace function nikki.set_member_profile(p uuid, n text, c text) returns void
+language plpgsql security definer set search_path = nikki, public as $$
+begin
+  if p <> auth.uid() and not exists (
+    select 1 from nikki.memberships a join nikki.memberships b on b.household_id = a.household_id
+    where a.profile_id = auth.uid() and a.role = 'admin' and b.profile_id = p
+  ) then raise exception 'sem acesso'; end if;
+  if length(trim(coalesce(n, ''))) not between 1 and 60 then raise exception 'nome inválido'; end if;
+  if c !~ '^#[0-9A-Fa-f]{6}$' then raise exception 'cor inválida'; end if;
+  update nikki.profiles set name = trim(n), color = c where id = p;
+end $$;
+revoke all on function nikki.set_member_profile(uuid, text, text) from public, anon;
+grant execute on function nikki.set_member_profile(uuid, text, text) to authenticated;
