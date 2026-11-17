@@ -347,15 +347,24 @@ function useIntro() {
 }
 
 /**
- * Atualizar sem pedir: quando o service worker troca para uma versão nova, a app recarrega sozinha num momento
- * sossegado (sem folha aberta e sem estar a escrever; ou logo que a app vá para segundo plano) e, ao voltar, diz
- * «A NIKKI foi atualizada». Procura versões novas ao voltar à app e de meia em meia hora.
+ * Versão nova: um aviso «Versão nova da NIKKI · Atualizar», sem ter de fechar a app. Sabe-se que há versão nova
+ * comparando a versão do service worker publicado com a desta página (ao voltar à app, ao focar e de 3 em 3 min),
+ * ou quando o service worker já trocou. Ao tocar: instala a versão nova, espera que entre e recarrega; ao voltar,
+ * diz «A NIKKI foi atualizada».
  */
 const UPDATED = 'nikki:updated';
-function AutoUpdate() {
-  const { isOpen, toast } = useOverlays();
-  const [pending, setPending] = useState(false);
-  // depois de recarregar: dizer que se atualizou
+const swVersion = async (): Promise<string | null> => {
+  try {
+    const r = await fetch(`${import.meta.env.BASE_URL}sw.js?v=${Date.now()}`, { cache: 'no-store' }); // único: nem o service worker antigo o guarda
+    return r.ok ? (/const VERSION = '([^']*)'/.exec(await r.text())?.[1] ?? null) : null;
+  } catch { return null; }
+};
+function UpdateReady() {
+  const { toast } = useOverlays();
+  const [ready, setReady] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const mine = useRef<string | null>(null);
+  const took = useRef(false); // a versão nova já está a mandar: basta recarregar
   useEffect(() => {
     let was = false;
     try { was = sessionStorage.getItem(UPDATED) === '1'; sessionStorage.removeItem(UPDATED); } catch { /* sem armazenamento */ }
@@ -363,29 +372,39 @@ function AutoUpdate() {
   }, [toast]);
   useEffect(() => {
     const sw = typeof navigator !== 'undefined' ? navigator.serviceWorker : undefined;
-    if (!sw || DEMO) return;
-    const had = !!sw.controller; // na primeira instalação não há versão anterior
-    const on = () => { if (had) setPending(true); };
-    sw.addEventListener('controllerchange', on);
-    const check = () => { sw.getRegistration().then((r) => r?.update()).catch(() => {}); };
-    const vis = () => { if (document.visibilityState === 'visible') check(); };
-    document.addEventListener('visibilitychange', vis);
-    const t = setInterval(check, 30 * 60_000);
-    return () => { sw.removeEventListener('controllerchange', on); document.removeEventListener('visibilitychange', vis); clearInterval(t); };
+    if (!sw || DEMO || !import.meta.env.PROD) return;
+    const had = !!sw.controller;
+    const swapped = () => { took.current = true; if (had) setReady(true); };
+    sw.addEventListener('controllerchange', swapped);
+    const check = async () => {
+      const v = await swVersion();
+      if (!v) return;
+      if (mine.current === null) { mine.current = v; return; } // a versão desta página
+      if (v !== mine.current) { setReady(true); sw.getRegistration().then((r) => r?.update()).catch(() => {}); }
+    };
+    void check();
+    const vis = () => { if (document.visibilityState === 'visible') void check(); };
+    document.addEventListener('visibilitychange', vis); addEventListener('focus', vis);
+    const t = setInterval(() => { if (document.visibilityState === 'visible') void check(); }, 3 * 60_000);
+    return () => { sw.removeEventListener('controllerchange', swapped); document.removeEventListener('visibilitychange', vis); removeEventListener('focus', vis); clearInterval(t); };
   }, []);
-  useEffect(() => {
-    if (!pending) return;
-    const go = () => { try { sessionStorage.setItem(UPDATED, '1'); } catch { /* sem armazenamento */ } location.reload(); };
-    const busy = () => isOpen || !!document.activeElement?.matches('input, textarea, select, [contenteditable="true"]');
-    if (document.visibilityState === 'hidden') { go(); return; }
-    // em segundo plano, logo; à vista, quando estiver sossegada (vê de 2 em 2 segundos)
-    const hide = () => { if (document.visibilityState === 'hidden') go(); };
-    document.addEventListener('visibilitychange', hide);
-    const t = setInterval(() => { if (!busy()) go(); }, 2000);
-    return () => { document.removeEventListener('visibilitychange', hide); clearInterval(t); };
-  }, [pending, isOpen]);
-  return null;
+  async function go() {
+    setBusy(true);
+    try { sessionStorage.setItem(UPDATED, '1'); } catch { /* sem armazenamento */ }
+    const sw = navigator.serviceWorker;
+    if (took.current) { location.reload(); return; }
+    // Instala a versão nova e espera que fique a mandar (até 6 s); a seguir recarrega já com ela.
+    await new Promise<void>((done) => {
+      const t = setTimeout(done, 6000);
+      sw?.addEventListener('controllerchange', () => { clearTimeout(t); done(); }, { once: true });
+      sw?.getRegistration().then((r) => r?.update()).catch(() => {});
+    });
+    location.reload();
+  }
+  if (!ready) return null;
+  return <button type="button" className="update-pill press" disabled={busy} onClick={() => void go()}>{busy ? 'A atualizar…' : <>Versão nova da NIKKI · <b>Atualizar</b></>}</button>;
 }
+
 
 
 /**
@@ -411,7 +430,7 @@ export default function App() {
       {intro && <Intro onDone={endIntro} />}
       <OverlayProvider>
         <SessionProvider><Shell /></SessionProvider>
-        <AutoUpdate />
+        <UpdateReady />
         {DEMO_VISIT && <button type="button" className="demo-pill press" onClick={stopDemo} aria-label="Sair da demonstração">Demonstração · Sair</button>}
       </OverlayProvider>
     </Router>

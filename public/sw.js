@@ -46,6 +46,7 @@ self.addEventListener('message', (e) => {
 self.addEventListener('fetch', (e) => {
   const u = new URL(e.request.url);
   if (e.request.method !== 'GET' || u.origin !== location.origin) return; // Supabase: sempre da rede
+  if (u.pathname.endsWith('/sw.js')) return; // saber se há versão nova: sempre da rede
   // Abrir a app (qualquer ecrã): a página guardada, já; sem ela, a rede.
   if (e.request.mode === 'navigate') {
     e.respondWith(caches.open(CACHE).then((c) => c.match(BASE).then((hit) => hit || fetch(e.request).then((r) => { if (r.ok) c.put(BASE, r.clone()); return r; }))).catch(() => fetch(e.request)));
