@@ -25,7 +25,7 @@ import { GuideOnce } from '@/ui/Tour';
 import { GoalStrip } from '@/screens/Goals';
 import { useSalvagePartnerCode } from '@/data/salvagePartner';
 import { DEMO } from '@/lib/supabase';
-import { isV3, useN2 } from './shell';
+import { useN2 } from './shell';
 import { DayArc, Dots, Gauge, MonthBars, MonthLines, Ruler } from './Viz';
 import { Whiskers } from '@/ui/Whiskers';
 
@@ -64,7 +64,6 @@ function openFrom(e: React.MouseEvent<HTMLElement>, to: string, nav: (to: string
 
 /** O cabeçalho da revista: a cara, a edição (o dia do ano) e a data; por baixo, os destinos, sempre à vista. */
 export function Masthead({ pill }: { pill?: boolean } = {}) {
-  const v3 = isV3();
   const { me, partner } = useSession();
   const d = new Date();
   return (
@@ -72,8 +71,9 @@ export function Masthead({ pill }: { pill?: boolean } = {}) {
       <div className="mh-top">
         <Link to="/historia" className="mh-face press" aria-label="NIKKI: a história"><Face h={18} mode="still" /></Link>
         <span className="mh-ed">{cap(d.toLocaleDateString('pt-PT', { weekday: 'long', day: 'numeric', month: 'long' }))}</span>
-        {v3 && <Link to="/v3/procurar" className="mh-find press" aria-label="Procurar em tudo"><Icon n="ask" s={18} /></Link>}
-        <Link to="/nos" className="mh-us press" aria-label={v3 ? 'Conta' : 'Nós'}>
+        <Link to="/melhorar" className="mh-find press" aria-label="Ideias e problemas"><Icon n="chat" s={17} /></Link>
+        {<Link to="/procurar" className="mh-find press" aria-label="Procurar em tudo"><Icon n="ask" s={18} /></Link>}
+        <Link to="/nos" className="mh-us press" aria-label="Definições">
           <i style={{ ['--c' as string]: me?.color }}>{me?.name?.[0]}</i>{partner && <i style={{ ['--c' as string]: partner.color }}>{partner.name?.[0]}</i>}
         </Link>
       </div>
@@ -110,7 +110,7 @@ function useFrontRows(money: { total: number; pct: number | null }) {
     eventos: /^\d+$/.test(val.eventos[0]) && Number(val.eventos[0]) <= 14 && !/depois/.test(val.eventos[1] ?? ''),
   };
   const rows = [
-    { k: 'dinheiro', to: isV3() ? '/v3/dinheiro' : '/n2/dinheiro', ic: 'coins', n: 'O mês', v: `${eur(money.total, 0)} €`, u: money.pct === null ? '' : money.pct >= 10 ? `+${Math.round(money.pct)}%` : money.pct <= -10 ? `−${Math.round(-money.pct)}%` : 'normal', hot: money.pct !== null && money.pct >= 10 },
+    { k: 'dinheiro', to: '/n2/dinheiro', ic: 'coins', n: 'O mês', v: `${eur(money.total, 0)} €`, u: money.pct === null ? '' : money.pct >= 10 ? `+${Math.round(money.pct)}%` : money.pct <= -10 ? `−${Math.round(-money.pct)}%` : 'normal', hot: money.pct !== null && money.pct >= 10 },
     ...MODULES.filter((x) => x.k !== 'contas' && x.k !== 'agenda' && x.k !== 'objetivos' && on(x.k)).map((x) => ({ k: x.k as string, to: x.to, ic: x.ic, n: x.k === 'housekeeping' ? 'Ajuda em casa' : x.k === 'casa' ? 'Casa' : x.name, v: val[x.k]?.[0] ?? '—', u: val[x.k]?.[1] ?? '', hot: !!hot[x.k] })),
     // Salvados: só para o dono (administração) e para o sócio com conta. Mais ninguém.
     ...(appAdmin || salvCode ? [{ k: 'salvados', to: '/salvados', ic: 'wrench', n: 'Salvados', v: sv ? `${eur(sv.myProfit, 0)} €` : '—', u: sv ? 'lucro, a tua metade' : 'carros de investimento', hot: false }] : []),
