@@ -62,7 +62,7 @@ Deno.serve(async (req) => {
       generationConfig: { responseMimeType: 'application/json', responseSchema: SCHEMA, temperature: 0 },
     }),
   });
-  if (!r.ok) { console.error('gemini', r.status, (await r.text()).slice(0, 500)); return json({ error: r.status === 400 || r.status === 401 || r.status === 403 ? 'O Gemini não aceitou a chave. Confirma-a em Administração → Números.' : `O Gemini não respondeu (${r.status}).` }, 502); }
+  if (!r.ok) { console.error('gemini', r.status, (await r.text()).slice(0, 500)); return json({ error: 'A fatura ficou guardada. A leitura dos produtos está em pausa do nosso lado: volta a tentar mais tarde em «Ler os produtos».' }, 503); }
   const out = await r.json();
   let parsed: { items?: { raw?: string; product: string; qty: number; unit: string; price?: number | null }[] } = {};
   try { parsed = JSON.parse(answer(out) || '{}'); } catch { return json({ error: 'não percebi a fatura' }, 422); }
