@@ -4,7 +4,7 @@
 
 import { addDays, daysInMonth, monthKey, nextMonth, parseDate, prevMonth } from './dates';
 
-export type BillKind = 'luz' | 'gas' | 'agua' | 'internet' | 'telemovel' | 'renda' | 'credito' | 'condominio' | 'seguro' | 'outra';
+export type BillKind = 'luz' | 'gas' | 'agua' | 'internet' | 'telemovel' | 'renda' | 'credito' | 'condominio' | 'seguro' | 'subscricao' | 'ajuda' | 'outra';
 export type Unit = 'kWh' | 'm3';
 
 export interface Bill {
@@ -49,6 +49,8 @@ export const KINDS: Record<BillKind, { label: string; words: string[]; unit: Uni
   credito: { label: 'Prestação da casa', words: ['prestacao', 'credito habitacao', 'emprestimo', 'hipoteca'], unit: null, ahead: true },
   condominio: { label: 'Condomínio', words: ['condominio'], unit: null, ahead: true },
   seguro: { label: 'Seguro da casa', words: ['seguro casa', 'seguro da casa', 'multirriscos', 'multiriscos'], unit: null, ahead: true },
+  subscricao: { label: 'Subscrição', words: ['apple', 'icloud', 'netflix', 'spotify', 'disney', 'hbo', 'max', 'claude', 'chatgpt', 'openai', 'google one', 'youtube', 'amazon prime', 'prime video'], unit: null, ahead: true },
+  ajuda: { label: 'Ajuda em casa', words: ['housekeeping', 'empregada', 'limpeza'], unit: null, ahead: false },
   outra: { label: 'Outra', words: [], unit: null, ahead: true },
 };
 

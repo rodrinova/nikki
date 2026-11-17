@@ -11,7 +11,7 @@ import type { useCasa } from './Casa';
 // nome escrito, por isso a cor nunca é a única pista.
 
 type Group = 'casa' | 'energia' | 'agua' | 'outras';
-const GROUP: Record<BillKind, Group> = { renda: 'casa', credito: 'casa', condominio: 'casa', seguro: 'casa', luz: 'energia', gas: 'energia', agua: 'agua', internet: 'outras', telemovel: 'outras', outra: 'outras' };
+const GROUP: Record<BillKind, Group> = { renda: 'casa', credito: 'casa', condominio: 'casa', seguro: 'casa', luz: 'energia', gas: 'energia', agua: 'agua', internet: 'outras', telemovel: 'outras', subscricao: 'outras', ajuda: 'outras', outra: 'outras' };
 const GROUPS: [Group, string, string][] = [['casa', 'Habitação', '1'], ['energia', 'Energia', '2'], ['agua', 'Água', '3'], ['outras', 'Comunicações e outras', 'o']];
 const fill = (g: Group) => `var(--viz-${GROUPS.find((x) => x[0] === g)![2]})`;
 const ink = (g: Group) => `var(--viz-${GROUPS.find((x) => x[0] === g)![2]}-t)`;

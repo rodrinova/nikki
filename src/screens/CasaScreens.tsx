@@ -19,7 +19,6 @@ import { dt, EVERY, categoryOf, TENURE, useCasa, useBillDeadline, BillSheet, Bil
 const YearBlocks = later(() => import('./CasaYear'), 'YearBlocks');
 import { ChoresSection, WarrantiesSection } from './CasaCare';
 import { GroceryReport } from './Grocery';
-import { groceryReport } from '@/lib/grocery';
 
 // Casa: contas fixas (com consumos e faturas que cobrem vários meses), despesas por confirmar, prazos e contratos.
 // Regras em docs/CALCULOS.md, secção 6c.
@@ -52,8 +51,7 @@ export function Casa() {
   const c0 = useCasa('all');
   const sel = sel0 === 'all' || c0.places.some((h) => h.id === sel0) ? sel0 : 'all';
   const c = useCasa(sel);
-  const { chores, warranties, expenses, receiptItems } = useHouse();
-  const grocery = useMemo(() => groceryReport(expenses.rows, receiptItems.rows, todayStr()), [expenses.rows, receiptItems.rows]);
+  const { chores, warranties } = useHouse();
   if (!c.ready) return <><Top title="Contas da casa" /><Loading /></>;
   if (!c.places.length) return <CasaSetup />;
   const here = sel === 'all' ? null : sel;
@@ -62,20 +60,16 @@ export function Casa() {
   const tasks = chores.rows.filter((x) => !x.archived && x.kind === 'task' && inHome(x.home_id));
   const maint = chores.rows.filter((x) => !x.archived && x.kind === 'maintenance' && inHome(x.home_id)).sort((a, b) => a.next_on.localeCompare(b.next_on));
   const gar = warranties.rows.filter((w) => !w.archived && inHome(w.home_id)).map((w) => warrantyState(w.bought_on, Number(w.years), today));
-  const yearTotal = c.year.reduce((t, y) => t + y.year, 0);
+  const dueTasks = [...tasks, ...maint].filter((x) => x.next_on <= today).length;
+  // A casa em três partes: contas (com o ano e os prazos lá dentro), tarefas (com a manutenção) e garantias.
   const tiles: [Part, string, string, string, boolean][] = [
-    ['contas', 'coins', 'Contas fixas', c.pending.length ? `${c.pending.length} por confirmar` : `${c.active.length} ${c.active.length === 1 ? 'conta' : 'contas'}`, c.pending.length > 0],
-    ['ano', 'bars', 'Por ano', yearTotal ? `${eur(yearTotal, 0)} €` : 'sem contas', false],
-    ['supermercado', 'basket', 'Supermercado', grocery ? `${eur(grocery.perMonth, 0)} € por mês` : 'sem compras', false],
-    ['prazos', 'bell', 'Prazos', c.deadlines.length ? `${c.deadlines.length} · ${dt(c.deadlines[0].due_on)}` : 'nenhum', c.deadlines.some((d) => d.due_on <= addDays(today, d.remind_days ?? 7))],
-    ['tarefas', 'check', 'Tarefas', tasks.length ? `${tasks.filter((x) => x.next_on <= today).length} para hoje · ${tasks.length}` : 'nenhuma', false],
-    ['manutencao', 'umbrella', 'Manutenção', maint.length ? `próxima ${dt(maint[0].next_on)}` : 'escolher', maint.some((x) => x.next_on <= addDays(today, 14))],
+    ['contas', 'coins', 'Contas', c.pending.length ? `${c.pending.length} por confirmar` : `${eur(c.total, 0)} € por mês`, c.pending.length > 0 || c.deadlines.some((d) => d.due_on <= addDays(today, d.remind_days ?? 7))],
+    ['tarefas', 'check', 'Tarefas', dueTasks ? `${dueTasks} para hoje` : maint.length ? `próxima ${dt(maint[0].next_on)}` : `${tasks.length + maint.length || 'nenhuma'}`, dueTasks > 0],
     ['garantias', 'doc', 'Garantias', gar.length ? `${gar.filter((g) => g.state !== 'ended').length} a decorrer${gar.some((g) => g.state === 'soon') ? ` · ${gar.filter((g) => g.state === 'soon').length} a acabar` : ''}` : 'nenhuma', gar.some((g) => g.state === 'soon')],
-    ['casas', 'house', c.places.length > 1 ? 'As casas' : 'A casa', `${c.places.length} ${c.places.length === 1 ? 'casa' : 'casas'}${c.archived.length ? ` · ${c.archived.length} arquivada${c.archived.length === 1 ? '' : 's'}` : ''}`, false],
   ];
   return (
     <>
-      <Top title="Contas da casa" />
+      <Top title="Casa" right={<Link className="tb press" to="/casa/casas" style={{ textDecoration: 'none' }}>Definições</Link>} />
       <HomeChips c={c0} sel={sel} setSel={setSel} />
       <div className="swap">
         <p className="xl">{eur(c.total, 0)}<small>€</small></p>
@@ -107,6 +101,10 @@ export function CasaPart() {
         <Top title="Contas fixas" right={<button className="tb press" onClick={() => open(<BillSheet home={here ?? c.first} />)}>Nova conta</button>} />
         {chips}
         {c.pending.length > 0 && <Pending items={c.pending} />}
+        <div className="chips">
+          <Link className="press" to="/casa/ano" style={{ textDecoration: 'none' }}>Por ano</Link>
+          <Link className="press" to="/casa/prazos" style={{ textDecoration: 'none' }}>Prazos e contratos{c.deadlines.length ? ` · ${c.deadlines.length}` : ''}</Link>
+        </div>
         {c.active.length ? <div className="bills">{c.active.map((b) => <BillCard key={b.id} b={b} s={c.stats.get(b.id)!} next={c.dues.find((d) => d.b.id === b.id)} place={many && sel === 'all' ? c.places.find((h) => h.id === c.homeOf(b))?.name : undefined} />)}</div>
           : <button className="tile hint-card press" onClick={() => open(<BillSheet home={here ?? c.first} />)}><span className="st2"><span>Juntar a primeira conta</span><span className="s">Luz, água, internet, renda. A NIKKI liga as despesas sozinha.</span></span><Icon n="arrow" s={16} /></button>}
         <How>
@@ -119,7 +117,7 @@ export function CasaPart() {
     case 'ano': return <><Top title="Por ano" />{chips}<YearBlocks c={c} all={sel === 'all'} /></>;
     case 'supermercado': return <><Top title="Supermercado" /><GroceryReport /></>;
     case 'prazos': return <><Top title="Prazos e contratos" />{chips}<Deadlines list={c.deadlines} /></>;
-    case 'tarefas': return <><Top title="Tarefas" />{chips}<ChoresSection kind="task" home={here} homeOf={homeOf} /></>;
+    case 'tarefas': return <><Top title="Tarefas" />{chips}<ChoresSection kind="task" home={here} homeOf={homeOf} /><p className="s" style={{ marginTop: 8 }}>Manutenção</p><ChoresSection kind="maintenance" home={here} homeOf={homeOf} /></>;
     case 'manutencao': return <><Top title="Manutenção" />{chips}<ChoresSection kind="maintenance" home={here} homeOf={homeOf} /></>;
     case 'garantias': return <><Top title="Garantias" />{chips}<WarrantiesSection home={here} homeOf={homeOf} /></>;
     case 'casas': return (
@@ -158,11 +156,44 @@ function Pending({ items }: { items: ReturnType<typeof useCasa>['pending'] }) {
           <span className="st2"><span>{e.note || e.category} · {eur(toU(e.amount))} €</span><span className="s">{dt(e.spent_on)} · {m.sure ? `parece ${m.sure.name}${invoiceToLink(m.sure.id, toU(e.amount), e.spent_on, billPayments.rows) ? ' (a fatura lida)' : ''}` : `é ${m.ask.map((b) => b.name).join(' ou ')}?`}</span></span>
           <div className="chips" role="group" aria-label="Que conta">
             {(m.sure ? [m.sure] : m.ask).map((b) => <button key={b.id} className="press" onClick={() => open(<PaySheet bill={b} expense={e} />)}>{m.sure ? 'É' : b.name}</button>)}
+            <button className="press" onClick={() => open(<NewFixed expense={e} />)}>Outra conta fixa</button>
             <button className="press" onClick={() => notFixed(e)}>Não é fixa</button>
           </div>
         </div>
       ))}</div>
     </section>
+  );
+}
+
+/**
+ * Uma conta fixa nova a partir de uma despesa (ex.: Apple One, Claude): escolhe-se o tipo, o nome vem da loja, e a
+ * despesa fica logo como o primeiro pagamento. A seguir, as despesas desta loja juntam-se sozinhas.
+ */
+function NewFixed({ expense }: { expense: ExpenseRow }) {
+  const { house, me } = useSession();
+  const { bills } = useHouse();
+  const { close, open, toast } = useOverlays();
+  const shop = (expense.note ?? '').split(' · ')[0].trim();
+  const [kind, setKind] = useState<BillKind>(/apple|icloud|netflix|spotify|disney|claude|chatgpt|openai|youtube|prime/i.test(shop) ? 'subscricao' : 'outra');
+  const [name, setName] = useState(shop || KINDS[kind].label);
+  const [busy, setBusy] = useState(false);
+  async function go() {
+    if (!house || !me || !name.trim()) return;
+    setBusy(true);
+    const { data, error } = await supabase.from('bills').insert({ household_id: house.id, kind, name: name.trim().slice(0, 60), keywords: shop ? shop.toLowerCase() : null, every_months: 1, expected: toU(expense.amount) / 100_000, created_by: me.id }).select('*').single();
+    setBusy(false);
+    if (error) return toast('Não deu para criar a conta. Tenta outra vez.');
+    bills.reload(); close();
+    open(<PaySheet bill={data as BillRow} expense={expense} />);
+  }
+  return (
+    <div className="form">
+      <p className="l">Que conta fixa é?</p>
+      <p className="s">{shop || expense.category} · {eur(toU(expense.amount))} € · {dt(expense.spent_on)}</p>
+      <div className="chips" role="group" aria-label="Tipo">{(Object.keys(KINDS) as BillKind[]).map((k) => <button key={k} type="button" className="press" aria-pressed={kind === k} onClick={() => { setKind(k); if (!shop) setName(KINDS[k].label); }}>{KINDS[k].label}</button>)}</div>
+      <label>Nome<input value={name} onChange={(e) => setName(e.target.value)} maxLength={60} /></label>
+      <button type="button" className="btn wide press" disabled={busy} onClick={() => void go()}>{busy ? 'A criar…' : 'Criar a conta fixa'} <Icon n="arrow" s={20} /></button>
+    </div>
   );
 }
 
