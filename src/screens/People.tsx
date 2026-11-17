@@ -1,5 +1,4 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { store } from '@/lib/store';
 import { DEMO, startDemo } from '@/lib/supabase';
 import { Link, useParams } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
@@ -222,7 +221,6 @@ export function Profile() {
         <button type="button" className="press" onClick={() => open(<AppInvite />)}><span className="k">Convidar para a NIKKI<span className="s" style={{ display: 'block' }}>Um QR para quem quer a NIKKI na casa dele</span></span><span className="v"><Icon n="arrow" s={16} /></span></button>
         <Link className="press" to="/historia"><span className="k">A história da NIKKI</span><span className="v"><Icon n="arrow" s={16} /></span></Link>
         {appAdmin && !DEMO && <button type="button" className="press" onClick={startDemo}><span className="k">Casa de demonstração<span className="s" style={{ display: 'block' }}>Tiago e Marta, com dados de exemplo. Só tu vês esta entrada.</span></span><span className="v"><Icon n="arrow" s={16} /></span></button>}
-        {(appAdmin || DEMO) && <Link className="press" to="/" onClick={() => { if (store.get('nikki:v3') === '1') store.remove('nikki:v3'); else store.set('nikki:v3', '1'); }}><span className="k">Experimentar a NIKKI 3<span className="s" style={{ display: 'block' }}>A estrutura simples: Hoje, Dinheiro, Agenda, Casa. Só tu vês, só neste aparelho.</span></span><span className="v s">{store.get('nikki:v3') === '1' ? 'ligada' : 'desligada'}</span></Link>}
         {appAdmin && <Link className="press" to="/admin"><span className="k">Administração da app</span><span className="v">{adm.pending + adm.novo > 0 && <span className="badge">{adm.pending + adm.novo}</span>}<Icon n="arrow" s={16} /></span></Link>}
       </div>
     </>
