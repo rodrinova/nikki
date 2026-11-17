@@ -423,3 +423,29 @@ a.lead:hover{text-decoration:underline;text-decoration-thickness:1px;text-underl
 ::view-transition-new(front){animation:vt-fade-in 380ms ease-out 80ms both}
 @keyframes vt-fade-out{to{opacity:0}}
 @keyframes vt-fade-in{from{opacity:0}}
+
+/* ——— O mês: duas linhas (o que se gastou e onde é normal estar), legíveis, sem rodas. ——— */
+.mcard{gap:10px!important;padding:16px 16px 14px!important}
+.m-top{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 12px}
+.m-top .dayc-v{font-size:52px}
+.m-sub{flex-basis:100%;order:3;font-size:var(--t-s);color:var(--sub)}
+.m-top .chip-d{margin-left:auto}
+.mlines{touch-action:pan-y;cursor:crosshair}
+.ml-grid{stroke:rgba(255,255,255,.07);stroke-width:1}
+.ml-norm{fill:none;stroke:rgba(243,245,248,.55);stroke-width:1.6;stroke-dasharray:4 5;stroke-linecap:round}
+.ml-line{fill:none;stroke:#fff;stroke-width:2.6;stroke-linejoin:round;stroke-linecap:round;filter:drop-shadow(0 0 6px rgba(255,106,31,.8));stroke-dasharray:1;stroke-dashoffset:1;animation:sw-draw 1000ms var(--ease-out) 150ms forwards}
+.ml-area{animation:fadeIn 700ms ease-out 400ms both}
+.ml-dot{fill:var(--acc);stroke:#0B1017;stroke-width:2;filter:drop-shadow(0 0 8px var(--acc));animation:sw-pop 400ms var(--ease-out) 1000ms both;transform-box:fill-box;transform-origin:center}
+.ml-rule{stroke:rgba(255,255,255,.5);stroke-width:1}
+.m-key{display:flex;gap:16px;font-size:var(--t-xs);color:var(--sub)}
+.m-key span{display:inline-flex;align-items:center;gap:6px}
+.m-key i{width:16px;height:0;border-top:2.6px solid #fff;display:inline-block}
+.m-key i.k-norm{border-top:1.6px dashed rgba(243,245,248,.6)}
+/* Equilíbrio: a cara com os bigodes de quem adiantou mais. */
+.eq-card{align-items:center;text-align:center;gap:10px!important;padding:22px 16px!important}
+.eq-card::before{display:none}
+.eq-face{color:#F3F5F8;filter:drop-shadow(0 0 30px rgba(255,106,31,.45));padding:6px 0}
+.eq-lead{font-size:var(--t-l);letter-spacing:-.02em}
+.eq-list{align-self:stretch;text-align:left;margin-top:8px}
+.eq-list .l:first-child{display:none}
+@media (prefers-reduced-motion: reduce){.ml-line{stroke-dashoffset:0;animation:none}.ml-dot,.ml-area{animation:none}}

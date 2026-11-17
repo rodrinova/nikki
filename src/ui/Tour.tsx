@@ -4,7 +4,7 @@ import '@/n2/n2.css';
 import { Face } from '@/brand/Face';
 import { Icon } from './Icon';
 import { Aurora } from '@/n2/Aurora';
-import { DayArc, Dots, Gauge, MonthDial, Ruler } from '@/n2/Viz';
+import { DayArc, Dots, Gauge, MonthLines, Ruler } from '@/n2/Viz';
 import { FRONTS, STEPS, guideKey, isNewcomer, type GuideKey } from '@/lib/guide';
 import { DEMO } from '@/lib/supabase';
 import { store } from '@/lib/store';
@@ -54,7 +54,7 @@ const Dock = ({ hot }: { hot: number }) => (
 /** Um texto que se escreve sozinho, como no campo do «+». */
 const Typed = ({ text }: { text: string }) => <div className="tour-type"><span style={{ ['--n' as string]: text.length }}>{text}</span></div>;
 const VIZ: Record<string, ReactNode> = {
-  dinheiro: <MonthDial days={[6, 2, 0, 9, 4, 0, 7, 3, 0, 5, 8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]} today={11} />,
+  dinheiro: <MonthLines spent={[0, 30, 34, 36, 41, 44, 47, 49, 52, 55, 57, 60, ...Array(19).fill(60)]} expected={Array.from({ length: 31 }, (_, d) => 28 + d * 2.4)} today={11} />,
   compras: <Dots n={10} hot={10} />, casa: <Ruler pct={4} />, objetivos: <Dots n={3} />, patrimonio: <Gauge v={62} />,
 };
 const Glyph = ({ k, ic }: { k: string; ic: string }) => <div className={`tour-glyph g-${k}`}>{VIZ[k] ?? <span className="tour-orb"><Icon n={ic as never} s={54} w={1} /></span>}</div>;

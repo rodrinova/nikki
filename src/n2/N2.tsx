@@ -7,14 +7,14 @@ import { useSession } from '@/data/session';
 import { useHouse } from '@/data/house';
 import { useAgendaItems } from '@/data/agenda';
 import { addDays, daysInMonth, monthKey, monthName, nextMonth, prevMonth, todayStr } from '@/lib/dates';
-import { eur, monthlySeries, partOf, toU } from '@/lib/money';
+import { eur, expectedPath, monthCurve, monthlySeries, partOf, toU } from '@/lib/money';
 import { driver, expected } from '@/lib/forecast';
 import { compose, stories } from '@/lib/front';
 import { useShopPresence } from '@/data/presence';
 import { store } from '@/lib/store';
 import { seenKey } from '@/screens/Housekeeping';
 import { buckets, LEVELS, type Ghost, type Level } from '@/lib/thread';
-import { ExpenseDetail, INVEST, catLabel, catNormals, useLedger, useMonth } from '@/screens/Money';
+import { ExpenseDetail, INVEST, Ledger, catLabel, catNormals, useLedger, useMonth } from '@/screens/Money';
 import { useOverlays } from '@/ui/overlays';
 import { Face } from '@/brand/Face';
 import { Odometer } from './Odometer';
@@ -25,7 +25,8 @@ import { GuideOnce } from '@/ui/Tour';
 import { useSalvagePartnerCode } from '@/data/salvagePartner';
 import { DEMO } from '@/lib/supabase';
 import { isV3, useN2 } from './shell';
-import { DayArc, DotCols, Dots, Gauge, MonthDial, Ruler } from './Viz';
+import { DayArc, DotCols, Dots, Gauge, MonthLines, Ruler } from './Viz';
+import { Whiskers } from '@/ui/Whiskers';
 
 // NIKKI 2 (protótipo): «a revista da casa». Escuro, como hoje; um serifado de jornal (Newsreader) para títulos e
 // números e a Albert Sans para o resto; a estrutura faz o trabalho das caixas (réguas, colunas, secções numeradas);
@@ -102,11 +103,14 @@ function useFrontRows(money: { total: number; pct: number | null }) {
     eventos: /^\d+$/.test(val.eventos[0]) && Number(val.eventos[0]) <= 14 && !/depois/.test(val.eventos[1] ?? ''),
   };
   const rows = [
-    { k: 'dinheiro', to: isV3() ? '/v3/dinheiro' : '/n2/dinheiro', ic: 'coins', n: 'Dinheiro', v: `${eur(money.total, 0)} €`, u: money.pct === null ? '' : money.pct >= 10 ? `+${Math.round(money.pct)}%` : money.pct <= -10 ? `−${Math.round(-money.pct)}%` : 'normal', hot: money.pct !== null && money.pct >= 10 },
-    ...MODULES.filter((x) => x.k !== 'contas' && x.k !== 'agenda' && on(x.k)).map((x) => ({ k: x.k as string, to: x.to, ic: x.ic, n: x.k === 'housekeeping' ? 'Ajuda em casa' : x.name, v: val[x.k]?.[0] ?? '—', u: val[x.k]?.[1] ?? '', hot: !!hot[x.k] })),
+    { k: 'dinheiro', to: isV3() ? '/v3/dinheiro' : '/n2/dinheiro', ic: 'coins', n: 'O mês', v: `${eur(money.total, 0)} €`, u: money.pct === null ? '' : money.pct >= 10 ? `+${Math.round(money.pct)}%` : money.pct <= -10 ? `−${Math.round(-money.pct)}%` : 'normal', hot: money.pct !== null && money.pct >= 10 },
+    ...MODULES.filter((x) => x.k !== 'contas' && x.k !== 'agenda' && on(x.k)).map((x) => ({ k: x.k as string, to: x.to, ic: x.ic, n: x.k === 'housekeeping' ? 'Ajuda em casa' : x.k === 'casa' ? 'Casa' : x.name, v: val[x.k]?.[0] ?? '—', u: val[x.k]?.[1] ?? '', hot: !!hot[x.k] })),
     // Salvados: só para o dono (administração) e para o sócio com conta. Mais ninguém.
     ...(appAdmin || salvCode ? [{ k: 'salvados', to: '/salvados', ic: 'wrench', n: 'Salvados', v: sv ? `${eur(sv.myProfit, 0)} €` : '—', u: sv ? 'lucro, a tua metade' : 'carros de investimento', hot: false }] : []),
   ];
+  // A ordem do menu: o mês, o património, as compras, a casa, a garagem, quem ajuda, eventos, ginásio, salvados.
+  const ORDER = ['dinheiro', 'patrimonio', 'compras', 'casa', 'garagem', 'housekeeping', 'eventos', 'ginasio', 'salvados', 'objetivos'];
+  rows.sort((a, b) => ORDER.indexOf(a.k) - ORDER.indexOf(b.k));
   return rows;
 }
 
@@ -138,7 +142,7 @@ function Fronts({ money, short }: { money: { total: number; pct: number | null }
 export function N2Casa() {
   useN2();
   const m = useMonth();
-  const money = { total: m.total, pct: m.pace.fresh ? null : m.pace.pct };
+  const money = { total: m.everyday, pct: m.pace.fresh ? null : m.pace.pct };
   return (
     <div className="n2-page n2v" onPointerMove={glow}>
       <Masthead pill />
@@ -199,7 +203,7 @@ export function N2Home() {
         <DayArc now={hNow} marks={todayIts.filter((i) => i.time).map((i) => hOf(i.time!))} onScrub={setScrub} />
         <span className="dayc-l">{scrub !== null ? 'Larga para voltar a agora' : nb(lead.head)}</span>
       </section>
-      <Fronts money={{ total: m.total, pct }} short />
+      <Fronts money={{ total: m.everyday, pct }} short />
       <Sec n="" t="A fazer" className="plain lite"><Now /></Sec>
     </div>
   );
@@ -231,20 +235,43 @@ export function N2Money({ bare }: { bare?: boolean } = {}) {
   }, [daily, key, me]);
   const [n, setN] = useState(8);
   const [pick, setPick] = useState<number | null>(null);
+  const [tab, setTab] = useState<'mes' | 'equilibrio'>(sp.get('ver') === 'equilibrio' ? 'equilibrio' : 'mes');
+  const L = useLedger();
+  const curve = useMemo(() => (me ? monthCurve(daily, me.id, `${key}-01` > todayStr() ? todayStr() : (key === cur ? todayStr() : `${nextMonth(key)}-01`)) : null), [daily, me, key, cur]);
+  const cum = useMemo(() => { let a = 0; return [0, ...perDay.map((v) => (a += v))]; }, [perDay]);
+  const exp = useMemo(() => expectedPath(m.normal ?? 0, curve, perDay.length), [m.normal, curve, perDay.length]);
+  const tday = m.current ? Number(todayStr().slice(8, 10)) : null;
+  const pv = pick ?? tday ?? perDay.length;
   const name = (id: string | null) => (id === me?.id ? 'tu' : id === partner?.id ? partner?.name ?? '' : '');
   const { open } = useOverlays();
   const body = (
     <>
-      <div className="mnav">
+      {(tab === 'mes' || !partner) && <div className="mnav">
         <button type="button" className="press" aria-label="Mês anterior" onClick={() => setKey(prevMonth(key))}>‹</button>
         <span>{cap(monthName(key))}{key.slice(0, 4) !== cur.slice(0, 4) ? ` ${key.slice(0, 4)}` : ''}</span>
         <button type="button" className="press" aria-label="Mês seguinte" disabled={key >= cur} onClick={() => setKey(nextMonth(key))}>›</button>
-      </div>
+      </div>}
+      {partner && <div className="v3-seg" role="tablist" aria-label="Dinheiro">
+        <button type="button" role="tab" className="press" aria-selected={tab === 'mes'} onClick={() => setTab('mes')}>O mês</button>
+        <button type="button" role="tab" className="press" aria-selected={tab === 'equilibrio'} onClick={() => setTab('equilibrio')}>Equilíbrio</button>
+      </div>}
+      {tab === 'equilibrio' && partner ? (
+        <section className="dayc eq-card" aria-label="Equilíbrio entre vocês">
+          <div className="eq-face"><Whiskers lean={L?.lean ?? 0} h={84} label={L?.lead ?? ''} /></div>
+          <span className="eq-lead">{L?.lead ?? '—'}</span>
+          {L && !L.even && <span className="dayc-v" style={{ justifyContent: 'center' }}><span>{eur(Math.abs(L.v), 0)}</span><small>€</small></span>}
+          <span className="dayc-l">Os bigodes crescem para o lado de quem adiantou mais.</span>
+          <div className="v3-embed eq-list"><Ledger embedded bare /></div>
+        </section>
+      ) : <>
       <section className="dayc mcard" aria-label={`${monthName(key)}: ${eur(m.total, 0)} €`}>
-        <MonthDial days={perDay} today={m.current ? Number(todayStr().slice(8, 10)) : null} pick={pick} onPick={setPick}>
-          {pick ? <><small className="day">dia {pick}</small><span className="dayc-v"><span>{eur(perDay[pick - 1] ?? 0, 0)}</span><small>€</small></span></> : <span className="dayc-v"><Odometer value={eur(m.total, 0)} /><small>€</small></span>}
-          {!pick && pct !== null && <span className={`chip-d${pct >= 10 ? ' up' : pct <= -10 ? ' down' : ''}`}>{pct > 0 ? '+' : pct < 0 ? '−' : ''}{Math.abs(pct)}%</span>}
-        </MonthDial>
+        <div className="m-top">
+          <span className="dayc-v">{pick ? <span>{eur(cum[pick] ?? 0, 0)}</span> : <Odometer value={eur(m.everyday, 0)} />}<small>€</small></span>
+          <span className="m-sub">{pick ? `até dia ${pick} · normal ${eur(exp[pick] ?? 0, 0)} €` : m.normal ? (pct === null ? 'O primeiro mês' : `${m.current ? `dia ${tday} · ` : ''}normal ${eur(exp[pv] ?? m.normal, 0)} €`) : 'O primeiro mês: compara-se a partir do próximo'}</span>
+          {!pick && pct !== null && <span className={`chip-d${pct >= 10 ? ' up' : pct <= -10 ? ' down' : ''}`}>{pct === 0 ? 'no ritmo' : `${pct > 0 ? '+' : '−'}${Math.abs(pct)}%`}</span>}
+        </div>
+        {m.normal ? <MonthLines spent={cum} expected={exp} today={tday} pick={pick} onPick={setPick} /> : null}
+        {m.normal ? <div className="m-key"><span><i className="k-now" />Este mês</span><span><i className="k-norm" />Onde é normal estar</span></div> : null}
         <div className="tri">
           <span><small>Dia a dia</small><b>{eur(m.everyday, 0)} €</b></span>
           <span><small>À parte</small><b>{eur(m.events, 0)} €</b></span>
@@ -284,6 +311,7 @@ export function N2Money({ bare }: { bare?: boolean } = {}) {
         </table>
         {moves.length > n && <button type="button" className="more press" onClick={() => setN(n + 20)}>Mais {Math.min(20, moves.length - n)} de {moves.length - n}</button>}
       </Sec>
+      </>}
     </>
   );
   return bare ? body : <div className="n2-page n2v"><Masthead />{body}</div>;

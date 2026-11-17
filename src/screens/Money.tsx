@@ -940,7 +940,7 @@ export function Cats() {
   );
 }
 
-export function Ledger({ embedded }: { embedded?: boolean }) {
+export function Ledger({ embedded, bare }: { embedded?: boolean; bare?: boolean }) {
   const { me, partner, myShare } = useSession();
   const { expenses, transfers } = useHouse();
   const { open } = useOverlays();
@@ -960,6 +960,7 @@ export function Ledger({ embedded }: { embedded?: boolean }) {
   return (
     <>
       {!embedded && <Top title="Entre nós" />}
+      {!bare && <>
       <div className="swap"><p className="xl"><CountUp to={Math.abs(L.v)} fmt={(v) => eur(v)} /><small>€</small></p><p className="s" style={{ marginTop: 8 }}>{L.even ? 'Estão quites' : L.v > 0 ? `Adiantaste a mais (o combinado é ${Math.round(myShare * 100)}/${100 - Math.round(myShare * 100)})` : `${partner.name} adiantou a mais (o combinado é ${Math.round(myShare * 100)}/${100 - Math.round(myShare * 100)})`}</p></div>
       <Hint show={seen < 3}>{`Quanto cada um adiantou face ao combinado (${pct}/${100 - pct}). Não é uma dívida: é só para o esforço ficar bem repartido.`}</Hint>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -968,6 +969,8 @@ export function Ledger({ embedded }: { embedded?: boolean }) {
         </div>
         <div className="s" style={{ display: 'flex', justifyContent: 'space-between' }}><span>Tu {Math.round(a)}%</span><span>combinado {pct}/{100 - pct}</span><span>{partner.name} {100 - Math.round(a)}%</span></div>
       </div>
+      </>}
+      <div className="s" style={{ display: bare ? 'flex' : 'none', justifyContent: 'space-between' }}><span>Tu {Math.round(a)}%</span><span>combinado {pct}/{100 - pct}</span><span>{partner.name} {100 - Math.round(a)}%</span></div>
       {!L.even && <p className="s why"><span className="dot" aria-hidden="true" /><span>Para equilibrar sem transferências: {L.v > 0 ? `os próximos jantares são com ${partner.name}` : 'os próximos jantares são contigo'}.</span></p>}
       <button className={`btn wide press${L.even ? ' quiet' : ''}`} onClick={() => open(<TransferSheet />)}>{L.even ? 'Registar uma transferência' : 'Equilibrar com uma transferência'}<Icon n="arrow" s={20} /></button>
       <PairLog />

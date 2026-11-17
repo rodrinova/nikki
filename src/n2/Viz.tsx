@@ -61,33 +61,30 @@ export function Gauge({ v }: { v: number }) {
 
 
 /**
- * O mês num mostrador: um raio por dia, à volta de um arco de 270°. O comprimento é o que se gastou nesse dia;
- * o dia de hoje acende a laranja, os dias que faltam ficam em ponto. Uma agulha de luz varre o mostrador, sempre.
+ * O mês em duas linhas: o que já se gastou (cheia, até hoje) e onde é normal estar em cada dia (tracejada, o mês
+ * inteiro). Um ponto em «hoje»; arrastar o dedo mostra o dia. Valores em unidades (U).
  */
-export function MonthDial({ days, today, children, pick = null, onPick }: { days: number[]; today: number | null; children?: React.ReactNode; pick?: number | null; onPick?: (d: number | null) => void }) {
-  const hit = (e: React.PointerEvent<SVGSVGElement>) => {
-    const r = e.currentTarget.getBoundingClientRect(), x = ((e.clientX - r.left) / r.width) * 300 - 150, y = ((e.clientY - r.top) / r.height) * 262 - 150;
-    let a = (Math.atan2(y, x) * 180) / Math.PI - 135; a = ((a % 360) + 360) % 360;
-    onPick?.(a > 270 ? (a > 315 ? 1 : days.length) : Math.max(1, Math.min(days.length, Math.floor((a / 270) * days.length) + 1)));
-  };
-  const n = days.length, max = Math.max(1, ...days), C = 150, R0 = 96, R1 = 138;
-  const ang = (k: number) => ((135 + (270 * (k + 0.5)) / n) * Math.PI) / 180;
-  const pt = (k: number, r: number) => [C + Math.cos(ang(k)) * r, C + Math.sin(ang(k)) * r] as const;
+export function MonthLines({ spent, expected, today, onPick, pick = null }: { spent: number[]; expected: number[]; today: number | null; onPick?: (d: number | null) => void; pick?: number | null }) {
+  const days = expected.length - 1, W = 320, H = 150, P = 6;
+  const last = today ?? days;
+  const max = Math.max(1, expected[days] ?? 0, ...spent.slice(0, last + 1)) * 1.08;
+  const x = (d: number) => P + (d / days) * (W - 2 * P), y = (v: number) => H - P - (v / max) * (H - 2 * P);
+  const line = (vs: number[], n: number) => vs.slice(0, n + 1).map((v, d) => `${d ? 'L' : 'M'}${x(d).toFixed(1)} ${y(v).toFixed(1)}`).join('');
+  const area = `${line(spent, last)}L${x(last).toFixed(1)} ${H - P}L${x(0).toFixed(1)} ${H - P}Z`;
+  const hit = (e: React.PointerEvent<SVGSVGElement>) => { const r = e.currentTarget.getBoundingClientRect(); onPick?.(Math.max(1, Math.min(last, Math.round(((e.clientX - r.left) / r.width) * days)))); };
+  const pd = pick ?? null;
   return (
-    <div className={`mdial${pick ? ' picking' : ''}`}>
-      <svg className="viz" viewBox="0 0 300 262" role="img" aria-label="O mês, dia a dia. Arrasta à volta para ver cada dia."
-        onPointerDown={onPick ? (e) => { e.currentTarget.setPointerCapture(e.pointerId); hit(e); } : undefined} onPointerMove={onPick ? (e) => { if (e.buttons || e.pointerType === 'touch') hit(e); } : undefined}
-        onPointerUp={onPick ? () => onPick(null) : undefined} onPointerCancel={onPick ? () => onPick(null) : undefined}>
-        <circle className="md-ring" cx={C} cy={C} r={R0 - 10} />
-        {days.map((v, k) => {
-          const fut = today !== null && k + 1 > today, r = (fut || v <= 0 ? R0 + 2 : R0 + 4 + (v / max) * (R1 - R0 - 4)) + (pick === k + 1 ? 8 : 0);
-          const [a, b] = pt(k, R0), [c, d] = pt(k, r);
-          return <line key={k} className={`md-d${pick === k + 1 ? ' pick' : today === k + 1 ? ' now' : fut ? ' fut' : v <= 0 ? ' zero' : ''}`} x1={a} y1={b} x2={c} y2={d} style={{ ['--k' as string]: k }} />;
-        })}
-        <g className="md-sweep"><line x1={C} y1={C - R0 + 14} x2={C} y2={C - R1} /></g>
-      </svg>
-      <div className="md-c">{children}</div>
-    </div>
+    <svg className="viz mlines" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="O mês: o que já gastaste e onde é normal estar"
+      onPointerDown={onPick ? (e) => { e.currentTarget.setPointerCapture(e.pointerId); hit(e); } : undefined} onPointerMove={onPick ? (e) => { if (e.buttons || e.pointerType === 'touch') hit(e); } : undefined}
+      onPointerUp={onPick ? () => onPick(null) : undefined} onPointerCancel={onPick ? () => onPick(null) : undefined}>
+      <defs><linearGradient id="ml-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#FF6A1F" stopOpacity=".55" /><stop offset="1" stopColor="#FF6A1F" stopOpacity="0" /></linearGradient></defs>
+      {[0.25, 0.5, 0.75].map((f) => <line key={f} className="ml-grid" x1={P} x2={W - P} y1={y(max * f)} y2={y(max * f)} />)}
+      <path className="ml-norm" d={line(expected, days)} />
+      <path className="ml-area" d={area} fill="url(#ml-fill)" />
+      <path className="ml-line" d={line(spent, last)} pathLength={1} />
+      {pd !== null && <line className="ml-rule" x1={x(pd)} x2={x(pd)} y1={P} y2={H - P} />}
+      <circle className="ml-dot" cx={x(pd ?? last)} cy={y(spent[pd ?? last] ?? 0)} r={5} />
+    </svg>
   );
 }
 
