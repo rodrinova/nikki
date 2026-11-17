@@ -98,6 +98,12 @@ function useFrontRows(money: { total: number; pct: number | null }) {
   const { val, on, sv, appAdmin } = useSpaceVals();
   const { me } = useSession();
   const salvCode = useSalvagePartnerCode(!!me && !appAdmin && !DEMO);
+  // Bolinha laranja: falta informação para a NIKKI fazer contas ou avisar a tempo.
+  const { cars, incomes, assets } = useHouse();
+  const missing: Record<string, string | null> = {
+    garagem: ((c) => (c ? `Falta ${!c.registered_on && c.energy !== 'eletrico' ? 'a data da matrícula' : !Number(c.annual_insurance) ? 'o valor do seguro' : 'o valor do IUC'} do ${c.name}` : null))(cars.rows.find((c) => !c.archived && ((!c.registered_on && c.energy !== 'eletrico') || !Number(c.annual_insurance) || (!Number(c.annual_tax) && c.energy !== 'eletrico')))),
+    patrimonio: !incomes.rows.length ? 'Falta dizer quanto entra por mês' : !assets.rows.some((a) => !a.archived && a.role) ? 'Falta dizer onde está o fundo de emergência' : null,
+  };
   const hot: Record<string, boolean> = {
     compras: Number(val.compras[0]) > 0, casa: val.casa[1] === 'por confirmar' || /aviso/.test(val.casa[1] ?? ''), housekeeping: val.housekeeping[0] === 'hoje',
     eventos: /^\d+$/.test(val.eventos[0]) && Number(val.eventos[0]) <= 14 && !/depois/.test(val.eventos[1] ?? ''),
@@ -111,11 +117,12 @@ function useFrontRows(money: { total: number; pct: number | null }) {
   // A ordem do menu: o mês, o património, as compras, a casa, a garagem, quem ajuda, eventos, ginásio, salvados.
   const ORDER = ['dinheiro', 'patrimonio', 'compras', 'casa', 'garagem', 'housekeeping', 'eventos', 'ginasio', 'salvados', 'objetivos'];
   rows.sort((a, b) => ORDER.indexOf(a.k) - ORDER.indexOf(b.k));
-  return rows;
+  return Object.assign(rows, { missing });
 }
 
 function Fronts({ money, short }: { money: { total: number; pct: number | null }; short?: boolean }) {
   const rows = useFrontRows(money);
+  const { missing } = rows;
   const nav = useNavigate();
   const list = short ? rows.filter((r) => r.hot || r.k === 'dinheiro').slice(0, 2) : rows;
   const viz = (r: (typeof rows)[number]) => {
@@ -128,7 +135,8 @@ function Fronts({ money, short }: { money: { total: number; pct: number | null }
   return (
     <div className="cards">
       {list.map((r, k) => (
-        <Link key={r.k} to={r.to} onClick={(e) => openFrom(e, r.to, nav)} className={`cd press${r.hot ? ' hot' : ''}`} style={{ ['--i' as string]: k }} aria-label={`${r.n}: ${r.v} ${r.u}`}>
+        <Link key={r.k} to={r.to} onClick={(e) => openFrom(e, r.to, nav)} className={`cd press${r.hot ? ' hot' : ''}`} style={{ ['--i' as string]: k }} aria-label={`${r.n}: ${r.v} ${r.u}${missing[r.k] ? `. ${missing[r.k]}` : ''}`}>
+          {missing[r.k] && <i className="cd-dot" title={missing[r.k]!} aria-hidden="true" />}
           <span className="cd-h"><span>{r.n}</span><Icon n="arrow" s={14} /></span>
           <span className="cd-g">{viz(r)}</span>
           <span className="cd-v"><Odometer value={r.v} />{r.u && <small>{r.u}</small>}</span>

@@ -72,6 +72,41 @@ function GarageArt({ small }: { small?: boolean }) {
   );
 }
 
+/**
+ * Todos os carros, nos últimos 12 meses (com os vendidos, pelo que se registou neles): km somados, custo por km
+ * (tudo o que custaram ÷ os km), consumo médio (pesado pelos km) e gasto por mês. Por baixo, os próximos prazos.
+ */
+function Fleet() {
+  const { cars, carLogs, deadlines } = useHouse();
+  const f = useMemo(() => {
+    const today = todayStr(), p = { from: addDays(today, -365), to: today, label: '' };
+    let kmT = 0, cost = 0, lit = 0, kmC = 0;
+    for (const c of cars.rows) {
+      const logs = carLogs.rows.filter((l) => l.car_id === c.id);
+      const k = kmIn(logs, p);
+      const spent = logs.filter((l) => l.logged_on >= p.from && l.amount !== null).reduce((t, l) => t + toU(l.amount!), 0);
+      kmT += k; cost += spent + (c.archived ? 0 : fixedIn(c, p, today));
+      const cc = electric(c) ? null : consumption(logs, p, tankOf(c));
+      if (cc?.avg && cc.segments.length) { const sk = cc.segments.reduce((t, x) => t + x.km, 0); kmC += sk; lit += (cc.avg / 100) * sk; }
+    }
+    return { km: kmT, perKm: kmT ? cost / kmT : null, l100: kmC ? (lit / kmC) * 100 : null, month: cost / 12 };
+  }, [cars.rows, carLogs.rows]);
+  const next = deadlines.rows.filter((d) => d.car_id && !d.paid_at).sort((a, b) => a.due_on.localeCompare(b.due_on)).slice(0, 3);
+  const name = (id: string | null) => cars.rows.find((c) => c.id === id)?.name ?? '';
+  return (
+    <section className="tile pane fleet" aria-label="Todos os carros, últimos 12 meses" style={{ minHeight: 0 }}>
+      <span className="s">Todos os carros · últimos 12 meses</span>
+      <div className="kpis">
+        <div className="tile kpi"><span className="l">{f.km ? km(f.km).replace(' km', '') : '—'}</span><span className="s">km por ano<br />somados</span></div>
+        <div className="tile kpi"><span className="l">{eurKm(f.perKm)}</span><span className="s">€/km<br />tudo incluído</span></div>
+        <div className="tile kpi"><span className="l">{L100(f.l100)}</span><span className="s">L/100 km<br />média</span></div>
+        <div className="tile kpi"><span className="l">{eur(f.month, 0)} €</span><span className="s">por mês<br />todos juntos</span></div>
+      </div>
+      {next.length > 0 && <div className="tile card rows">{next.map((d) => <div key={d.id}><span className="st2"><span>{d.title}</span><span className="s">{name(d.car_id)} · {when(d.due_on)}{d.amount ? ` · ${eur(toU(d.amount))} €` : ''}</span></span></div>)}</div>}
+    </section>
+  );
+}
+
 export function Garage() {
   const { house } = useSession();
   const { cars, deadlines } = useHouse();
@@ -84,6 +119,7 @@ export function Garage() {
     <>
       <Top title="Garagem" right={admin ? <button className="tb press" onClick={() => open(<CarSheet />)}>Juntar carro</button> : null} />
       <GarageArt small />
+      <Fleet />
       {active.length >= 2 && <Compare cars={active} />}
       <div className="stack">{active.map((c) => <CarCard key={c.id} car={c} next={deadlines.rows.filter((d) => d.car_id === c.id && !d.paid_at).sort((a, b) => a.due_on.localeCompare(b.due_on))[0]} />)}</div>
       {archived.length > 0 && <>
