@@ -449,3 +449,10 @@ a.lead:hover{text-decoration:underline;text-decoration-thickness:1px;text-underl
 .eq-list{align-self:stretch;text-align:left;margin-top:8px}
 .eq-list .l:first-child{display:none}
 @media (prefers-reduced-motion: reduce){.ml-line{stroke-dashoffset:0;animation:none}.ml-dot,.ml-area{animation:none}}
+/* A bolinha laranja: falta informação nesta frente. */
+.n2v .cd{position:relative}
+.cd-dot{position:absolute;top:12px;right:12px;width:10px;height:10px;border-radius:50%;background:#FF6A1F;box-shadow:0 0 0 3px rgba(255,106,31,.25),0 0 12px #FF6A1F;animation:dot-p 2.4s ease-in-out infinite;z-index:2}
+.cd-dot + .cd-h svg{opacity:0}
+@keyframes dot-p{50%{box-shadow:0 0 0 6px rgba(255,106,31,0),0 0 16px #FF6A1F}}
+@media (prefers-reduced-motion: reduce){.cd-dot{animation:none}}
+.fleet{gap:12px}
