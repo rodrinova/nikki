@@ -1823,3 +1823,4 @@ body.n2x .aurora{inset:-140px}
 .shop-store-h{margin:14px 0 2px;font-size:var(--t-l);letter-spacing:-.02em}
 .tile.card > div:first-child .shop-store-h{margin-top:2px}
 .item .nm[role="button"]{cursor:pointer}
+.hk-day.past{opacity:.75}

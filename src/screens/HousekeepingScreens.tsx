@@ -42,7 +42,7 @@ function HkMain({ h }: { h: HkRow }) {
   const paid = usePaid(h);
   const due = h.monthly_pay ? payDue({ ...h, monthly_pay: Number(h.monthly_pay) }, paid, today)[0] : undefined;
   const lastVisit = history(hkTasks.rows, hkLog.rows.filter((l) => l.done_on < today), 1)[0];
-  const days = planDays(h.weekdays, today);
+  const days = planDays(h.weekdays, today).slice(0, 2); // as duas próximas visitas
   const tile = (k: string, ic: string, t: string, d: string, hot = false) => <Link key={k} className={`tile ctile press${hot ? ' hot' : ''}`} to={`/housekeeping/${k}`}><Icon n={ic} s={22} /><span className="l">{t}</span><span className="s">{d}</span></Link>;
   return (
     <>
@@ -51,8 +51,14 @@ function HkMain({ h }: { h: HkRow }) {
       {!her && <div className="tile read-card"><span className="st2"><span>{h.name} ainda não tem a NIKKI</span><span className="s">Um link por WhatsApp e entra logo: a lista de cada visita, mensagens e compras.</span></span><div className="actions"><button className="btn press" onClick={() => open(<HkLinkSheet h={h} />)}>Criar o link <Icon n="arrow" s={18} /></button><button className="tb quiet press" onClick={() => open(<HkInvite h={h} />)}>Por e-mail</button></div></div>}
       {her && <button type="button" className="tb quiet press" style={{ alignSelf: 'flex-start' }} onClick={() => open(<HkLinkSheet h={h} />)}>Link de entrada da {h.name}</button>}
       <section className="stack" aria-label="Planear as visitas">
-        <div className="wbar"><span className="s">Planear as visitas</span>{once > 0 && <span className="s">{once} {once === 1 ? 'pontual' : 'pontuais'} por fazer</span>}</div>
-        <div className="hk-days">{days.map((d) => {
+        <div className="wbar"><span className="s">Visitas</span>{once > 0 && <span className="s">{once} {once === 1 ? 'pontual' : 'pontuais'} por fazer</span>}</div>
+        <div className="hk-days">
+          {lastVisit && <Link className="tile hk-day press past" to={`/housekeeping/dia/${lastVisit.day}`}>
+            <span className="s">Veio {dayLabel(lastVisit.day)}</span>
+            <span className="l">{Number(lastVisit.day.slice(8, 10))} {monthName(lastVisit.day.slice(0, 7)).slice(0, 3)}</span>
+            <span className="s">{lastVisit.titles.length} {lastVisit.titles.length === 1 ? 'feita' : 'feitas'}</span>
+          </Link>}
+          {days.map((d) => {
           const l = visitList(hkTasks.rows, hkLog.rows, d), extra = l.filter((i) => i.task.repeat === 'once').length;
           return (
             <Link key={d} className={`tile hk-day press${d === today ? ' today' : ''}`} to={`/housekeeping/dia/${d}`}>
@@ -61,15 +67,16 @@ function HkMain({ h }: { h: HkRow }) {
               <span className="s">{d === today ? `${l.filter((i) => i.done).length} de ${l.length} feitas` : `${l.length} ${l.length === 1 ? 'tarefa' : 'tarefas'}${extra ? ` · ${extra} ${extra === 1 ? 'pontual' : 'pontuais'}` : ''}`}</span>
             </Link>
           );
-        })}</div>
+        })}
+        </div>
       </section>
       <div className="casa-tiles">
-        {tile('mensagens', 'chat', 'Mensagens', unread.length ? `${unread.length} ${unread.length === 1 ? 'nova' : 'novas'}` : 'escrever um recado', unread.length > 0)}
         {tile('tarefas', 'broom', 'Tarefas da rotina', recurring ? `${recurring} planeadas` : 'planear')}
-        {tile('pagamento', 'coins', 'Pagamento', due ? (due.late > 0 ? 'por pagar' : due.late === 0 ? 'paga-se hoje' : `preparar · ${dayLabel(due.due)}`) : h.monthly_pay ? `${eur(toU(h.monthly_pay), 0)} € por mês` : 'por definir', !!due)}
+        {tile('mensagens', 'chat', 'Mensagens', unread.length ? `${unread.length} ${unread.length === 1 ? 'nova' : 'novas'}` : 'escrever um recado', unread.length > 0)}
         {tile('pedidos', 'basket', 'Produtos pedidos', asked.length ? `${asked.length} na lista` : 'nada pedido', asked.length > 0)}
-        <button type="button" className="tile ctile press" onClick={() => open(<HkForm h={h} />)}><Icon n="cal" s={22} /><span className="l">Dias e valor</span><span className="s">{daysLabel(h.weekdays).toLowerCase()}</span></button>
         {tile('historico', 'bars', 'Visitas feitas', lastVisit ? `última ${dayLabel(lastVisit.day)}` : 'ainda nenhuma')}
+        <button type="button" className="tile ctile press" onClick={() => open(<HkForm h={h} />)}><Icon n="cal" s={22} /><span className="l">Dias e valor</span><span className="s">{daysLabel(h.weekdays).toLowerCase()}</span></button>
+        {tile('pagamento', 'coins', 'Pagamento', due ? (due.late > 0 ? 'por pagar' : due.late === 0 ? 'paga-se hoje' : `preparar · ${dayLabel(due.due)}`) : h.monthly_pay ? `${eur(toU(h.monthly_pay), 0)} € por mês` : 'por definir', !!due)}
       </div>
       <button type="button" className="btn quiet wide press" onClick={() => open(<HkRemove h={h} />)}>Remover {h.name} ou trocar de pessoa</button>
     </>

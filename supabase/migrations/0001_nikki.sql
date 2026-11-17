@@ -2108,3 +2108,7 @@ language sql stable security invoker set search_path = '' as $$
                   and ((x.received_by = a and x.other_id = b) or (x.received_by = b and x.other_id = a))), 0)
   from o;
 $$;
+
+-- Contas fixas: tipos «subscrição» (Apple One, Claude, Netflix…) e «ajuda em casa».
+alter table nikki.bills drop constraint if exists bills_kind_check;
+alter table nikki.bills add constraint bills_kind_check check (kind in ('luz', 'gas', 'agua', 'internet', 'telemovel', 'renda', 'credito', 'condominio', 'seguro', 'subscricao', 'ajuda', 'outra'));

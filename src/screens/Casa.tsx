@@ -9,7 +9,7 @@ import { eur, parseAmount, toU, type Split } from '@/lib/money';
 import { addDays, monthKey, monthName, prevMonth, todayStr } from '@/lib/dates';
 import { shortDate } from '@/lib/admin';
 import { nextYear } from '@/lib/garage';
-import { BILL_CATEGORIES, KINDS, annualOf, billStats, defaultPeriod, invoiceToLink, looksLikeAdjustment, matchBill, nextDue, partOfBill, unpaidInvoice, type BillKind, type BillStats } from '@/lib/home';
+import { BILL_CATEGORIES, KINDS, norm, annualOf, billStats, defaultPeriod, invoiceToLink, looksLikeAdjustment, matchBill, nextDue, partOfBill, unpaidInvoice, type BillKind, type BillStats } from '@/lib/home';
 import { Hint } from './Home';
 import { BillInvoice } from './Invoice';
 
@@ -46,8 +46,12 @@ export function useCasa(sel: string = 'all') {
     const now = cmp.reduce((t, s) => t + s.perMonth!, 0), before = cmp.reduce((t, s) => t + s.perMonth! / (1 + s.yoy!), 0);
     const linked = new Set(billPayments.rows.map((p) => p.expense_id).filter(Boolean));
     const since = addDays(today, -90);
+    // «Não é fixa» ensina: despesas da mesma loja deixam de ser propostas como contas fixas.
+    const shopOf = (n: string | null) => norm((n ?? '').split(' · ')[0]);
+    const byId = new Map(expenses.rows.map((e) => [e.id, e]));
+    const notFixed = new Set(billPayments.rows.filter((p) => !p.bill_id && p.expense_id).map((p) => shopOf(byId.get(p.expense_id!)?.note ?? null)).filter(Boolean));
     const pending = expenses.rows
-      .filter((e) => BILL_CATEGORIES.includes(e.category) && e.spent_on >= since && !linked.has(e.id))
+      .filter((e) => BILL_CATEGORIES.includes(e.category) && e.spent_on >= since && !linked.has(e.id) && !notFixed.has(shopOf(e.note)))
       .map((e) => ({ e, m: matchBill({ note: e.note, amount: toU(e.amount), spent_on: e.spent_on, category: e.category }, every, billPayments.rows) }))
       .filter((x) => x.m.sure || x.m.ask.length)
       // Numa casa só: as que podem ser de uma conta dessa casa.

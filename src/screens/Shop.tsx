@@ -1,4 +1,6 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { Link } from 'react-router-dom';
+import { groceryReport } from '@/lib/grocery';
 import { supabase } from '@/lib/supabase';
 import { useSession } from '@/data/session';
 import { useHouse, type ShopItem } from '@/data/house';
@@ -8,6 +10,7 @@ import { Icon } from '@/ui/Icon';
 import { Top } from './Home';
 import { niceQty, qtyText, suggestions, type Suggestion } from '@/lib/pantry';
 import { todayStr } from '@/lib/dates';
+import { eur } from '@/lib/money';
 
 // Corredor por palavras-chave; o que não se reconhece vai para Mercearia. Sem unidades nem quantidades.
 const AISLES: [string, RegExp][] = [
@@ -25,7 +28,8 @@ const ORDER = [...AISLES.map(([a]) => a), 'Mercearia'];
 
 export function Shop() {
   const { me, partner, house, members, staff } = useSession();
-  const { shop, receiptItems } = useHouse();
+  const { shop, receiptItems, expenses } = useHouse();
+  const grocery = useMemo(() => groceryReport(expenses.rows, receiptItems.rows, todayStr()), [expenses.rows, receiptItems.rows]);
   const { toast, open } = useOverlays();
   const [name, setName] = useState('');
   // Por supermercado: escolhe-se a loja em cima; o que se junta vai para essa loja. «Todas» mostra loja a loja.
@@ -105,6 +109,7 @@ export function Shop() {
     <>
       <Top title="Compras" right={done.length ? <button className="tb press" onClick={clear}>Limpar riscados</button> : null} />
       <p className="s">{left} por comprar{asked.length ? ` · ${asked.length} ${asked.length === 1 ? 'pedido' : 'pedidos'} de ${[...new Set(asked.map((i) => asker(i.created_by)!.name))].join(' e ')}` : ''}{partner && !live ? ' · a lista atualiza-se sozinha' : ''}</p>
+      {grocery && <Link className="sug-pill press" to="/casa/supermercado" style={{ textDecoration: 'none' }}><Icon n="bars" s={16} />{eur(grocery.perMonth, 0)} € por mês no supermercado</Link>}
       {live && <p className="live-bar" role="status"><span className="dot" aria-hidden="true" />Em direto com {company.map((m) => m.name).join(' e ')}</p>}
       {sug.length > 0 && <button type="button" className="sug-pill press" onClick={() => open(<Suggestions list={sug} onAdd={addSug} />)}><Icon n="ask" s={16} />{sug.length} {sug.length === 1 ? 'sugestão' : 'sugestões'} pelas vossas compras</button>}
       <div className="chips shop-stores" role="group" aria-label="Loja">
