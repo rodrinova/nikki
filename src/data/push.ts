@@ -24,6 +24,7 @@ export function usePush() {
   const { me, house } = useSession();
   const [state, setState] = useState<PushState>('off');
   const [morning, setMorning] = useState(true);
+  const [at, setAtS] = useState('08:00');
   const check = useCallback(async () => {
     if (DEMO) return setState('demo');
     if (ios() && !standalone()) return setState('install');
@@ -32,8 +33,9 @@ export function usePush() {
     if (Notification.permission === 'denied') return setState('blocked');
     const sub = await (await navigator.serviceWorker.ready).pushManager.getSubscription();
     if (!sub) return setState('off');
-    const { data } = await supabase.from('push_subs').select('morning').eq('endpoint', sub.endpoint).maybeSingle();
+    const { data } = await supabase.from('push_subs').select('morning, morning_at').eq('endpoint', sub.endpoint).maybeSingle();
     setMorning((data as { morning: boolean } | null)?.morning ?? true);
+    setAtS(((data as { morning_at?: string } | null)?.morning_at ?? '08:00').slice(0, 5));
     setState(data ? 'on' : 'off');
   }, []);
   useEffect(() => { check(); }, [check]);
@@ -45,7 +47,7 @@ export function usePush() {
     const reg = await navigator.serviceWorker.ready;
     const sub = (await reg.pushManager.getSubscription()) ?? (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key(pub) }));
     const j = sub.toJSON() as { endpoint: string; keys: { p256dh: string; auth: string } };
-    const { error } = await supabase.from('push_subs').upsert({ endpoint: j.endpoint, profile_id: me.id, household_id: house.id, p256dh: j.keys.p256dh, auth: j.keys.auth, morning });
+    const { error } = await supabase.from('push_subs').upsert({ endpoint: j.endpoint, profile_id: me.id, household_id: house.id, p256dh: j.keys.p256dh, auth: j.keys.auth, morning, morning_at: at });
     if (error) return error.message;
     setState('on');
     await supabase.functions.invoke('push', { body: { test: true } }).catch(() => undefined);
@@ -61,5 +63,10 @@ export function usePush() {
     const sub = await (await navigator.serviceWorker.ready).pushManager.getSubscription();
     if (sub) await supabase.from('push_subs').update({ morning: v }).eq('endpoint', sub.endpoint);
   };
-  return { state, morning, enable, disable, setMorning: setMorningOn };
+  /** A hora do resumo é da pessoa: muda em todos os aparelhos dela. */
+  const setAt = async (v: string) => {
+    setAtS(v);
+    if (me) await supabase.from('push_subs').update({ morning_at: v }).eq('profile_id', me.id);
+  };
+  return { state, morning, at, setAt, enable, disable, setMorning: setMorningOn };
 }

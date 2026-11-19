@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { TodoActSheet } from './Tasks';
 import { useNavigate } from 'react-router-dom';
 import { supabase, DEMO, url as base } from '@/lib/supabase';
 import { useSession } from '@/data/session';
@@ -116,12 +117,12 @@ export function AgendaPane({ defaultOpen = false, home = false }: { defaultOpen?
 
 function DayRow({ it, day }: { it: AgendaItem; day: string }) {
   const { open } = useOverlays();
-  const e = it.ev;
+  const e = it.ev, t = it.todo;
   return (
     <div className="ag-row">
       <span className={`bar k-${it.kind}`} style={it.color ? { ['--c' as string]: it.color } : undefined} aria-hidden="true" />
-      <button type="button" className="row-main press" disabled={!e} onClick={() => e && open(<EventSheet ev={e} day={day} />)}>
-        <span className="st2"><span>{it.title}</span><span className="s">{/* Dois factos no máximo: a hora e de quem (a repetição vê-se ao abrir). */}{[it.time ? `${it.time}${it.endTime ? `–${it.endTime}` : ''}` : it.kind === 'due' ? '' : 'dia inteiro', it.note].filter(Boolean).slice(0, 2).join(' · ')}{e && e.repeat !== 'none' && <span className="rep" aria-label={`, ${repeatLabel(e)}`}> ↻</span>}</span></span>
+      <button type="button" className="row-main press" disabled={!e && !t} onClick={() => (t ? open(<TodoActSheet t={t} />) : e && open(<EventSheet ev={e} day={day} />))}>
+        <span className="st2"><span>{it.title}</span><span className="s">{/* Dois factos no máximo: a hora e de quem (a repetição vê-se ao abrir). */}{[it.time ? `${it.time}${it.endTime ? `–${it.endTime}` : ''}` : it.kind === 'due' || it.kind === 'todo' ? '' : 'dia inteiro', it.note].filter(Boolean).slice(0, 2).join(' · ')}{e && e.repeat !== 'none' && <span className="rep" aria-label={`, ${repeatLabel(e)}`}> ↻</span>}</span></span>
       </button>
       {it.location && <button type="button" className="tb press" onClick={() => openPlace(it.location!)} aria-label={`Ir para ${it.location}`}>Ir</button>}
     </div>

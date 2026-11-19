@@ -1,15 +1,15 @@
 import { useMemo } from 'react';
 import { useSession } from './session';
-import { useHouse, type EventRow } from './house';
+import { useHouse, type EventRow, type TodoRow } from './house';
 import { eur } from '@/lib/money';
 import { expand, turns } from '@/lib/agenda';
 import { toDateStr } from '@/lib/dates';
 
-export type CalKind = 'house' | 'mine' | 'other' | 'busy' | 'due' | 'birthday';
+export type CalKind = 'house' | 'mine' | 'other' | 'busy' | 'due' | 'birthday' | 'todo';
 export interface CalItem { day: string; time: string | null; title: string; kind: CalKind; color?: string; note: string }
 
 /** Uma coisa da agenda num dia: um evento (ou a vez de um que se repete), «tem planos» do outro, ou um prazo. */
-export interface AgendaItem extends CalItem { endTime: string | null; ev?: EventRow; location?: string | null }
+export interface AgendaItem extends CalItem { endTime: string | null; ev?: EventRow; location?: string | null; todo?: TodoRow }
 
 /**
  * As coisas da agenda entre dois dias: eventos (com as repetições), aniversários (com a idade, se se souber), os
@@ -17,7 +17,7 @@ export interface AgendaItem extends CalItem { endTime: string | null; ev?: Event
  */
 export function useAgendaItems(from: string, to: string): AgendaItem[] {
   const { me, members } = useSession();
-  const { events, busy, deadlines, on } = useHouse();
+  const { events, busy, deadlines, todos, on } = useHouse();
   const dues = on('casa') || on('garagem');
   return useMemo(() => {
     const who = (id: string) => members.find((m) => m.id === id);
@@ -39,6 +39,12 @@ export function useAgendaItems(from: string, to: string): AgendaItem[] {
     if (dues) for (const d of deadlines.rows) if (!d.paid_at && d.due_on >= from && d.due_on <= to && ((d.car_id && on('garagem')) || (!d.car_id && on('casa')))) {
       out.push({ day: d.due_on, time: null, endTime: null, title: d.title, kind: 'due', note: d.amount ? `Prazo · ${eur(Number(d.amount) * 100_000)} €` : 'Prazo' });
     }
+    // As tarefas com dia (de quem for: a casa toda vê), até estarem feitas.
+    for (const t of todos.rows) if (!t.done_at && t.due_on && t.due_on >= from && t.due_on <= to) {
+      const p = t.owner_id ? who(t.owner_id) : undefined;
+      out.push({ day: t.due_on, time: t.due_time ? t.due_time.slice(0, 5) : null, endTime: null, title: t.title, kind: 'todo', todo: t, color: p?.color,
+        note: !t.owner_id ? 'Tarefa · quem puder' : t.owner_id === me?.id ? (t.created_by !== me?.id ? `Tarefa · pedida por ${who(t.created_by)?.name ?? 'alguém'}` : 'Tarefa · tu') : `Tarefa · ${p?.name ?? ''}` });
+    }
     return out.sort((a, b) => a.day.localeCompare(b.day) || (a.time ?? '').localeCompare(b.time ?? ''));
-  }, [events.rows, busy.rows, deadlines.rows, dues, on, members, me?.id, from, to]);
+  }, [events.rows, busy.rows, deadlines.rows, todos.rows, dues, on, members, me?.id, from, to]);
 }

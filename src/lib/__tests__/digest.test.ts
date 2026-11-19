@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { morning, urgent, type DigestIn } from '../digest';
+import { morning, replies, urgent, type DigestIn } from '../digest';
 
 const T = '2026-10-29';
 const base: DigestIn = { today: T, me: 'r', events: [], deadlines: [], chores: [], todos: [], hk: null, hkPaid: [], messages: [] };
@@ -15,7 +15,7 @@ describe('resumo da manhã', () => {
       hk: { name: 'Maria', profile_id: 'm', monthly_pay: '320.00', pay_day: 29, pay_remind: 0, created_at: '2026-10-01T10:00:00Z' },
       todos: [{ id: 't', title: 'Ligar', owner_id: 'r', due_on: T, done_at: null, created_at: T }],
     };
-    expect(morning(d)).toEqual({ key: 'manha:2026-10-29', title: 'Hoje', url: '/', body: 'Dentista às 09h00 e Pilates às 18h45. IUC do Golf (148,37 €) e Housekeeping (Maria, 320 €). 1 coisa para fazer.' });
+    expect(morning(d)).toEqual({ key: 'manha:2026-10-29', title: 'Hoje', url: '/', body: 'Dentista às 9h e Pilates às 18h45. IUC do Golf (148,37 €) e Housekeeping (Maria, 320 €). Para fazer: Ligar.' });
   });
 });
 
@@ -40,5 +40,34 @@ describe('preparar o pagamento do housekeeping', () => {
     const d: DigestIn = { ...base, hk: { name: 'Maria', profile_id: 'm', monthly_pay: 320, pay_day: null, pay_nth: -1, pay_weekday: 5, pay_remind: 5, created_at: '2026-10-01T10:00:00Z' } };
     expect(morning(d)!.body).toBe('Preparar o housekeeping (Maria, 320 €) para amanhã.');
     expect(urgent(d)).toEqual([]);
+  });
+});
+
+describe('tarefas pedidas e o dia inteiro no resumo', () => {
+  it('tarefas pelo nome, com hora primeiro, e a visita do housekeeping', () => {
+    const d: DigestIn = {
+      ...base, // 29/10/2026 é quinta (4)
+      hk: { name: 'Maria', profile_id: 'm', monthly_pay: null, pay_day: null, weekdays: [4], start_time: '09:30:00', created_at: '2026-10-01T10:00:00Z' },
+      todos: [
+        { id: 'a', title: 'Regar', owner_id: 'r', due_on: T, done_at: null, created_at: T },
+        { id: 'b', title: 'Ligar ao canalizador', owner_id: 'r', due_on: T, due_time: '15:00:00', done_at: null, created_at: T, created_by: 'i' },
+        { id: 'c', title: 'Da Inês', owner_id: 'i', due_on: T, done_at: null, created_at: T },
+      ],
+    };
+    expect(morning(d)!.body).toBe('Maria vem às 9h30. Para fazer: Ligar ao canalizador (às 15h) e Regar.');
+  });
+  it('quem pediu sabe quando fica feita, devolvida ou com outro dia', () => {
+    const since = '2026-10-28T12:00:00Z';
+    const d: DigestIn = {
+      ...base, since, names: { i: 'Inês' },
+      todos: [
+        { id: 'a', title: 'Ligar', owner_id: 'i', due_on: T, done_at: '2026-10-29T10:00:00Z', done_by: 'i', created_at: T, created_by: 'r' },
+        { id: 'b', title: 'Regar', owner_id: 'r', due_on: T, done_at: null, created_at: T, created_by: 'r', returned_at: '2026-10-29T09:00:00Z', returned_by: 'i' },
+        { id: 'c', title: 'Lixo', owner_id: 'i', due_on: '2026-10-31', done_at: null, created_at: T, created_by: 'r', moved_at: '2026-10-29T08:00:00Z', moved_by: 'i' },
+        { id: 'd', title: 'Antigo', owner_id: 'i', due_on: T, done_at: '2026-10-20T10:00:00Z', done_by: 'i', created_at: T, created_by: 'r' },
+        { id: 'e', title: 'Meu', owner_id: 'r', due_on: T, done_at: '2026-10-29T10:00:00Z', done_by: 'r', created_at: T, created_by: 'r' },
+      ],
+    };
+    expect(replies(d).map((p) => `${p.title}: ${p.body}`)).toEqual(['Inês já fez: Ligar', 'Inês não consegue: Regar. Voltou para ti.', 'Inês mudou o dia: Lixo: passa para sábado, dia 31.']);
   });
 });

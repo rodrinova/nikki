@@ -4,7 +4,7 @@ import { useSession } from '@/data/session';
 import { useHouse, type CarRow } from '@/data/house';
 import { useOverlays } from '@/ui/overlays';
 import { Icon } from '@/ui/Icon';
-import { addDays, parseDate, todayStr } from '@/lib/dates';
+import { parseDate, todayStr } from '@/lib/dates';
 import { describe, readIntent, type Intent } from '@/lib/intent';
 import { ExpenseSheet, TransferSheet } from './Money';
 import { EventSheet, plusHour, pushToPhones } from './Agenda';
@@ -12,6 +12,7 @@ import { LogSheet } from './Garage';
 import { WarrantySheet } from './CasaCare';
 import { TaskSheet } from './Housekeeping';
 import { aisleOf } from './Shop';
+import { TodoSheet } from './Tasks';
 
 // O «+» serve para tudo: despesa (a primeira, a maior), evento, coisa a fazer, compras, fatura, abastecer,
 // transferência e garantia. Só aparecem as dos módulos ligados.
@@ -49,39 +50,6 @@ function CarPick({ cars, pick }: { cars: CarRow[]; pick: (c: CarRow) => void }) 
       <p className="l">Que carro?</p>
       <div className="tile card rows">{cars.map((c) => <button key={c.id} className="press" onClick={() => pick(c)}><span className="st2"><span>{c.name}</span><span className="s">{c.plate ?? ''}</span></span><Icon n="arrow" s={16} /></button>)}</div>
     </div>
-  );
-}
-
-/** Uma coisa a fazer: para mim, para o outro ou para quem puder; hoje, amanhã ou outro dia. Fica aberta para juntar mais. */
-function TodoSheet({ init }: { init?: { title?: string; day?: string; who?: 'me' | 'other' | 'any' } } = {}) {
-  const { me, partner, house } = useSession();
-  const { todos } = useHouse();
-  const { toast } = useOverlays();
-  const [t, setT] = useState(init?.title ?? '');
-  const [who, setWho] = useState<'me' | 'other' | 'any'>(init?.who ?? 'me');
-  const d0 = init?.day ?? todayStr();
-  const [when, setWhen] = useState<'h' | 'a' | 'x'>(d0 === todayStr() ? 'h' : d0 === addDays(todayStr(), 1) ? 'a' : 'x');
-  const [date, setDate] = useState(when === 'x' ? d0 : addDays(todayStr(), 2));
-  const [added, setAdded] = useState<string[]>([]);
-  const ref = useRef<HTMLInputElement>(null);
-  async function save(e: FormEvent) {
-    e.preventDefault();
-    if (!t.trim()) return;
-    const due_on = when === 'h' ? todayStr() : when === 'a' ? addDays(todayStr(), 1) : date;
-    const { error } = await supabase.from('todos').insert({ household_id: house!.id, title: t.trim().slice(0, 80), owner_id: who === 'me' ? me!.id : who === 'other' ? partner?.id ?? null : null, due_on, created_by: me!.id });
-    if (error) return toast(error.message);
-    setAdded((a) => [...a, t.trim()]); setT(''); todos.reload(); ref.current?.focus();
-  }
-  return (
-    <form onSubmit={save} autoComplete="off" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <p className="l">A fazer</p>
-      <input ref={ref} className="field" value={t} onChange={(e) => setT(e.target.value)} placeholder="ex.: Ligar ao canalizador" maxLength={80} autoFocus aria-label="O que é" />
-      {partner && <div className="seg sm" role="group" aria-label="Para quem"><button type="button" className="press" aria-pressed={who === 'me'} onClick={() => setWho('me')}>Eu</button><button type="button" className="press" aria-pressed={who === 'other'} onClick={() => setWho('other')}>{partner.name}</button><button type="button" className="press" aria-pressed={who === 'any'} onClick={() => setWho('any')}>Quem puder</button></div>}
-      <div className="seg sm" role="group" aria-label="Quando"><button type="button" className="press" aria-pressed={when === 'h'} onClick={() => setWhen('h')}>Hoje</button><button type="button" className="press" aria-pressed={when === 'a'} onClick={() => setWhen('a')}>Amanhã</button><button type="button" className="press" aria-pressed={when === 'x'} onClick={() => setWhen('x')}>Outro dia</button></div>
-      {when === 'x' && <input className="field" type="date" value={date} min={todayStr()} onChange={(e) => setDate(e.target.value)} aria-label="Dia" />}
-      {added.length > 0 && <p className="s why"><span className="dot" aria-hidden="true" /><span>Na lista: {added.join(', ')}. Mais uma?</span></p>}
-      <button className="btn wide press">Juntar <Icon n="plus" s={18} /></button>
-    </form>
   );
 }
 
@@ -196,6 +164,13 @@ export function Say({ listen = false }: { listen?: boolean } = {}) {
         <input ref={inputRef} className="field" value={text} onChange={(e) => setText(e.target.value)} placeholder={`Escreve ou diz: «${ex}»`} aria-label="Escreve ou diz o que foi" enterKeyHint="done" autoFocus={typeof matchMedia === 'function' && matchMedia('(pointer: fine)').matches} />
         {mic && <button type="button" className={`say-mic press${mic.on ? ' on' : ''}`} aria-pressed={mic.on} aria-label={mic.on ? 'Parar de ouvir' : 'Dizer'} onClick={() => { mic.toggle(); inputRef.current?.blur(); }}><Icon n="mic" s={20} /></button>}
       </div>
+      {/* Sem nada escrito: os atalhos. A tarefa (para mim ou para alguém da casa) fica à mão. */}
+      {!text.trim() && <div className="say-acts wrap" aria-label="Atalhos">
+        <button type="button" className="tb press" onClick={() => open(<TodoSheet />)}><Icon n="check" s={14} /> Tarefa</button>
+        <button type="button" className="tb press" onClick={() => open(<EventSheet day={today} />)}><Icon n="cal" s={14} /> Evento</button>
+        <button type="button" className="tb press" onClick={() => adjust({ kind: 'expense', text: '' })}><Icon n="coins" s={14} /> Despesa</button>
+        {modOn('compras') && <button type="button" className="tb press" onClick={() => open(<ShopSheet />)}><Icon n="basket" s={14} /> Compras</button>}
+      </div>}
       {text.trim() && (it.kind ? (
         <div className="say-card" aria-live="polite">
           <span className="say-k"><Icon n={KIND[it.kind][0]} s={16} />{KIND[it.kind][1]}</span>

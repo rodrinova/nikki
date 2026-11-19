@@ -1,7 +1,8 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useSession } from '@/data/session';
-import { useHouse, type ChoreRow } from '@/data/house';
+import { useHouse, type ChoreRow, type TodoRow } from '@/data/house';
+import { TodoActSheet } from './Tasks';
 import { useOverlays } from '@/ui/overlays';
 import { Icon } from '@/ui/Icon';
 import { eur, parseAmount, toU } from '@/lib/money';
@@ -54,7 +55,7 @@ export function useTick() {
 }
 
 export function Today() {
-  const { me, partner, house } = useSession();
+  const { me, partner, house, members } = useSession();
   const { chores, todos, on } = useHouse();
   const { open, toast } = useOverlays();
   const done = useChoreDone();
@@ -97,8 +98,10 @@ export function Today() {
         {list.mine.map((it) => (
           <li key={it.kind + it.id} className="todo-row">
             <button type="button" className="tick press" role="checkbox" aria-checked="false" aria-label={`Feito: ${it.title}`} onClick={() => tick(it)}><i /></button>
-            <span className="st2"><span>{it.title}</span><span className="s">{[
+            <span className="st2" role={it.todo ? 'button' : undefined} tabIndex={it.todo ? 0 : undefined} onClick={it.todo ? () => open(<TodoActSheet t={it.todo as TodoRow} />) : undefined}><span>{it.title}</span><span className="s">{[
               it.kind === 'chore' && it.chore!.kind === 'maintenance' ? 'manutenção' : '',
+              it.todo?.due_time ? `às ${it.todo.due_time.slice(0, 5)}` : '',
+              it.todo && it.todo.created_by && it.todo.created_by !== me?.id ? `pedida por ${(members.find((m) => m.id === it.todo!.created_by)?.name ?? '').split(' ')[0]}` : '',
               it.owner === null ? (partner ? 'de quem puder' : '') : it.chore?.assign === 'rotate' ? 'a tua vez' : '',
               late(it.late),
             ].filter(Boolean).join(' · ')}</span></span>

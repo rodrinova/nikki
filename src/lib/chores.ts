@@ -19,7 +19,10 @@ export interface Chore {
   archived: boolean;
   home_id?: string | null;
 }
-export interface Todo { id: string; title: string; owner_id: string | null; due_on: string | null; done_at: string | null; created_at: string }
+export interface Todo {
+  id: string; title: string; owner_id: string | null; due_on: string | null; done_at: string | null; created_at: string;
+  due_time?: string | null; created_by?: string; done_by?: string | null; moved_at?: string | null; moved_by?: string | null; returned_at?: string | null; returned_by?: string | null;
+}
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
