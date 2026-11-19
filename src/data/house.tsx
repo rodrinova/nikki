@@ -162,7 +162,7 @@ function useHouseData() {
     chores: useLive<ChoreRow>('chores', ch, 'id, home_id, kind, title, every_n, every_unit, next_on, assign, turn_id, note, archived, created_at', { column: 'next_on' }),
     choreLogs: useLive<ChoreLogRow>('chore_logs', ch, 'id, chore_id, done_on, done_by, expense_id, note, created_at', { column: 'done_on', ascending: false }),
     warranties: useLive<WarrantyRow>('warranties', ch, 'id, home_id, item, store, bought_on, years, price, receipt_path, archived, created_at', { column: 'bought_on', ascending: false }),
-    todos: useLive<TodoRow>('todos', h, 'id, title, owner_id, due_on, done_at, done_by, created_by, created_at', { column: 'created_at' }),
+    todos: useLive<TodoRow>('todos', h, 'id, title, owner_id, due_on, due_time, done_at, done_by, created_by, created_at, moved_at, moved_by, returned_at, returned_by', { column: 'created_at' }),
     hk: useLive<HkRow>('housekeeping', kh, 'id, profile_id, name, weekdays, start_time, monthly_pay, pay_day, pay_nth, pay_weekday, pay_remind, bill_id, archived, created_at', { column: 'created_at' }),
     hkTasks: useLive<HkTaskRow>('hk_tasks', kh, 'id, title, repeat, due_on, archived, chore_id, created_at', { column: 'created_at' }),
     hkLog: useLive<HkLogRow>('hk_log', kh, 'id, task_id, done_on, done_by, created_at', { column: 'done_on', ascending: false }),

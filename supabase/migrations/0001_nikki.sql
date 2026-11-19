@@ -2127,3 +2127,12 @@ begin
 end $$;
 revoke all on function nikki.set_member_profile(uuid, text, text) from public, anon;
 grant execute on function nikki.set_member_profile(uuid, text, text) to authenticated;
+
+-- Tarefas pedidas dentro da casa: hora opcional, e quem mudou o dia ou devolveu (para avisar quem pediu).
+alter table nikki.todos add column if not exists due_time time;
+alter table nikki.todos add column if not exists moved_at timestamptz;
+alter table nikki.todos add column if not exists moved_by uuid references nikki.profiles (id) on delete set null;
+alter table nikki.todos add column if not exists returned_at timestamptz;
+alter table nikki.todos add column if not exists returned_by uuid references nikki.profiles (id) on delete set null;
+-- A hora do resumo diário, à escolha de cada pessoa (de 15 em 15 minutos, entre as 6h00 e as 12h00).
+alter table nikki.push_subs add column if not exists morning_at time not null default '08:00';

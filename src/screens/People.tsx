@@ -302,7 +302,7 @@ function Speed() {
   );
 }
 
-/** Notificações: o resumo das 8h00 e os avisos que não esperam. Mostra o resumo de hoje tal como chegaria. */
+/** Notificações: o resumo do dia (à hora que a pessoa escolhe) e os avisos que não esperam. Mostra o resumo de hoje tal como chegaria. */
 function Notifications() {
   const { me } = useSession();
   const { events, deadlines, chores, todos, hk, on } = useHouse();
@@ -326,12 +326,16 @@ function Notifications() {
         <div><span className="k">Notificações</span>
           <button type="button" role="switch" aria-checked={lit} aria-label="Notificações" className="sw press" disabled={!['on', 'off'].includes(p.state)}
             onClick={async () => { if (lit) { await p.disable(); toast('Notificações desligadas.'); } else { const e = await p.enable(); toast(e ?? 'Ligadas. Acabou de chegar uma, só para veres.', { ok: !e }); } }}><i /></button></div>
-        {lit && <div><span className="k">Resumo às 8h00<span className="s" style={{ display: 'block' }}>Os urgentes chegam sempre. O resto espera pelo café</span></span>
-          <button type="button" role="switch" aria-checked={p.morning} aria-label="Resumo às 8h00" className="sw press" onClick={() => p.setMorning(!p.morning)}><i /></button></div>}
+        {lit && <div><span className="k">Resumo do dia<span className="s" style={{ display: 'block' }}>Tudo o que há nesse dia. Os urgentes chegam sempre</span></span>
+          <button type="button" role="switch" aria-checked={p.morning} aria-label="Resumo do dia" className="sw press" onClick={() => p.setMorning(!p.morning)}><i /></button></div>}
+        {lit && p.morning && <div><span className="k">A que horas</span>
+          <select className="field" style={{ width: 'auto' }} value={p.at} onChange={(e) => void p.setAt(e.target.value)} aria-label="Hora do resumo">
+            {Array.from({ length: 25 }, (_, i) => `${String(6 + Math.floor(i / 4)).padStart(2, '0')}:${String((i % 4) * 15).padStart(2, '0')}`).map((v) => <option key={v} value={v}>{v.replace(':', 'h')}</option>)}
+          </select></div>}
       </div>
       {why[p.state] && <p className="s">{why[p.state]}</p>}
       <div className="push-preview" aria-label="O resumo de hoje">
-        <span className="s">Hoje às 8h00</span>
+        <span className="s">Hoje às {p.at.replace(':', 'h')}</span>
         <p>{m ? m.body : 'Nada para dizer hoje. Nesses dias, a NIKKI fica calada.'}</p>
       </div>
     </section>
