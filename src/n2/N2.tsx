@@ -5,7 +5,8 @@ import { flushSync } from 'react-dom';
 import './n2.css';
 import { useSession } from '@/data/session';
 import { useHouse } from '@/data/house';
-import { useAgendaItems } from '@/data/agenda';
+import { useAgendaItems, whoseOf } from '@/data/agenda';
+import { MonthStripes } from './Month';
 import { addDays, daysInMonth, monthKey, monthName, nextMonth, prevMonth, todayStr } from '@/lib/dates';
 import { eur, expectedPath, monthCurve, monthlySeries, partOf, toU } from '@/lib/money';
 import { driver, expected } from '@/lib/forecast';
@@ -209,7 +210,7 @@ export function N2Home() {
         <Link to="/n2/tempo" className="dayc-go press" aria-label="Abrir a agenda"><Icon n="arrow" s={16} /></Link>
         <span className="cd-h"><span>{scrub !== null ? 'Nessa hora' : next ? 'A seguir' : 'Hoje'}</span></span>
         <span className="dayc-v">{scrub !== null ? <span>{hm(scrub)}</span> : <Odometer value={next?.time ?? hhmm} />}<small>{shown ? shown.title : 'livre'}</small></span>
-        <DayArc now={hNow} marks={todayIts.filter((i) => i.time).map((i) => hOf(i.time!))} onScrub={setScrub} />
+        <DayArc now={hNow} marks={todayIts.filter((i) => i.time).map((i) => ({ h: hOf(i.time!), who: whoseOf(i, me?.id) }))} other={partner?.name.split(' ')[0]} onScrub={setScrub} />
         <span className="dayc-l">{scrub !== null ? 'Larga para voltar a agora' : nb(lead.head)}</span>
       </section>
       <Fronts money={{ total: m.everyday, pct }} short />
@@ -337,6 +338,8 @@ export function N2Money({ bare }: { bare?: boolean } = {}) {
  */
 export function N2Time() {
   useN2();
+  const [view, setViewS] = useState<'mes' | 'linha'>(() => (store.get('nikki_agenda_view') === 'linha' ? 'linha' : 'mes'));
+  const setView = (v: 'mes' | 'linha') => { setViewS(v); store.set('nikki_agenda_view', v); };
   const { me } = useSession();
   const { spendRows, deadlines } = useHouse();
   const [level, setLevel] = useState<Level>(1);
@@ -376,6 +379,11 @@ export function N2Time() {
       }}
       onTouchEnd={() => { pinch.current = null; }}>
       <Masthead />
+      <div className="seg sm" role="tablist" aria-label="Vista" style={{ alignSelf: 'flex-start' }}>
+        <button type="button" role="tab" className="press" aria-selected={view === 'mes'} aria-pressed={view === 'mes'} onClick={() => setView('mes')}>Mês</button>
+        <button type="button" role="tab" className="press" aria-selected={view === 'linha'} aria-pressed={view === 'linha'} onClick={() => setView('linha')}>Linha do tempo</button>
+      </div>
+      {view === 'mes' ? <MonthStripes /> : <>
       <div className="n2-scale" role="tablist" aria-label="Escala">
         {LEVELS.map((x, k) => <button key={x} type="button" role="tab" aria-selected={k === level} className="press" onClick={() => zoom(k as Level)}>{x}</button>)}
       </div>
@@ -405,6 +413,7 @@ export function N2Time() {
           </div>
         ))}
       </div>
+      </>}
     </div>
   );
 }

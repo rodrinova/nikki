@@ -115,7 +115,7 @@ export function AgendaPane({ defaultOpen = false, home = false }: { defaultOpen?
   );
 }
 
-function DayRow({ it, day }: { it: AgendaItem; day: string }) {
+export function DayRow({ it, day }: { it: AgendaItem; day: string }) {
   const { open } = useOverlays();
   const e = it.ev, t = it.todo;
   return (

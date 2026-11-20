@@ -3,14 +3,25 @@ import type React from 'react';
 // com o laranja para «agora» e para o que pede atenção. O movimento só desenha (uma vez, à entrada).
 
 /** O dia num arco: 24 horas, o que já passou a cheio, o que falta a tracejado, um ponto por compromisso e o «agora». */
-export function DayArc({ now, marks, onScrub }: { now: number; marks: number[]; onScrub?: (h: number | null) => void }) {
+export type ArcMark = number | { h: number; who: 'me' | 'other' | 'house' };
+/**
+ * O dia em arco, das 0 às 24 horas. Com `other` (o nome da outra pessoa da casa), são dois arcos: o teu em cima e o
+ * dela por baixo; o que é dos dois aparece nos dois. Arrastar o dedo percorre as horas.
+ */
+export function DayArc({ now, marks, onScrub, other }: { now: number; marks: ArcMark[]; onScrub?: (h: number | null) => void; other?: string }) {
   const at = (e: React.PointerEvent<SVGSVGElement>) => { const r = e.currentTarget.getBoundingClientRect(); onScrub?.(Math.max(0, Math.min(24, ((e.clientX - r.left) / r.width - 26 / 300) / (248 / 300) * 24))); };
-  const W = 300, H = 150, cx = 150, cy = 150, R = 124;
+  const W = 300, H = 150, cx = 150, cy = 150, R = 124, R2 = 92;
   const pt = (h: number, r = R) => { const a = Math.PI * (1 - Math.max(0, Math.min(24, h)) / 24); return [cx + Math.cos(a) * r, cy - Math.sin(a) * r] as const; };
-  const arc = (h0: number, h1: number) => { const [x0, y0] = pt(h0), [x1, y1] = pt(h1); return `M${x0.toFixed(1)} ${y0.toFixed(1)}A${R} ${R} 0 0 1 ${x1.toFixed(1)} ${y1.toFixed(1)}`; };
+  const arc = (h0: number, h1: number, r = R) => { const [x0, y0] = pt(h0, r), [x1, y1] = pt(h1, r); return `M${x0.toFixed(1)} ${y0.toFixed(1)}A${r} ${r} 0 0 1 ${x1.toFixed(1)} ${y1.toFixed(1)}`; };
   const [nx, ny] = pt(now);
+  const ms = marks.map((m) => (typeof m === 'number' ? { h: m, who: 'house' as const, plain: true } : { ...m, plain: false }));
+  // Num arco só, tudo vai para cima (como antes). A dois: o teu e o da casa em cima; o dela e o da casa em baixo.
+  const top = other ? ms.filter((m) => m.who !== 'other') : ms;
+  const low = other ? ms.filter((m) => m.who !== 'me') : [];
+  const dot = (m: (typeof ms)[number], r: number, k: number, size: number) => { const [x, y] = pt(m.h, r); return <circle key={`${r}-${k}`} className={`mk${m.h < now ? ' past' : ''}${m.plain ? '' : ` w-${m.who}`}`} cx={x} cy={y} r={size} style={{ ['--k' as string]: k }} />; };
+  const [ox, oy] = pt(now, R2);
   return (
-    <svg className="viz day-arc" viewBox={`0 -8 ${W} ${H + 18}`} role="img" aria-label="O dia, das 0 às 24 horas. Arrasta para percorrer as horas."
+    <svg className="viz day-arc" viewBox={`0 -8 ${W} ${H + 18}`} role="img" aria-label={other ? `O teu dia em cima e o de ${other} por baixo, das 0 às 24 horas. Arrasta para percorrer as horas.` : 'O dia, das 0 às 24 horas. Arrasta para percorrer as horas.'}
       onPointerDown={onScrub ? (e) => { e.currentTarget.setPointerCapture(e.pointerId); at(e); } : undefined} onPointerMove={onScrub ? (e) => { if (e.buttons || e.pointerType === 'touch') at(e); } : undefined}
       onPointerUp={onScrub ? () => onScrub(null) : undefined} onPointerCancel={onScrub ? () => onScrub(null) : undefined}>
       {Array.from({ length: 25 }, (_, h) => { const [a, b] = pt(h, R + 9), [c, d] = pt(h, R + (h % 6 === 0 ? 17 : 13)); return <line key={h} className="tick" x1={a} y1={b} x2={c} y2={d} />; })}
@@ -18,9 +29,17 @@ export function DayArc({ now, marks, onScrub }: { now: number; marks: number[]; 
       <path className="done-glow" d={arc(0, now)} pathLength={1} />
       <path className="done" d={arc(0, now)} pathLength={1} />
       <path className="comet" d={arc(0, now)} pathLength={1} />
-      {marks.map((h, k) => { const [x, y] = pt(h); return <circle key={k} className={`mk${h < now ? ' past' : ''}`} cx={x} cy={y} r={4.5} style={{ ['--k' as string]: k }} />; })}
+      {other && <>
+        <path className="rest2" d={arc(now, 24, R2)} />
+        <path className="done2" d={arc(0, now, R2)} pathLength={1} />
+        <text className="who" x={pt(0, R)[0] + 4} y={H - 4} textAnchor="start">Tu</text>
+        <text className="who" x={pt(0, R2)[0] + 4} y={H - 4} textAnchor="start">{other}</text>
+      </>}
+      {top.map((m, k) => dot(m, R, k, 4.5))}
+      {low.map((m, k) => dot(m, R2, k + top.length, 4))}
       <circle className="now-halo" cx={nx} cy={ny} r={11} /><circle className="now" cx={nx} cy={ny} r={5.5} />
-      {[0, 6, 12, 18, 24].map((h) => { const [x, y] = pt(h, R - 18); return <text key={h} x={x} y={y + 4} textAnchor="middle">{h}</text>; })}
+      {other && <circle className="now" cx={ox} cy={oy} r={3.5} />}
+      {(other ? [6, 12, 18] : [0, 6, 12, 18, 24]).map((h) => { const [x, y] = pt(h, (other ? R2 : R) - 18); return <text key={h} x={x} y={y + 4} textAnchor="middle">{h}</text>; })}
     </svg>
   );
 }
