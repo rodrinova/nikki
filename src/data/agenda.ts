@@ -48,3 +48,14 @@ export function useAgendaItems(from: string, to: string): AgendaItem[] {
     return out.sort((a, b) => a.day.localeCompare(b.day) || (a.time ?? '').localeCompare(b.time ?? ''));
   }, [events.rows, busy.rows, deadlines.rows, todos.rows, dues, on, members, me?.id, from, to]);
 }
+
+/** De quem é, visto por quem está a ver: «me» (azul), «other» (laranja, a outra pessoa da casa) ou «house» (dos dois). */
+export type Whose = 'me' | 'other' | 'house';
+export function whoseOf(it: Pick<AgendaItem, 'kind' | 'todo'>, me?: string): Whose {
+  if (it.kind === 'mine') return 'me';
+  if (it.kind === 'other' || it.kind === 'busy') return 'other';
+  if (it.kind === 'todo') return !it.todo?.owner_id ? 'house' : it.todo.owner_id === me ? 'me' : 'other';
+  return 'house';
+}
+/** As cores fixas da agenda do casal: tu a azul, a outra pessoa a laranja, a casa a branco. */
+export const WHO_COLOR: Record<Whose, string> = { me: '#4D86FF', other: '#FF6A1F', house: '#E8ECF2' };
