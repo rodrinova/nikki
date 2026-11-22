@@ -1831,3 +1831,8 @@ body.n2x .aurora{inset:-140px}
 /* O aviso de versão nova, por cima da barra de baixo, em todos os ecrãs. */
 body.n2x .update-pill{bottom:calc(env(safe-area-inset-bottom,0px) + 104px)!important;z-index:2000;background:linear-gradient(160deg,#FF8A3D,#FF5A12);color:#0B1017;box-shadow:0 10px 30px -8px rgba(255,106,31,.8);animation:tour-pop 400ms var(--ease-out) both}
 body.n2x .update-pill b{color:#0B1017;font-weight:600}
+
+/* Trancada (Face ID / impressão digital) */
+.lock{position:fixed;inset:0;z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:24px;text-align:center;
+  background:var(--ground,#0B1017);color:var(--ink)}
+.lock p{margin:0;font-size:var(--t-m,18px)}

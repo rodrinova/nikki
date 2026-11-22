@@ -1,3 +1,5 @@
+// A app nunca corre dentro de outra página (proteção contra cliques enganados); a demonstração sim.
+if (import.meta.env.VITE_DEMO !== '1' && window.top !== window.self) window.top!.location.replace(window.self.location.href);
 import { mark } from './lib/perf';
 mark('código');
 import { StrictMode } from 'react';

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { startDemo, supabase } from '@/lib/supabase';
+import { DEMO, startDemo, supabase } from '@/lib/supabase';
 import { useSession } from '@/data/session';
 import { useOverlays } from '@/ui/overlays';
 import { Icon } from '@/ui/Icon';
@@ -58,7 +58,7 @@ function useAdminData() {
 }
 
 /** Para o início e o perfil do administrador: pedidos à espera e tickets novos. */
-export function Admin() {
+function AdminInner() {
   const { d, setD, err, load } = useAdminData();
   const [tab, setTab] = useState<Tab | null>(null);
   const pending = d?.people.filter((p) => p.status === 'pending') ?? [];
@@ -290,5 +290,59 @@ function Numbers({ k }: { k: Kpis }) {
         );
       })}</div>
     </div>
+  );
+}
+
+
+/**
+ * A Administração pede um segundo fator: além do e-mail, o código de uma app autenticadora (Google Authenticator,
+ * 1Password, Apple Passwords…). Na primeira vez, mostra o QR para ligar a app; depois, só o código de 6 dígitos.
+ * O servidor também o exige (as funções admin_* recusam uma sessão sem o segundo fator).
+ */
+export function Admin() {
+  const [st, setSt] = useState<'a ver' | 'ok' | 'pedir' | 'ligar'>(DEMO ? 'ok' : 'a ver');
+  const [factor, setFactor] = useState<{ id: string; qr?: string; secret?: string } | null>(null);
+  const [code, setCode] = useState('');
+  const [err, setErr] = useState('');
+  useEffect(() => {
+    if (DEMO) return;
+    void (async () => {
+      const { data: a } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      if (a?.currentLevel === 'aal2') return setSt('ok');
+      const { data: f } = await supabase.auth.mfa.listFactors();
+      const v = f?.totp.find((x) => x.status === 'verified');
+      if (v) { setFactor({ id: v.id }); return setSt('pedir'); }
+      for (const x of f?.all ?? []) if (x.status !== 'verified') await supabase.auth.mfa.unenroll({ factorId: x.id });
+      const { data: e, error } = await supabase.auth.mfa.enroll({ factorType: 'totp', friendlyName: 'NIKKI admin' });
+      if (error || !e) return setErr(error?.message ?? 'Não deu para preparar o segundo fator.');
+      setFactor({ id: e.id, qr: e.totp.qr_code, secret: e.totp.secret }); setSt('ligar');
+    })();
+  }, []);
+  if (st === 'ok') return <AdminInner />;
+  async function go(ev: React.FormEvent) {
+    ev.preventDefault();
+    if (!factor) return;
+    const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId: factor.id, code: code.replace(/\D/g, '') });
+    if (error) return setErr('Código errado ou fora de tempo. Tenta o seguinte.');
+    setSt('ok');
+  }
+  return (
+    <>
+      <Top title="Administração" />
+      <form className="stack" onSubmit={go} autoComplete="off" style={{ maxWidth: 420 }}>
+        {st === 'a ver' && !err && <Loading />}
+        {st === 'ligar' && factor?.qr && <>
+          <p>Para entrar na Administração, junta a NIKKI a uma app autenticadora (Google Authenticator, 1Password, Palavras-passe do iPhone…).</p>
+          <img src={factor.qr} alt="QR para a app autenticadora" width={180} height={180} style={{ background: '#fff', borderRadius: 12, padding: 8 }} />
+          <p className="s">Ou escreve a chave: <code style={{ userSelect: 'all', wordBreak: 'break-all' }}>{factor.secret}</code></p>
+        </>}
+        {(st === 'ligar' || st === 'pedir') && <>
+          <p className="s">{st === 'pedir' ? 'O código de 6 dígitos da tua app autenticadora.' : 'Depois, o código de 6 dígitos que aparece lá.'}</p>
+          <input className="field" inputMode="numeric" autoComplete="one-time-code" maxLength={7} value={code} onChange={(e) => setCode(e.target.value)} placeholder="000 000" aria-label="Código" autoFocus />
+          <button className="btn wide press">Entrar</button>
+        </>}
+        {err && <p className="s" role="alert">{err}</p>}
+      </form>
+    </>
   );
 }

@@ -1,9 +1,9 @@
 // Juntar uma pessoa à casa por um link (ou QR), sem e-mail nem palavra-passe.
-//   {action:'create'} com a sessão de quem está na casa (não staff), com lugar para mais uma pessoa: o link (7 dias;
+//   {action:'create'} com a sessão de quem está na casa (não staff), com lugar para mais uma pessoa: o link (24 horas;
 //     anula o anterior).
 //   {action:'peek', token}: a casa e quem convida (para a página do link), ou porque já não serve.
 //   {action:'redeem', token, name}: cria a conta (ativa, na casa) e devolve um token de entrada de uso único (o aparelho
-//     troca-o por uma sessão com verifyOtp). Depois de usado, o link só volta a abrir a mesma conta, durante 24 horas.
+//     troca-o por uma sessão com verifyOtp). Serve uma só vez: depois de usado, deixa de servir.
 import { createClient } from 'npm:@supabase/supabase-js@2.118.0';
 
 const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { db: { schema: 'nikki' }, auth: { persistSession: false } });
@@ -28,7 +28,7 @@ async function find(token: string) {
 }
 /** Porque é que o link não serve (ou null se serve), para quem ainda não o usou. */
 async function why(l: { household_id: string; expires_at: string; used_by: string | null; used_at: string | null }) {
-  if (l.used_by) return Date.parse(l.used_at ?? '') + DAY > Date.now() ? null : 'usado';
+  if (l.used_by) return 'usado';
   if (Date.parse(l.expires_at) < Date.now()) return 'expirado';
   if (await people(l.household_id) >= 2) return 'casa cheia';
   return null;
@@ -50,7 +50,7 @@ Deno.serve(async (req) => {
       : m.household_id;
     if (!h) return json({ error: 'sem acesso' }, 403);
     if (await people(h) >= 2) return json({ error: 'casa cheia' }, 400);
-    const token = rand(12), expires_at = new Date(Date.now() + 7 * DAY).toISOString();
+    const token = rand(12), expires_at = new Date(Date.now() + DAY).toISOString();
     const { error } = await admin.from('join_links').upsert({ household_id: h, token_hash: await sha(token), created_by: uid, created_at: new Date().toISOString(), expires_at, used_by: null, used_at: null });
     if (error) return json({ error: error.message }, 500);
     return json({ token, expires_at });
@@ -70,9 +70,11 @@ Deno.serve(async (req) => {
     if (!l) return json({ error: 'link inválido' }, 400);
     const w = await why(l);
     if (w) return json({ error: w }, 400);
-    let uid = l.used_by as string | null, email: string | null = null;
-    if (uid) email = (await admin.auth.admin.getUserById(uid)).data.user?.email ?? null;
-    if (!uid || !email) {
+    // Marca já como usado (antes de criar a conta): dois pedidos ao mesmo tempo não criam duas contas.
+    const { data: claim } = await admin.from('join_links').update({ used_at: new Date().toISOString() }).eq('household_id', l.household_id).is('used_at', null).select('household_id').maybeSingle();
+    if (!claim) return json({ error: 'usado' }, 400);
+    let uid: string | null = null, email: string | null = null;
+    {
       const name = String(body.name ?? '').trim().slice(0, 60);
       if (!name) return json({ error: 'sem nome' }, 400);
       email = `pessoa-${rand(10)}@membros.nikki.app`; // nunca recebe nada: só serve para entrar

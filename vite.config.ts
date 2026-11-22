@@ -22,6 +22,8 @@ const CSP = [
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",
+  "frame-src 'none'",
+  "upgrade-insecure-requests",
 ].join('; ');
 const csp = (): Plugin => ({
   name: 'nikki-csp',

@@ -1,4 +1,5 @@
 import { setSnow, snowOn } from '@/ui/Snow';
+import { canLock, disableLock, enableLock, lockOn } from '@/ui/Lock';
 import { festive } from '@/lib/xmas';
 import { useEffect, useState, type FormEvent } from 'react';
 import { DEMO, startDemo } from '@/lib/supabase';
@@ -36,7 +37,7 @@ export async function shareInvite(i: Pick<InviteRow, 'token' | 'code'>, house: s
 }
 
 /**
- * O link (e o QR) para a outra pessoa entrar na casa: sem e-mail nem palavra-passe. Serve 7 dias e para uma pessoa;
+ * O link (e o QR) para a outra pessoa entrar na casa: sem e-mail nem palavra-passe. Serve 24 horas e uma só vez;
  * um link novo anula o anterior.
  */
 /** Convidar alguém para a NIKKI (para a casa dele, não para a nossa): o QR leva à app; a conta segue para aprovação. */
@@ -89,7 +90,7 @@ function JoinLinkBox({ householdId }: { householdId: string }) {
   };
   if (!url) return (
     <>
-      <p className="s" style={{ fontSize: 'var(--t-m)' }}>Um link (ou um QR) e a pessoa entra logo: escreve o nome e já está, sem e-mail nem palavra-passe. Serve 7 dias, para uma pessoa.</p>
+      <p className="s" style={{ fontSize: 'var(--t-m)' }}>Um link (ou um QR) e a pessoa entra logo: escreve o nome e já está, sem e-mail nem palavra-passe. Serve 24 horas, uma só vez.</p>
       <button type="button" className="btn wide press" disabled={busy} onClick={() => void make()}>{busy ? 'A criar…' : 'Criar o link e o QR'} <Icon n="arrow" s={20} /></button>
       {err && <p className="err">{err}</p>}
     </>
@@ -323,6 +324,9 @@ function Notifications() {
   };
   const lit = p.state === 'on';
   const [snow, setSnowS] = useState(snowOn);
+  const [bio, setBio] = useState(false);
+  const [locked, setLocked] = useState(lockOn);
+  useEffect(() => { void canLock().then(setBio); }, []);
   return (
     <section className="stack" aria-label="Notificações">
       <div className="tile card rows">
@@ -337,6 +341,8 @@ function Notifications() {
           </select></div>}
       </div>
       {why[p.state] && <p className="s">{why[p.state]}</p>}
+      {bio && <div className="tile card rows"><div><span className="k">Face ID ou impressão digital<span className="s" style={{ display: 'block' }}>Pede ao abrir a NIKKI e ao voltar depois de 5 minutos. Só neste aparelho</span></span>
+        <button type="button" role="switch" aria-checked={locked} aria-label="Desbloquear com Face ID ou impressão digital" className="sw press" onClick={async () => { if (locked) { disableLock(); setLocked(false); toast('Desligado neste aparelho.'); } else { const e = await enableLock(me?.name ?? ''); if (e) toast(e); else { setLocked(true); toast('Ligado. Da próxima vez que abrires, pede.', { ok: true }); } } }}><i /></button></div></div>}
       {festive(today) && <div className="tile card rows"><div><span className="k">Neve no ecrã<span className="s" style={{ display: 'block' }}>Uns flocos a cair até ao Dia de Reis. Só neste aparelho</span></span>
         <button type="button" role="switch" aria-checked={snow} aria-label="Neve no ecrã" className="sw press" onClick={() => { setSnow(!snow); setSnowS(!snow); }}><i /></button></div></div>}
       <div className="push-preview" aria-label="O resumo de hoje">

@@ -16,7 +16,7 @@ export const peekJoinLink = (token: string) => call<{ house: string; from: strin
 /** O porquê de um link não servir, em português de gente. */
 export const joinWhy = (w: string) => ({
   'link inválido': 'Este link não existe (ou foi substituído por um novo).',
-  expirado: 'Este link já passou do prazo (7 dias). Peça um novo a quem o enviou.',
+  expirado: 'Este link já passou do prazo (24 horas). Peça um novo a quem o enviou.',
   usado: 'Este link já foi usado. Para entrar noutro aparelho: no aparelho onde já tem a NIKKI, Perfil → «Entrar noutro aparelho».',
   'casa cheia': 'Esta casa já tem duas pessoas.',
 }[w] ?? 'Não deu para entrar agora. Tente outra vez daqui a pouco.');

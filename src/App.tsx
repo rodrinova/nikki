@@ -1,4 +1,5 @@
 import { Snow } from '@/ui/Snow';
+import { LockGate } from '@/ui/Lock';
 import { NatalScreen } from '@/screens/Natal';
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { BrowserRouter, Link, MemoryRouter, Navigate, Route, Routes, useLocation, useNavigationType, useParams } from 'react-router-dom';
@@ -323,6 +324,7 @@ function Shell() {
       <SideBar />
       <N2Skin />
       <Snow />
+      <LockGate />
       <TourHost />
       <SheetHost />
     </HouseProvider>
