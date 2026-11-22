@@ -51,3 +51,32 @@ export function pastFor(name: string, gifts: XGift[], yearOf: (occ: string) => n
 export function publicTotal(gifts: XGift[]) {
   return gifts.filter((g) => !g.secret_for && g.price !== null).reduce((t, g) => t + Number(g.price), 0);
 }
+
+/**
+ * Inflação em Portugal (IPC, taxa de variação média anual, INE), em %. O ano corrente usa a do último ano
+ * conhecido até sair a oficial. Atualiza-se uma vez por ano.
+ */
+export const CPI: Record<number, number> = { 2015: 0.5, 2016: 0.6, 2017: 1.4, 2018: 1.0, 2019: 0.3, 2020: 0, 2021: 1.3, 2022: 7.8, 2023: 4.3, 2024: 2.4, 2025: 2.3 };
+const lastCpi = () => CPI[Math.max(...Object.keys(CPI).map(Number))];
+
+/** Um valor de um Natal passado em preços de outro ano (multiplica pela inflação de cada ano pelo meio). */
+export function inflate(v: number, from: number, to: number) {
+  let x = v;
+  for (let y = from + 1; y <= to; y++) x *= 1 + (CPI[y] ?? lastCpi()) / 100;
+  return x;
+}
+
+/**
+ * Por pessoa: a média do que se gastou por prenda nos anos anteriores (já em preços de hoje) e a deste ano, só com as
+ * prendas compradas e com preço. As secretas (entre os da casa) nunca entram.
+ */
+export function perPerson(gifts: XGift[], yearOf: (occ: string) => number | null, year: number) {
+  const priced = gifts.filter((g) => !g.secret_for && g.price !== null && Number(g.price) > 0);
+  const past = priced.filter((g) => (yearOf(g.occasion_id) ?? year) < year);
+  const now = priced.filter((g) => yearOf(g.occasion_id) === year && g.bought);
+  const years = [...new Set(past.map((g) => yearOf(g.occasion_id)!))].sort();
+  const byYear = years.map((y) => { const l = past.filter((g) => yearOf(g.occasion_id) === y); const t = l.reduce((s, g) => s + Number(g.price), 0); return { year: y, n: l.length, total: t, avg: t / l.length }; });
+  const ref = past.length ? past.reduce((s, g) => s + inflate(Number(g.price), yearOf(g.occasion_id)!, year), 0) / past.length : null;
+  const cur = now.length ? now.reduce((s, g) => s + Number(g.price), 0) / now.length : null;
+  return { ref, cur, n: now.length, byYear, diff: ref && cur ? Math.round((cur / ref - 1) * 100) : null };
+}
