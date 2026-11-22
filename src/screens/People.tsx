@@ -1,3 +1,5 @@
+import { setSnow, snowOn } from '@/ui/Snow';
+import { festive } from '@/lib/xmas';
 import { useEffect, useState, type FormEvent } from 'react';
 import { DEMO, startDemo } from '@/lib/supabase';
 import { Link, useParams } from 'react-router-dom';
@@ -320,6 +322,7 @@ function Notifications() {
     demo: 'Na demonstração não chegam notificações; em baixo, o resumo de hoje tal como chegaria.',
   };
   const lit = p.state === 'on';
+  const [snow, setSnowS] = useState(snowOn);
   return (
     <section className="stack" aria-label="Notificações">
       <div className="tile card rows">
@@ -334,6 +337,8 @@ function Notifications() {
           </select></div>}
       </div>
       {why[p.state] && <p className="s">{why[p.state]}</p>}
+      {festive(today) && <div className="tile card rows"><div><span className="k">Neve no ecrã<span className="s" style={{ display: 'block' }}>Uns flocos a cair até ao Dia de Reis. Só neste aparelho</span></span>
+        <button type="button" role="switch" aria-checked={snow} aria-label="Neve no ecrã" className="sw press" onClick={() => { setSnow(!snow); setSnowS(!snow); }}><i /></button></div></div>}
       <div className="push-preview" aria-label="O resumo de hoje">
         <span className="s">Hoje às {p.at.replace(':', 'h')}</span>
         <p>{m ? m.body : 'Nada para dizer hoje. Nesses dias, a NIKKI fica calada.'}</p>

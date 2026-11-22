@@ -2136,3 +2136,33 @@ alter table nikki.todos add column if not exists returned_at timestamptz;
 alter table nikki.todos add column if not exists returned_by uuid references nikki.profiles (id) on delete set null;
 -- A hora do resumo diário, à escolha de cada pessoa (de 15 em 15 minutos, entre as 6h00 e as 12h00).
 alter table nikki.push_subs add column if not exists morning_at time not null default '08:00';
+-- Natal: o Natal de cada ano é uma ocasião («natal», compra extraordinária) e a lista de prendas a dar.
+-- Uma prenda para alguém da casa é secreta: essa pessoa nunca a vê (nem o preço). A despesa dela é «só minha»
+-- (só quem pagou a vê) e não entra no total de Natal.
+alter table nikki.occasions drop constraint if exists occasions_kind_check;
+alter table nikki.occasions add constraint occasions_kind_check check (kind in ('casamento', 'batizado', 'aniversario', 'bodas', 'festa', 'viagem', 'outro', 'natal'));
+create table if not exists nikki.xmas_gifts (
+  id uuid primary key default gen_random_uuid(),
+  household_id uuid not null references nikki.households (id) on delete cascade,
+  occasion_id uuid not null references nikki.occasions (id) on delete cascade,
+  to_name text not null check (length(trim(to_name)) between 1 and 60),
+  item text check (length(item) <= 80),
+  price numeric(12, 2) check (price >= 0),
+  bought boolean not null default false,
+  expense_id uuid references nikki.expenses (id) on delete set null,
+  secret_for uuid references nikki.profiles (id) on delete set null, -- a pessoa da casa a quem se dá: não a vê
+  created_by uuid not null default auth.uid() references nikki.profiles (id),
+  created_at timestamptz not null default now()
+);
+create index if not exists xmas_gifts_occ on nikki.xmas_gifts (household_id, occasion_id);
+alter table nikki.xmas_gifts enable row level security;
+drop policy if exists xmas_gifts_house on nikki.xmas_gifts;
+create policy xmas_gifts_house on nikki.xmas_gifts for all to authenticated
+  using (nikki.is_member(household_id) and (secret_for is null or secret_for <> auth.uid()))
+  with check (nikki.is_member(household_id) and (secret_for is null or secret_for <> auth.uid()));
+grant select, insert, update, delete on nikki.xmas_gifts to authenticated;
+do $$ begin
+  if exists (select 1 from pg_publication where pubname = 'supabase_realtime') and not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'nikki' and tablename = 'xmas_gifts') then
+    alter publication supabase_realtime add table nikki.xmas_gifts;
+  end if;
+end $$;

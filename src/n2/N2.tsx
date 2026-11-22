@@ -7,6 +7,9 @@ import { useSession } from '@/data/session';
 import { useHouse } from '@/data/house';
 import { useAgendaItems, whoseOf } from '@/data/agenda';
 import { MonthStripes } from './Month';
+import { NatalCard } from '@/screens/Natal';
+import { festive, inSeason } from '@/lib/xmas';
+import { SantaHat } from '@/ui/Snow';
 import { addDays, daysInMonth, monthKey, monthName, nextMonth, prevMonth, todayStr } from '@/lib/dates';
 import { eur, expectedPath, monthCurve, monthlySeries, partOf, toU } from '@/lib/money';
 import { driver, expected } from '@/lib/forecast';
@@ -70,7 +73,7 @@ export function Masthead({ pill }: { pill?: boolean } = {}) {
   return (
     <header className={`mh${pill ? ' mh-p' : ''}`}>
       <div className="mh-top">
-        <Link to="/historia" className="mh-face press" aria-label="NIKKI: a história"><Face h={18} mode="still" /></Link>
+        <Link to="/historia" className="mh-face press" aria-label="NIKKI: a história"><Face h={18} mode="still" />{festive(todayStr()) && <SantaHat />}</Link>
         <span className="mh-ed">{cap(d.toLocaleDateString('pt-PT', { weekday: 'long', day: 'numeric', month: 'long' }))}</span>
         <Link to="/melhorar" className="mh-find press" aria-label="Ideias e problemas"><Icon n="chat" s={17} /></Link>
         {<Link to="/procurar" className="mh-find press" aria-label="Procurar em tudo"><Icon n="ask" s={18} /></Link>}
@@ -156,6 +159,7 @@ export function N2Casa() {
   return (
     <div className="n2-page n2v" onPointerMove={glow}>
       <Masthead pill />
+      {inSeason(todayStr()) && <NatalCard />}
       <Fronts money={money} />
     </div>
   );
@@ -213,6 +217,7 @@ export function N2Home() {
         <DayArc now={hNow} marks={todayIts.filter((i) => i.time).map((i) => ({ h: hOf(i.time!), who: whoseOf(i, me?.id) }))} other={partner?.name.split(' ')[0]} onScrub={setScrub} />
         <span className="dayc-l">{scrub !== null ? 'Larga para voltar a agora' : nb(lead.head)}</span>
       </section>
+      {inSeason(today) && <NatalCard />}
       <Fronts money={{ total: m.everyday, pct }} short />
       <Sec n="" t="A fazer" className="plain lite"><Now /></Sec>
       <GoalStrip />
