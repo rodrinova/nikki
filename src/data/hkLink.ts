@@ -18,7 +18,7 @@ export const newHkLink = (hk_id: string) => call<{ token: string }>({ action: 'c
 /** Entrar neste aparelho com o link. Devolve o erro (para mostrar) ou null. */
 export async function enterWithHkLink(token: string): Promise<string | null> {
   const r = await call<{ token_hash: string; name: string }>({ action: 'redeem', token });
-  if (!r.ok) return r.why === 'link inválido' ? 'Este link já não serve. Peça um novo a quem o enviou.' : 'Não deu para entrar agora. Tente outra vez daqui a pouco.';
+  if (!r.ok) return r.why === 'link inválido' || r.why.startsWith('Este link') ? 'Este link já não serve. Peça um novo a quem o enviou.' : 'Não deu para entrar agora. Tente outra vez daqui a pouco.';
   const { error } = await supabase.auth.verifyOtp({ token_hash: r.v.token_hash, type: 'magiclink' });
   return error ? 'Não deu para entrar agora. Tente outra vez daqui a pouco.' : null;
 }

@@ -1,5 +1,5 @@
 // Entrar como quem faz o housekeeping, por um link (sem e-mail nem convite).
-//   {action:'create', hk_id} com a sessão de quem administra a casa (não staff): gera o link (anula o anterior).
+//   {action:'create', hk_id} com a sessão de quem administra a casa (não staff): gera o link (24 horas, uma só vez; anula o anterior).
 //   {action:'redeem', token} sem sessão: na primeira vez cria a conta dela (papel staff, ativa, ligada à ficha);
 //   devolve um token de entrada de uso único (o aparelho troca-o por uma sessão com verifyOtp), como o device-link.
 import { createClient } from 'npm:@supabase/supabase-js@2.118.0';
@@ -30,7 +30,7 @@ Deno.serve(async (req) => {
     const { data: p } = await admin.from('profiles').select('status').eq('id', uid).maybeSingle();
     if (!m || m.role === 'staff' || p?.status !== 'active') return json({ error: 'sem acesso' }, 403);
     const token = rand(12);
-    const { error } = await admin.from('hk_links').upsert({ hk_id: hk.id, token_hash: await sha(token), created_by: uid, created_at: new Date().toISOString(), used_at: null, uses: 0 });
+    const { error } = await admin.from('hk_links').upsert({ hk_id: hk.id, token_hash: await sha(token), created_by: uid, created_at: new Date().toISOString(), expires_at: new Date(Date.now() + 86_400_000).toISOString(), used_at: null, uses: 0 });
     if (error) return json({ error: error.message }, 500);
     return json({ token });
   }
@@ -38,8 +38,9 @@ Deno.serve(async (req) => {
   if (body.action === 'redeem') {
     const token = clean(body.token);
     if (token.length !== 12) return json({ error: 'link inválido' }, 400);
-    const { data: l } = await admin.from('hk_links').select('hk_id, uses').eq('token_hash', await sha(token)).maybeSingle();
-    if (!l) return json({ error: 'link inválido' }, 400);
+    // Uma só vez e dentro de 24 horas: marca-se como usado logo, antes de tudo o resto.
+    const { data: l } = await admin.from('hk_links').update({ used_at: new Date().toISOString() }).eq('token_hash', await sha(token)).is('used_at', null).gt('expires_at', new Date().toISOString()).select('hk_id, uses').maybeSingle();
+    if (!l) return json({ error: 'Este link já foi usado ou passou o prazo. Pede um novo.' }, 400);
     const { data: hk } = await admin.from('housekeeping').select('id, household_id, profile_id, name, archived').eq('id', l.hk_id).maybeSingle();
     if (!hk || hk.archived) return json({ error: 'link inválido' }, 400);
     let uid: string | null = hk.profile_id;
