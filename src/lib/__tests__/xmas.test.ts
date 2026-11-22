@@ -30,3 +30,19 @@ describe('Natal', () => {
     expect(publicTotal([g({ price: 20 }), g({ price: 99, secret_for: 'i' })])).toBe(20);
   });
 });
+
+import { inflate, perPerson } from '../xmas';
+describe('Natal: por pessoa, com a inflação', () => {
+  it('atualiza o valor pelos anos pelo meio', () => {
+    expect(Math.round(inflate(100, 2022, 2024) * 100) / 100).toBe(106.80); // 4,3% em 2023 e 2,4% em 2024
+    expect(inflate(100, 2024, 2024)).toBe(100);
+  });
+  it('compara a média deste ano com a dos anteriores (sem as secretas)', () => {
+    const y = (o: string) => Number(o);
+    const r = perPerson([g({ occasion_id: '2024', price: 40, bought: true }), g({ occasion_id: '2024', price: 60, bought: true }), g({ occasion_id: '2025', price: 99, secret_for: 'i', bought: true }), g({ occasion_id: '2025', price: 30, bought: true }), g({ occasion_id: '2025', price: null, bought: false })], y, 2025);
+    expect(r.ref).toBeCloseTo((40 * 1.023 + 60 * 1.023) / 2, 5);
+    expect(r.cur).toBe(30);
+    expect(r.diff).toBe(-41);
+    expect(r.byYear).toEqual([{ year: 2024, n: 2, total: 100, avg: 50 }]);
+  });
+});

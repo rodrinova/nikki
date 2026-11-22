@@ -559,3 +559,6 @@ a.lead:hover{text-decoration:underline;text-decoration-thickness:1px;text-underl
 .natal-add .field{min-width:0;width:100%;box-sizing:border-box}
 .natal-add .seg{flex-wrap:wrap;max-width:100%}
 .natal-add .seg button{flex:1 1 auto}
+.natal-pp b{color:var(--ink);font-weight:500}
+.natal-pp .up{color:#FF8A5C}.natal-pp .down{color:#9CC5A1}
+.natal-years{font-size:var(--t-xs);opacity:.8}

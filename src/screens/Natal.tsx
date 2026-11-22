@@ -11,7 +11,7 @@ import { useOverlays } from '@/ui/overlays';
 import { Icon } from '@/ui/Icon';
 import { eur, parseAmount, toU } from '@/lib/money';
 import { todayStr } from '@/lib/dates';
-import { matchExpense, pastFor, publicTotal, xmasYear, type XGift } from '@/lib/xmas';
+import { matchExpense, pastFor, perPerson, publicTotal, xmasYear, type XGift } from '@/lib/xmas';
 import { ExpenseSheet } from './Money';
 import { useN2 } from '@/n2/shell';
 import { Masthead } from '@/n2/N2';
@@ -122,6 +122,7 @@ export function NatalScreen() {
   const mineSecret = list.filter((g) => g.secret_for && g.created_by === me?.id && g.price !== null).reduce((t, g) => t + Number(g.price), 0);
   const budget = occ?.budget ? Number(occ.budget) : null;
   const spent = total + extra;
+  const pp = useMemo(() => perPerson(xmas.rows, yearOf, year), [xmas.rows, yearOf, year]);
   async function add(e: FormEvent) {
     e.preventDefault();
     const name = (secret ? first(others.find((m) => m.id === secret)?.name) : to.trim()).slice(0, 60);
@@ -141,6 +142,8 @@ export function NatalScreen() {
         <span className="natal-v"><span className="num">{euro(spent)}</span><small>{budget ? `de ${euro(budget)}` : 'gastos em prendas'}</small></span>
         {budget ? <div className="natal-bar" role="img" aria-label={`${Math.round((spent / budget) * 100)}% do orçamento`}><i style={{ width: `${Math.min(100, (spent / budget) * 100)}%` }} className={spent > budget ? 'over' : ''} /></div> : null}
         <span className="s">{list.filter((g) => g.bought).length} de {list.length} compradas{extra ? ` · ${euro(extra)} noutras despesas de Natal` : ''}</span>
+        {pp.ref !== null && <span className="s natal-pp">Por pessoa: {pp.cur !== null ? <><b>{euro(Math.round(pp.cur))}</b> este ano · </> : ''}~{euro(Math.round(pp.ref))} nos anteriores, já com a inflação{pp.diff !== null && pp.diff !== 0 ? <span className={pp.diff > 0 ? 'up' : 'down'}> · {pp.diff > 0 ? '↑' : '↓'} {Math.abs(pp.diff)}%</span> : ''}</span>}
+        {pp.byYear.length > 0 && <span className="s natal-years">{pp.byYear.slice(-3).map((y) => `${y.year}: ${y.n} ${y.n === 1 ? 'prenda' : 'prendas'}, ${euro(Math.round(y.total))}`).join(' · ')}</span>}
         {mineSecret > 0 && <span className="s natal-secret"><Icon n="gift" s={13} /> As tuas secretas: {euro(mineSecret)}. Só tu vês, fora das contas.</span>}
         <button type="button" className="tb quiet press" onClick={async () => { const id = await ensure(); if (id) open(<BudgetSheet id={id} budget={budget} />); }}>{budget ? 'Mudar o orçamento' : 'Pôr um orçamento'}</button>
       </header>
