@@ -2228,3 +2228,8 @@ begin
 end $$;
 revoke execute on function nikki.admin_check() from public, anon;
 grant execute on function nikki.admin_check() to authenticated;
+-- Funções internas que ninguém chama de fora: a de módulos por omissão (só a create_household), a da importação
+-- antiga (já fechada) e a do gatilho das entradas.
+revoke execute on function nikki.default_modules(uuid, uuid) from public, anon, authenticated;
+revoke execute on function nikki.legacy_load_closed(text, text, text, jsonb) from public, anon, authenticated;
+revoke execute on function nikki.income_entry_from_source() from public, anon, authenticated;
