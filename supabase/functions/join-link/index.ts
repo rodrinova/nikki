@@ -70,13 +70,13 @@ Deno.serve(async (req) => {
     if (!l) return json({ error: 'link inválido' }, 400);
     const w = await why(l);
     if (w) return json({ error: w }, 400);
+    const name = String(body.name ?? '').trim().slice(0, 60);
+    if (!name) return json({ error: 'sem nome' }, 400);
     // Marca já como usado (antes de criar a conta): dois pedidos ao mesmo tempo não criam duas contas.
     const { data: claim } = await admin.from('join_links').update({ used_at: new Date().toISOString() }).eq('household_id', l.household_id).is('used_at', null).select('household_id').maybeSingle();
     if (!claim) return json({ error: 'usado' }, 400);
     let uid: string | null = null, email: string | null = null;
     {
-      const name = String(body.name ?? '').trim().slice(0, 60);
-      if (!name) return json({ error: 'sem nome' }, 400);
       email = `pessoa-${rand(10)}@membros.nikki.app`; // nunca recebe nada: só serve para entrar
       const { data: u, error } = await admin.auth.admin.createUser({ email, email_confirm: true, user_metadata: { name } });
       if (error || !u.user) return json({ error: error?.message ?? 'conta não criada' }, 500);
