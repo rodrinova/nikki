@@ -12,6 +12,8 @@ import { KINDS, type Occasion, type OccasionKind } from '@/lib/occasions';
 import { useOverlays } from '@/ui/overlays';
 import { Icon } from '@/ui/Icon';
 import { Balance } from '@/ui/Balance';
+import { GiftPick, useNatal } from './Natal';
+import { inSeason, soundsXmas } from '@/lib/xmas';
 import { GIFTS, abates, partOf, abatingKind, eur, monthCurve, monthSpend, monthlySeries, normalMonth, openingOf, pace, pairBalance, parseAmount, toU, type EntryKind, type Split, whiskerLean } from '@/lib/money';
 import { addDays, dayLabel, monthKey, monthName, nextMonth, prevMonth, todayStr } from '@/lib/dates';
 import { store } from '@/lib/store';
@@ -473,13 +475,13 @@ function ExpenseEdit({ e }: { e: ExpenseRow }) {
 
 /** Despesa: valor, categoria, Minha · Partilhada · Do outro, dia e nota. Quem paga é quem regista. */
 /** Para abrir a folha já preenchida: de um QR de fatura ou de um pagamento com o Apple Pay (rascunho). */
-export interface ExpenseInit { text?: string; day?: string; file?: File; nif?: string; draftId?: string }
+export interface ExpenseInit { text?: string; day?: string; file?: File; nif?: string; draftId?: string; occ?: string; split?: Split; giftId?: string }
 
 export function ExpenseSheet({ init }: { init?: ExpenseInit } = {}) {
   const learn = useLearnFromPayment();
   const saveLog = useSaveCarLog();
   const { me, partner, house, myShare } = useSession();
-  const { cars, carLogs, on, expenses, occasions } = useHouse();
+  const { cars, carLogs, on, expenses, occasions, xmas } = useHouse();
   // Eventos a decorrer (casamento, batizado…): a despesa pode ficar ligada a um. Mantém-se em «Guardar e outra».
   // Os arquivados (um casamento que já foi) também recebem despesas: escrevendo o nome ou em «Outros eventos».
   // Eventos (com o módulo ligado) e compras extraordinárias (sempre): a despesa pode juntar-se a um deles.
@@ -489,8 +491,11 @@ export function ExpenseSheet({ init }: { init?: ExpenseInit } = {}) {
   const [kindSet, setKind] = useState<EntryKind | null>(null);
   const [inCatSet, setInCat] = useState<string | null | undefined>(undefined);
   const { incomes, receiptItems } = useHouse();
-  const [occSet, setOcc] = useState<string | null | undefined>(undefined);
-  const { close, toast } = useOverlays();
+  const [occSet, setOcc] = useState<string | null | undefined>(init?.occ);
+  const { open, close, toast } = useOverlays();
+  // Natal (1 nov – 6 jan): uma despesa que soa a prenda pergunta se entra no Natal (fica extraordinária).
+  const natal = useNatal();
+  const [xmasNo, setXmasNo] = useState(false);
   // Num gesto: «45 pingo doce» dá o valor e a nota; pode escrever-se tudo («ontem», «dia 3», «partilhada», «minha»,
   // «para a Inês», «pagou a Inês», «60/40», «lazer», o carro, o evento). O que não se escreve adivinha-se pelo que
   // fizeste antes. O que se escreve manda; tudo se pode mudar em «Mudar».
@@ -510,7 +515,7 @@ export function ExpenseSheet({ init }: { init?: ExpenseInit } = {}) {
   const [paidSet, setPaid] = useState<'me' | 'partner' | 'joint' | null>(null);
   const paidBy: 'me' | 'partner' | 'joint' = partner ? paidSet ?? q.paidBy ?? 'me' : 'me';
   const joint = paidBy === 'joint' && !incoming;
-  const [splitSet, setSplit] = useState<Split | null>(null);
+  const [splitSet, setSplit] = useState<Split | null>(init?.split ?? null);
   const [daySet, setDay] = useState<'hoje' | 'ontem' | 'outro' | null>(init?.day && init.day !== todayStr() ? 'outro' : null);
   const day = daySet ?? (q.day && q.day !== todayStr() ? 'outro' : 'hoje');
   const [dateSet, setDate] = useState<string | null>(init?.day ?? null);
@@ -633,6 +638,10 @@ export function ExpenseSheet({ init }: { init?: ExpenseInit } = {}) {
       else if (r.reading) { toast('A ler a fatura…'); r.reading.then((why) => { toast(why ?? 'Fatura lida: as Compras já sabem o que compraram.', why ? undefined : { ok: true }); receiptItems.reload(); }); }
       setRfile(null);
     }
+    // Natal: a prenda da lista fica comprada e ligada; uma despesa de Natal registada fora da lista pergunta para quem é.
+    const newId = (data as { id: string }).id;
+    if (init?.giftId) { await supabase.from('xmas_gifts').update({ bought: true, price: v, expense_id: newId }).eq('id', init.giftId); xmas.reload(); }
+    const askGift = !init?.giftId && !!occ && occ === natal.occ?.id;
     // O pagamento do Apple Pay ficou registado: sai dos rascunhos.
     if (draftId) await supabase.from('expense_drafts').delete().eq('id', draftId);
     if (again) {
@@ -641,6 +650,7 @@ export function ExpenseSheet({ init }: { init?: ExpenseInit } = {}) {
       setTimeout(() => amtRef.current?.focus(), 30);
     } else close();
     if (billErr) toast(`A despesa ficou guardada, mas não se ligou à conta: ${billErr}`);
+    if (askGift) setTimeout(() => open(<GiftPick expenseId={newId} amount={Number(v)} note={note.trim()} />), 350);
     // Um pagamento em Carros com «IUC» ou o nome da seguradora na nota ensina a Garagem (mês, data e valor).
     const learned = cat === 'Carros' && note.trim() && (!f || f.kind === 'other' || f.kind === 'service') ? await learn({ car, note }, toU(v), spent_on) : null;
     if (!again || learned) toast(learned ?? `${eur(sv)} € · ${car ? car.name : cat}${n && n.litres !== null ? ` · ${String(n.litres).replace('.', ',')} L` : ''}${bc.bill && bf.pick !== 'none' ? ` · ${bc.bill.name}` : ''} · ${dayLabel(spent_on)}${partner ? ' · ' + (split === 'shared' ? 'partilhada' : split === 'mine' ? 'minha' : `de ${partner.name}`) + (partnerPaid ? ` · pagou ${partner.name}` : '') : ''}${occName ? ` · ${occName}` : ''}`, { ok: true });
@@ -685,6 +695,10 @@ export function ExpenseSheet({ init }: { init?: ExpenseInit } = {}) {
           <Icon n="cam" s={20} />
         </label>}
       </div>
+      {!incoming && !init?.giftId && !xmasNo && inSeason(todayStr()) && soundsXmas(text) && occ !== natal.occ?.id && <div className="ask-card" role="group" aria-label="Natal">
+        <span>É para o Natal? Fica nas despesas de Natal (extraordinárias) e na lista de prendas.</span>
+        <span className="say-acts"><button type="button" className="tb quiet press" onClick={() => setXmasNo(true)}>Não</button><button type="button" className="btn accent press" onClick={async () => { const id = await natal.ensure(); if (id) setOcc(id); }}>Sim, é de Natal</button></span>
+      </div>}
       {draftId && <p className="s why" style={{ marginTop: -8 }}><span className="dot" aria-hidden="true" /><span>Pago com o Apple Pay. Confirma (ou muda) e guarda.</span></p>}
       {nif && <p className="s" style={{ marginTop: -8 }}>Fatura lida pelo QR · NIF {nif}</p>}
       {v && !sure ? <div className="ask-card" role="group" aria-label="Confirmar">

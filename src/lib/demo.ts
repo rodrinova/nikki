@@ -66,7 +66,7 @@ function seed() {
     household_modules: [['contas', 210], ['compras', 210], ['agenda', 210], ['casa', 210], ['housekeeping', 70], ['garagem', 45], ['ginasio', 120], ['objetivos', 20], ['patrimonio', 120], ['eventos', 30]].map(([m, d]) => ({ household_id: H, module: m, enabled_at: ago(d as number), enabled_by: R })),
     share_ratios: [{ household_id: H, profile_a: R, profile_b: I, ratio_a: 0.5 }],
     invites: [], tickets: [], goals: [], assets: [], asset_snapshots: [], incomes: [], cars: [], car_logs: [], homes: [], bills: [], bill_payments: [], chores: [], chore_logs: [], todos: [], warranties: [], calendar_links: [], housekeeping: [], hk_tasks: [], hk_log: [], hk_messages: [], hk_paid: [], gym_fields: [], gym_prefs: [], gym_assessments: [],
-    expenses: [], transfers: [], deadlines: [], shopping_items: [], events: [],
+    expenses: [], transfers: [], deadlines: [], shopping_items: [], events: [], xmas_gifts: [],
     salvage_cars: [], salvage_logs: [], salvage_links: [], salvage_settings: [], receipt_items: [], expense_drafts: [], capture_tokens: [],
   };
   others(db);
@@ -162,6 +162,17 @@ function seed() {
     const SOFA = 'demo-sofa';
     db.occasions.push({ id: SOFA, household_id: H, name: 'Sofá novo', kind: 'outro', on_date: addDays(today, -50), place: null, budget: null, archived: false, purchase: true, car_id: null, created_by: R, created_at: ago(50) });
     ex(uid(), SOFA, addDays(today, -50), '300.00', 'Casa', 'Sinal do sofá', R, 'shared');
+    // Natal: o deste ano (com orçamento e prendas, uma secreta para a outra pessoa) e o do ano passado (para não repetir).
+    const ny = Number(today.slice(5) <= '01-06' ? Number(today.slice(0, 4)) - 1 : today.slice(0, 4));
+    db.occasions.push({ id: 'demo-natal', household_id: H, name: `Natal ${ny}`, kind: 'natal', on_date: `${ny}-12-25`, place: null, budget: '600.00', archived: false, purchase: true, car_id: null, created_by: R, created_at: ago(10) });
+    db.occasions.push({ id: 'demo-natal-0', household_id: H, name: `Natal ${ny - 1}`, kind: 'natal', on_date: `${ny - 1}-12-25`, place: null, budget: '550.00', archived: true, purchase: true, car_id: null, created_by: R, created_at: ago(370) });
+    const xg = (id: string, occ: string, to_name: string, item: string | null, price: string | null, bought: boolean, secret_for: string | null = null) => ({ id, household_id: H, occasion_id: occ, to_name, item, price, bought, expense_id: null, secret_for, created_by: R, created_at: ago(5) });
+    db.xmas_gifts = [
+      xg('demo-x1', 'demo-natal', 'Mãe', 'Livro de receitas', '32.00', true), xg('demo-x2', 'demo-natal', 'Pai', null, null, false),
+      xg('demo-x3', 'demo-natal', 'Sobrinhos', 'Legos', '58.00', true), xg('demo-x4', 'demo-natal', 'Avó', 'Manta', null, false),
+      xg('demo-x5', 'demo-natal', 'Marta', 'Brincos', '120.00', true, I),
+      xg('demo-x6', 'demo-natal-0', 'Mãe', 'Perfume', '45.00', true), xg('demo-x7', 'demo-natal-0', 'Pai', 'Camisola', '39.00', true), xg('demo-x8', 'demo-natal-0', 'Avó', 'Chinelos', '25.00', true),
+    ];
     ex(uid(), SOFA, addDays(today, -6), '890.00', 'Casa', 'Sofá: o resto', I, 'shared');
     ex(uid(), BAT, addDays(today, -70), '180.00', 'Casa', 'Convites e decoração', R, 'shared');
     for (const [d, v, c, n] of [[-430, '4500.00', 'Restaurantes', 'Quinta (2.ª prestação)'], [-410, '1800.00', 'Lazer', 'Fotografia'], [-402, '950.00', 'Roupa', 'Fato']] as const) ex(uid(), CAS, addDays(today, d), v, c, n, R, 'shared');

@@ -1,3 +1,5 @@
+import { Snow } from '@/ui/Snow';
+import { NatalScreen } from '@/screens/Natal';
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { BrowserRouter, Link, MemoryRouter, Navigate, Route, Routes, useLocation, useNavigationType, useParams } from 'react-router-dom';
 import { DEMO, DEMO_VISIT, stopDemo } from '@/lib/supabase';
@@ -285,6 +287,7 @@ function Shell() {
           <Route path="/casa/:part" element={<Gate k="casa"><CasaPart /></Gate>} />
           <Route path="/ginasio" element={<Gate k="ginasio"><Gym /></Gate>} />
           <Route path="/ginasio/:key" element={<Gate k="ginasio"><GymMetric /></Gate>} />
+          <Route path="/natal" element={<NatalScreen />} />
           <Route path="/eventos" element={<Gate k="eventos"><Occasions /></Gate>} />
           <Route path="/eventos/:id" element={<Gate k="eventos"><OccasionScreen /></Gate>} />
           <Route path="/objetivos" element={<Gate k="objetivos"><Goals /></Gate>} />
@@ -319,6 +322,7 @@ function Shell() {
       <BottomBar />
       <SideBar />
       <N2Skin />
+      <Snow />
       <TourHost />
       <SheetHost />
     </HouseProvider>
