@@ -547,7 +547,7 @@ a.lead:hover{text-decoration:underline;text-decoration-thickness:1px;text-underl
 .natal-secret{display:inline-flex;align-items:center;gap:6px}
 .natal-add{display:grid;gap:10px;padding:16px}
 .natal-list{list-style:none;margin:0;padding:0;display:grid;gap:2px}
-.natal-list li{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:12px;padding:10px 2px;border-bottom:1px solid var(--line)}
+.natal-list > li.x-old{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:12px;padding:10px 2px;border-bottom:1px solid var(--line)}
 .natal-list li.done .natal-row > span:first-child{color:var(--sub);text-decoration:line-through;text-decoration-color:rgba(255,255,255,.3)}
 .natal-row{background:none;border:0;color:inherit;text-align:left;padding:0;min-width:0}
 .natal-row .s{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -566,3 +566,20 @@ a.lead:hover{text-decoration:underline;text-decoration-thickness:1px;text-underl
 .natal-ideas li{display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid var(--line)}
 .natal-ideas .add-row{display:flex;gap:8px}
 .natal-ideas .add-row .field{flex:1;min-width:0}
+/* Natal: lista compacta; a pessoa abre-se no próprio cartão */
+.natal-list > li{display:block;padding:0;border-bottom:1px solid var(--line)}
+.natal-line{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:10px;min-height:44px}
+.natal-list .tick{width:22px;height:22px}
+.natal-row{display:flex;align-items:baseline;gap:8px;min-width:0;background:none;border:0;color:inherit;text-align:left;padding:10px 0;width:100%}
+.natal-row b{font-weight:500;white-space:nowrap}
+.natal-row .s{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.natal-row .natal-lock{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#FF8A5C}
+.natal-list > li.done .natal-row b{color:var(--sub);text-decoration:line-through;text-decoration-color:rgba(255,255,255,.3)}
+.natal-list > li.open{background:rgba(255,255,255,.04);border-radius:14px;border-bottom-color:transparent;margin:4px 0;padding:0 10px 12px}
+.natal-card-open{display:grid;gap:10px;grid-template-columns:minmax(0,1fr);animation:mo-in 240ms var(--ease-out) both}
+.natal-card-open .field{min-width:0;width:100%;box-sizing:border-box}
+.natal-two{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:8px}
+.natal-past ul{list-style:none;margin:4px 0 0;padding:0;display:grid;gap:2px}
+.natal-past li{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:8px;font-size:var(--t-s);color:var(--sub);padding:4px 0;border:0}
+.natal-acts{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.natal-acts .tb{margin-left:auto}
