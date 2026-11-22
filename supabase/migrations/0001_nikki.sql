@@ -2166,3 +2166,70 @@ do $$ begin
     alter publication supabase_realtime add table nikki.xmas_gifts;
   end if;
 end $$;
+-- ───────────────────────── Ideias de prendas (de ano para ano; para alguém da casa, secretas) ─────────────────────────
+create table if not exists nikki.gift_ideas (
+  id uuid primary key default gen_random_uuid(),
+  household_id uuid not null references nikki.households (id) on delete cascade,
+  to_name text not null check (length(trim(to_name)) between 1 and 60),
+  idea text not null check (length(trim(idea)) between 1 and 120),
+  secret_for uuid references nikki.profiles (id) on delete set null,
+  created_by uuid not null default auth.uid() references nikki.profiles (id),
+  created_at timestamptz not null default now()
+);
+create index if not exists gift_ideas_house on nikki.gift_ideas (household_id);
+alter table nikki.gift_ideas enable row level security;
+drop policy if exists gift_ideas_house on nikki.gift_ideas;
+create policy gift_ideas_house on nikki.gift_ideas for all to authenticated
+  using (nikki.is_member(household_id) and (secret_for is null or secret_for <> auth.uid()))
+  with check (nikki.is_member(household_id) and (secret_for is null or secret_for <> auth.uid()));
+grant select, insert, update, delete on nikki.gift_ideas to authenticated;
+do $$ begin
+  if exists (select 1 from pg_publication where pubname = 'supabase_realtime') and not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'nikki' and tablename = 'gift_ideas') then
+    alter publication supabase_realtime add table nikki.gift_ideas;
+  end if;
+end $$;
+
+-- ───────────────────────── Segurança (auditoria de novembro de 2026) ─────────────────────────
+-- 1) Funções: ninguém sem sessão as chama; as novas também não, por omissão.
+do $$ declare f record; begin
+  for f in select p.oid::regprocedure sig from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+           where n.nspname = 'nikki' and p.prokind = 'f' and p.prorettype <> 'trigger'::regtype loop
+    execute format('revoke execute on function %s from public, anon', f.sig);
+    execute format('grant execute on function %s to authenticated, service_role', f.sig);
+  end loop;
+end $$;
+alter default privileges in schema nikki revoke execute on functions from public;
+-- 2) Salvados: a ligação do sócio passa a ter 32 caracteres (e só com sessão, pelo ponto 1).
+alter table nikki.salvage_links alter column token set default encode(extensions.gen_random_bytes(16), 'hex');
+update nikki.salvage_links set token = encode(extensions.gen_random_bytes(16), 'hex') where revoked_at is null and length(token) < 32;
+-- 3) Link da empregada: 24 horas e uma só vez.
+alter table nikki.hk_links add column if not exists expires_at timestamptz;
+-- 4) Faturas: só quem vê a despesa vê a fatura (a de uma prenda secreta fica só de quem a comprou).
+drop policy if exists nikki_receipts_rw on storage.objects;
+drop policy if exists nikki_receipts_read on storage.objects;
+drop policy if exists nikki_receipts_put on storage.objects;
+drop policy if exists nikki_receipts_edit on storage.objects;
+drop policy if exists nikki_receipts_del on storage.objects;
+create policy nikki_receipts_read on storage.objects for select to authenticated
+  using (bucket_id = 'receipts' and nikki.is_member_folder((storage.foldername(name))[1])
+         and (owner = auth.uid() or exists (select 1 from nikki.expenses e where e.receipt_path = storage.objects.name)));
+create policy nikki_receipts_put on storage.objects for insert to authenticated
+  with check (bucket_id = 'receipts' and nikki.is_member_folder((storage.foldername(name))[1]));
+create policy nikki_receipts_edit on storage.objects for update to authenticated
+  using (bucket_id = 'receipts' and nikki.is_member_folder((storage.foldername(name))[1]) and (owner = auth.uid() or exists (select 1 from nikki.expenses e where e.receipt_path = storage.objects.name)));
+create policy nikki_receipts_del on storage.objects for delete to authenticated
+  using (bucket_id = 'receipts' and nikki.is_member_folder((storage.foldername(name))[1]) and (owner = auth.uid() or exists (select 1 from nikki.expenses e where e.receipt_path = storage.objects.name)));
+-- 5) Administração da app: só com o segundo fator (sessão aal2).
+create or replace function nikki.admin_check() returns void
+language plpgsql stable security definer set search_path = '' as $$
+begin
+  if not nikki.is_app_admin() then raise exception 'só para a administração da app'; end if;
+  if coalesce(auth.jwt() ->> 'aal', 'aal1') <> 'aal2' then raise exception 'falta o segundo fator'; end if;
+end $$;
+revoke execute on function nikki.admin_check() from public, anon;
+grant execute on function nikki.admin_check() to authenticated;
+-- Funções internas que ninguém chama de fora: a de módulos por omissão (só a create_household), a da importação
+-- antiga (já fechada) e a do gatilho das entradas.
+revoke execute on function nikki.default_modules(uuid, uuid) from public, anon, authenticated;
+revoke execute on function nikki.legacy_load_closed(text, text, text, jsonb) from public, anon, authenticated;
+revoke execute on function nikki.income_entry_from_source() from public, anon, authenticated;

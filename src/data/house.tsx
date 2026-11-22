@@ -1,4 +1,4 @@
-import type { XGift } from '@/lib/xmas';
+import type { GiftIdea, XGift } from '@/lib/xmas';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { Gift, Guest, OccItem, Occasion, Vendor } from '@/lib/occasions';
 import { supabase } from '@/lib/supabase';
@@ -174,6 +174,7 @@ function useHouseData() {
     occGuests: useLive<Guest>('occasion_guests', eh, 'id, occasion_id, name, people, rsvp, grp, note', { column: 'created_at' }),
     occItems: useLive<OccItem>('occasion_items', eh, 'id, occasion_id, kind, title, due_on, done', { column: 'created_at' }),
     occVendors: useLive<Vendor>('occasion_vendors', eh, 'id, occasion_id, name, service, contact, total, paid', { column: 'created_at' }),
+    ideas: useLive<GiftIdea>('gift_ideas', h, 'id, to_name, idea, secret_for, created_by, created_at', { column: 'created_at' }),
     xmas: useLive<XGift>('xmas_gifts', h, 'id, occasion_id, to_name, item, price, bought, expense_id, secret_for, created_by, created_at', { column: 'created_at' }),
     occGifts: useLive<Gift>('occasion_gifts', eh, 'id, occasion_id, from_name, amount, item, thanked', { column: 'created_at' }),
     carLogs: useLive<CarLog>('car_logs', gh, 'id, car_id, logged_on, odometer, litres, full_tank, kind, expense_id, amount, note, estimated, created_at', { column: 'logged_on' }),
@@ -183,9 +184,9 @@ function useHouseData() {
   const gym = useGym(on('ginasio') ? me?.id : undefined);
   const busy = useBusy(h, d.events.rows);
   // Voltar a ler tudo (puxar para atualizar).
-  const { expenses: e, transfers: t, openings: op, shop: s, deadlines: dl, events: ev, modules: mo, goals: go, assets: as, snapshots: sn, incomes: inc, incomeEntries: ie, cars: ca, carLogs: cl, homes: ho, bills: bi, billPayments: bp, chores: chs, choreLogs: chl, warranties: wa, todos: td, hk, hkTasks: hkt, hkLog: hkl, hkMessages: hkm, hkPaid: hkp, occasions: oc, occGuests: og, occItems: oi, occVendors: ov, occGifts: of, xmas: xg } = d;
-  const reloadAll = useCallback(() => Promise.all([e.reload(), t.reload(), op.reload(), s.reload(), dl.reload(), ev.reload(), mo.reload(), go.reload(), as.reload(), sn.reload(), inc.reload(), ie.reload(), ca.reload(), cl.reload(), ho.reload(), bi.reload(), bp.reload(), chs.reload(), chl.reload(), wa.reload(), td.reload(), hk.reload(), hkt.reload(), hkl.reload(), hkm.reload(), hkp.reload(), oc.reload(), og.reload(), oi.reload(), ov.reload(), of.reload(), busy.reload(), monthTotals.reload(), xg.reload]),
-    [e.reload, t.reload, op.reload, s.reload, dl.reload, ev.reload, mo.reload, go.reload, as.reload, sn.reload, inc.reload, ie.reload, ca.reload, cl.reload, ho.reload, bi.reload, bp.reload, chs.reload, chl.reload, wa.reload, td.reload, hk.reload, hkt.reload, hkl.reload, hkm.reload, hkp.reload, oc.reload, og.reload, oi.reload, ov.reload, of.reload, busy.reload, monthTotals.reload, xg.reload]);
+  const { expenses: e, transfers: t, openings: op, shop: s, deadlines: dl, events: ev, modules: mo, goals: go, assets: as, snapshots: sn, incomes: inc, incomeEntries: ie, cars: ca, carLogs: cl, homes: ho, bills: bi, billPayments: bp, chores: chs, choreLogs: chl, warranties: wa, todos: td, hk, hkTasks: hkt, hkLog: hkl, hkMessages: hkm, hkPaid: hkp, occasions: oc, occGuests: og, occItems: oi, occVendors: ov, occGifts: of, xmas: xg, ideas: gi } = d;
+  const reloadAll = useCallback(() => Promise.all([e.reload(), t.reload(), op.reload(), s.reload(), dl.reload(), ev.reload(), mo.reload(), go.reload(), as.reload(), sn.reload(), inc.reload(), ie.reload(), ca.reload(), cl.reload(), ho.reload(), bi.reload(), bp.reload(), chs.reload(), chl.reload(), wa.reload(), td.reload(), hk.reload(), hkt.reload(), hkl.reload(), hkm.reload(), hkp.reload(), oc.reload(), og.reload(), oi.reload(), ov.reload(), of.reload(), busy.reload(), monthTotals.reload(), xg.reload, gi.reload]),
+    [e.reload, t.reload, op.reload, s.reload, dl.reload, ev.reload, mo.reload, go.reload, as.reload, sn.reload, inc.reload, ie.reload, ca.reload, cl.reload, ho.reload, bi.reload, bp.reload, chs.reload, chl.reload, wa.reload, td.reload, hk.reload, hkt.reload, hkl.reload, hkm.reload, hkp.reload, oc.reload, og.reload, oi.reload, ov.reload, of.reload, busy.reload, monthTotals.reload, xg.reload, gi.reload]);
   // Gastos com os reembolsos e acertos a abater; contas a dois com todas as entradas partilhadas.
   const inRows = d.incomeEntries.rows;
   const spendRows = useMemo<ExpenseRow[]>(() => [...d.expenses.rows, ...inRows.filter((x) => abates(x.kind, x.category)).map(asRow)], [d.expenses.rows, inRows]);

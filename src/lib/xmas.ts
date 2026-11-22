@@ -80,3 +80,8 @@ export function perPerson(gifts: XGift[], yearOf: (occ: string) => number | null
   const cur = now.length ? now.reduce((s, g) => s + Number(g.price), 0) / now.length : null;
   return { ref, cur, n: now.length, byYear, diff: ref && cur ? Math.round((cur / ref - 1) * 100) : null };
 }
+
+/** Uma ideia de prenda para alguém (fica de ano para ano até ser escolhida). Para alguém da casa é secreta. */
+export interface GiftIdea { id: string; to_name: string; idea: string; secret_for: string | null; created_by: string; created_at: string }
+/** As ideias para uma pessoa (pelo nome, sem acentos nem maiúsculas). */
+export const ideasFor = (name: string, ideas: GiftIdea[]) => { const n = norm(name.trim()); return ideas.filter((i) => norm(i.to_name.trim()) === n); };

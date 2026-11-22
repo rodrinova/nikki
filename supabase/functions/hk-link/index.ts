@@ -59,7 +59,7 @@ Deno.serve(async (req) => {
     await admin.from('memberships').upsert({ household_id: hk.household_id, profile_id: uid, role: 'staff' }, { onConflict: 'household_id,profile_id', ignoreDuplicates: true });
     const { data: link, error } = await admin.auth.admin.generateLink({ type: 'magiclink', email });
     if (error || !link.properties?.hashed_token) return json({ error: error?.message ?? 'sem token' }, 500);
-    await admin.from('hk_links').update({ used_at: new Date().toISOString(), uses: (l.uses ?? 0) + 1 }).eq('hk_id', hk.id);
+    await admin.from('hk_links').update({ uses: (l.uses ?? 0) + 1 }).eq('hk_id', hk.id);
     return json({ token_hash: link.properties.hashed_token, name: hk.name });
   }
 

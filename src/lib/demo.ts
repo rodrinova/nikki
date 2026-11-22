@@ -66,7 +66,7 @@ function seed() {
     household_modules: [['contas', 210], ['compras', 210], ['agenda', 210], ['casa', 210], ['housekeeping', 70], ['garagem', 45], ['ginasio', 120], ['objetivos', 20], ['patrimonio', 120], ['eventos', 30]].map(([m, d]) => ({ household_id: H, module: m, enabled_at: ago(d as number), enabled_by: R })),
     share_ratios: [{ household_id: H, profile_a: R, profile_b: I, ratio_a: 0.5 }],
     invites: [], tickets: [], goals: [], assets: [], asset_snapshots: [], incomes: [], cars: [], car_logs: [], homes: [], bills: [], bill_payments: [], chores: [], chore_logs: [], todos: [], warranties: [], calendar_links: [], housekeeping: [], hk_tasks: [], hk_log: [], hk_messages: [], hk_paid: [], gym_fields: [], gym_prefs: [], gym_assessments: [],
-    expenses: [], transfers: [], deadlines: [], shopping_items: [], events: [], xmas_gifts: [],
+    expenses: [], transfers: [], deadlines: [], shopping_items: [], events: [], xmas_gifts: [], gift_ideas: [],
     salvage_cars: [], salvage_logs: [], salvage_links: [], salvage_settings: [], receipt_items: [], expense_drafts: [], capture_tokens: [],
   };
   others(db);
@@ -167,6 +167,11 @@ function seed() {
     db.occasions.push({ id: 'demo-natal', household_id: H, name: `Natal ${ny}`, kind: 'natal', on_date: `${ny}-12-25`, place: null, budget: '600.00', archived: false, purchase: true, car_id: null, created_by: R, created_at: ago(10) });
     db.occasions.push({ id: 'demo-natal-0', household_id: H, name: `Natal ${ny - 1}`, kind: 'natal', on_date: `${ny - 1}-12-25`, place: null, budget: '550.00', archived: true, purchase: true, car_id: null, created_by: R, created_at: ago(370) });
     const xg = (id: string, occ: string, to_name: string, item: string | null, price: string | null, bought: boolean, secret_for: string | null = null) => ({ id, household_id: H, occasion_id: occ, to_name, item, price, bought, expense_id: null, secret_for, created_by: R, created_at: ago(5) });
+    db.gift_ideas = [
+      { id: 'demo-i1', household_id: H, to_name: 'Pai', idea: 'Livro de história de Portugal', secret_for: null, created_by: R, created_at: ago(40) },
+      { id: 'demo-i2', household_id: H, to_name: 'Pai', idea: 'Luvas de pele', secret_for: null, created_by: I, created_at: ago(12) },
+      { id: 'demo-i3', household_id: H, to_name: 'Avó', idea: 'Chá e uma caneca bonita', secret_for: null, created_by: R, created_at: ago(8) },
+    ];
     db.xmas_gifts = [
       xg('demo-x1', 'demo-natal', 'Mãe', 'Livro de receitas', '32.00', true), xg('demo-x2', 'demo-natal', 'Pai', null, null, false),
       xg('demo-x3', 'demo-natal', 'Sobrinhos', 'Legos', '58.00', true), xg('demo-x4', 'demo-natal', 'Avó', 'Manta', null, false),
