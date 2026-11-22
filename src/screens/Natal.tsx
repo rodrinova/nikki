@@ -11,7 +11,7 @@ import { useOverlays } from '@/ui/overlays';
 import { Icon } from '@/ui/Icon';
 import { eur, parseAmount, toU } from '@/lib/money';
 import { todayStr } from '@/lib/dates';
-import { matchExpense, pastFor, perPerson, publicTotal, xmasYear, type XGift } from '@/lib/xmas';
+import { ideasFor, matchExpense, pastFor, perPerson, publicTotal, xmasYear, type XGift } from '@/lib/xmas';
 import { ExpenseSheet } from './Money';
 import { useN2 } from '@/n2/shell';
 import { Masthead } from '@/n2/N2';
@@ -65,6 +65,38 @@ export function useBuy() {
   };
 }
 
+/** As ideias para uma pessoa: juntar, escolher (passa a ser a prenda e sai da lista) ou apagar. Ficam de ano para ano. */
+function Ideas({ name, secret, onPick }: { name: string; secret: string | null; onPick?: (idea: string) => void }) {
+  const { house } = useSession();
+  const { ideas } = useHouse();
+  const { toast } = useOverlays();
+  const [t, setT] = useState('');
+  const list = ideasFor(name, ideas.rows);
+  async function add(e: FormEvent) {
+    e.preventDefault();
+    if (!t.trim() || !house) return;
+    const { error } = await supabase.from('gift_ideas').insert({ household_id: house.id, to_name: name.trim().slice(0, 60), idea: t.trim().slice(0, 120), secret_for: secret });
+    if (error) return toast(error.message);
+    setT(''); ideas.reload();
+  }
+  const drop = async (id: string) => { await supabase.from('gift_ideas').delete().eq('id', id); ideas.reload(); };
+  return (
+    <section className="stack natal-ideas" aria-label={`Ideias para ${name}`}>
+      <span className="s">Ideias para {name}{secret ? ' (só tu vês)' : ''}</span>
+      {list.length > 0 && <ul>{list.map((i) => (
+        <li key={i.id}><span>{i.idea}</span>
+          {onPick && <button type="button" className="tb press" onClick={async () => { onPick(i.idea); await drop(i.id); }}>Escolher</button>}
+          <button type="button" className="tb quiet press" aria-label={`Apagar a ideia ${i.idea}`} onClick={() => void drop(i.id)}>×</button>
+        </li>
+      ))}</ul>}
+      <form className="add-row" onSubmit={add} autoComplete="off">
+        <input className="field" value={t} onChange={(e) => setT(e.target.value)} placeholder="Uma ideia (ex.: luvas de pele)" maxLength={120} aria-label="Nova ideia" />
+        <button className="tb press" aria-label="Juntar ideia"><Icon n="plus" s={18} /></button>
+      </form>
+    </section>
+  );
+}
+
 function GiftSheet({ g }: { g: XGift }) {
   const { xmas } = useHouse();
   const { close, toast } = useOverlays();
@@ -81,6 +113,7 @@ function GiftSheet({ g }: { g: XGift }) {
   return (
     <form className="stack" onSubmit={save} autoComplete="off">
       <p className="l">{g.to_name}{g.secret_for ? ' · secreta' : ''}</p>
+      <Ideas name={g.to_name} secret={g.secret_for} onPick={(x) => setItem(x)} />
       <input className="field" value={item} onChange={(e) => setItem(e.target.value)} placeholder="O quê (ex.: perfume)" maxLength={80} aria-label="O quê" />
       <input className="field" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="Preço" inputMode="decimal" aria-label="Preço" />
       <button className="btn wide press">Guardar</button>
@@ -108,7 +141,7 @@ function BudgetSheet({ id, budget }: { id: string; budget: number | null }) {
 export function NatalScreen() {
   useN2();
   const { me, members, house } = useSession();
-  const { xmas, expenses } = useHouse();
+  const { xmas, expenses, ideas } = useHouse();
   const { open, toast } = useOverlays();
   const { year, occ, ensure, yearOf } = useNatal();
   const buy = useBuy();
@@ -166,13 +199,14 @@ export function NatalScreen() {
         <ul className="natal-list">
           {list.map((g) => {
             const past = pastFor(g.to_name, xmas.rows, yearOf, year)[0];
+            const nIdeas = ideasFor(g.to_name, ideas.rows).length;
             return (
               <li key={g.id} className={g.bought ? 'done' : ''}>
                 <button type="button" className="tick press" role="checkbox" aria-checked={g.bought} aria-label={`${g.bought ? 'Comprada' : 'Por comprar'}: ${g.to_name}`}
                   onClick={async () => { if (g.bought) { await supabase.from('xmas_gifts').update({ bought: false, expense_id: null }).eq('id', g.id); xmas.reload(); } else if (g.price === null) open(<GiftSheet g={g} />); else await buy(g, Number(g.price)); }}><i /></button>
                 <button type="button" className="st2 press natal-row" onClick={() => open(<GiftSheet g={g} />)}>
                   <span>{g.to_name}{g.secret_for && <span className="natal-lock"> · secreta</span>}</span>
-                  <span className="s">{[g.item, past ? `${past.year}: ${past.item ?? 'prenda'}${past.price ? ` · ${euro(past.price)}` : ''}` : ''].filter(Boolean).join(' · ') || 'O quê?'}</span>
+                  <span className="s">{[g.item, !g.item && nIdeas ? `${nIdeas} ${nIdeas === 1 ? 'ideia' : 'ideias'}` : '', past ? `${past.year}: ${past.item ?? 'prenda'}${past.price ? ` · ${euro(past.price)}` : ''}` : ''].filter(Boolean).join(' · ') || 'O quê?'}</span>
                 </button>
                 <span className="num natal-p">{g.price !== null ? euro(Number(g.price)) : '—'}</span>
               </li>
