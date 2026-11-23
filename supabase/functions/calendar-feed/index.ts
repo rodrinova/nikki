@@ -72,6 +72,17 @@ async function pullSafe(f: Feed) {
   }
 }
 
+async function add(profile: string, household: string, rawUrl: unknown, rawName: unknown) {
+  try {
+    const url = feedUrl(String(rawUrl ?? ''));
+    const text = await fetchFeed(url);
+    const name = String(rawName ?? '').trim().slice(0, 40) || 'Calendário';
+    const { data, error } = await admin.from('calendar_feeds').upsert({ profile_id: profile, household_id: household, name, url_enc: await seal(url, await calKey()), status: 'ok', last_error: null }, { onConflict: 'profile_id,household_id' }).select('id, profile_id, household_id, url_enc').single();
+    if (error || !data) throw new Error(`Não consegui guardar (${error?.message ?? 'sem dados'}).`);
+    return { ok: true, ...(await pull(data as Feed, text)) };
+  } catch (e) { return { error: (e as Error).message }; }
+}
+
 async function caller(req: Request, household: string) {
   const jwt = (req.headers.get('authorization') ?? '').replace(/^Bearer /, '');
   const uid = (await admin.auth.getUser(jwt)).data.user?.id;
@@ -87,6 +98,8 @@ Deno.serve(async (req) => {
   if (secret) {
     const { data } = await admin.from('push_config').select('cron_secret').eq('id', true).single();
     if (!data || data.cron_secret !== secret) return json({ error: 'Sem acesso.' }, 401);
+    // Do lado do servidor (pela administração, a pedido da pessoa): juntar uma subscrição a alguém da casa.
+    if (body.action === 'add' && body.profile_id && body.household) return json(await add(String(body.profile_id), String(body.household), body.url, body.name));
     const { data: feeds } = await admin.from('calendar_feeds').select('id, profile_id, household_id, url_enc');
     const out: Record<string, unknown> = {};
     for (const f of (feeds ?? []) as Feed[]) out[f.id] = await pullSafe(f);
@@ -96,16 +109,7 @@ Deno.serve(async (req) => {
   if (!uid) return json({ error: 'Sem acesso.' }, 401);
   const mine = async () => (await admin.from('calendar_feeds').select('id, profile_id, household_id, url_enc').eq('profile_id', uid).eq('household_id', body.household).maybeSingle()).data as Feed | null;
 
-  if (body.action === 'add') {
-    try {
-      const url = feedUrl(String(body.url ?? ''));
-      const text = await fetchFeed(url);
-      const name = String(body.name ?? '').trim().slice(0, 40) || 'Calendário';
-      const { data, error } = await admin.from('calendar_feeds').upsert({ profile_id: uid, household_id: body.household, name, url_enc: await seal(url, await calKey()), status: 'ok', last_error: null }, { onConflict: 'profile_id,household_id' }).select('id, profile_id, household_id, url_enc').single();
-      if (error || !data) throw new Error(`Não consegui guardar (${error?.message ?? 'sem dados'}).`);
-      return json({ ok: true, ...(await pull(data as Feed, text)) });
-    } catch (e) { return json({ error: (e as Error).message }); } // 200: a app mostra a razão
-  }
+  if (body.action === 'add') return json(await add(uid, String(body.household), body.url, body.name)); // 200 mesmo com erro: a app mostra a razão
   if (body.action === 'remove') {
     const f = await mine();
     if (f) {
