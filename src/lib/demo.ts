@@ -66,7 +66,7 @@ function seed() {
     household_modules: [['contas', 210], ['compras', 210], ['agenda', 210], ['casa', 210], ['housekeeping', 70], ['garagem', 45], ['ginasio', 120], ['objetivos', 20], ['patrimonio', 120], ['eventos', 30]].map(([m, d]) => ({ household_id: H, module: m, enabled_at: ago(d as number), enabled_by: R })),
     share_ratios: [{ household_id: H, profile_a: R, profile_b: I, ratio_a: 0.5 }],
     invites: [], tickets: [], goals: [], assets: [], asset_snapshots: [], incomes: [], cars: [], car_logs: [], homes: [], bills: [], bill_payments: [], chores: [], chore_logs: [], todos: [], warranties: [], calendar_links: [], housekeeping: [], hk_tasks: [], hk_log: [], hk_messages: [], hk_paid: [], gym_fields: [], gym_prefs: [], gym_assessments: [],
-    expenses: [], transfers: [], deadlines: [], shopping_items: [], events: [], xmas_gifts: [], gift_ideas: [],
+    expenses: [], transfers: [], deadlines: [], shopping_items: [], events: [], xmas_gifts: [], gift_ideas: [], calendar_feeds: [],
     salvage_cars: [], salvage_logs: [], salvage_links: [], salvage_settings: [], receipt_items: [], expense_drafts: [], capture_tokens: [],
   };
   others(db);
@@ -451,7 +451,7 @@ export function createDemoClient(opts: { visit?: boolean } = {}) {
     const staffIn = db.memberships.filter((m) => m.profile_id === me && m.role === 'staff').map((m) => m.household_id);
     if (r.household_id && staffIn.includes(r.household_id)) return ['hk_tasks', 'hk_log', 'hk_messages', 'shopping_items', 'memberships'].includes(t) || (t === 'housekeeping' && r.profile_id === me);
     if (t === 'tickets') return r.created_by === me;
-    if (t === 'calendar_links') return r.profile_id === me;
+    if (t === 'calendar_links' || t === 'calendar_feeds') return r.profile_id === me;
     if (t === 'expense_drafts' || t === 'capture_tokens') return r.profile_id === me;
     if (t === 'gym_fields') return true;
     if (t === 'gym_prefs' || t === 'gym_assessments') return r.profile_id === me; // só o próprio
@@ -805,6 +805,8 @@ export function createDemoClient(opts: { visit?: boolean } = {}) {
         const b = o?.body ?? {};
         if (name === 'calendar-link' && b.action === 'icloud') { db.calendar_links.push({ id: uid(), profile_id: me, household_id: b.household, provider: 'icloud', account_hint: `${String(b.apple_id)[0]}•••@${String(b.apple_id).split('@')[1] ?? 'icloud.com'}`, status: 'ok', last_sync_at: new Date().toISOString(), last_error: null, created_at: new Date().toISOString() }); return { data: { ok: true }, error: null }; }
         if (name === 'calendar-link' && b.action === 'google') { db.calendar_links.push({ id: uid(), profile_id: me, household_id: b.household, provider: 'google', account_hint: 'r•••@gmail.com', status: 'ok', last_sync_at: new Date().toISOString(), last_error: null, created_at: new Date().toISOString() }); return { data: { url: '#' }, error: null }; }
+        if (name === 'calendar-feed' && b.action === 'add') { db.calendar_feeds = [{ id: uid(), profile_id: me, household_id: b.household, name: String(b.name ?? 'Calendário'), status: 'ok', last_sync_at: new Date().toISOString(), last_error: null, created_at: new Date().toISOString() }]; return { data: { ok: true, new: 0 }, error: null }; }
+        if (name === 'calendar-feed' && b.action === 'remove') { db.calendar_feeds = []; return { data: { ok: true }, error: null }; }
         if (name === 'calendar-link' && b.action === 'unlink') { db.calendar_links = db.calendar_links.filter((l) => !(l.profile_id === me && l.provider === b.provider)); return { data: { ok: true }, error: null }; }
         if (name === 'grocery-advice') return { data: { tips: [
           { title: 'Leite em pack de 6', text: 'Vão ~14 l por mês; na marca da loja, em pack, poupam perto de 3 € por mês.', saving: 3 },

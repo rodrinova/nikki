@@ -137,3 +137,19 @@ export function changes(cur: Record<string, unknown>, p: PulledEvent): Partial<P
   if (p.repeat === 'none') { delete out.weekdays; delete out.month_mode; delete out.until_on; }
   return out as Partial<PulledEvent>;
 }
+
+/**
+ * Um calendário inteiro (.ics de uma subscrição, ex.: o da universidade) partido em pedaços, um por evento (UID), cada
+ * um com o seu VCALENDAR (com os fusos) para o parseEvent ler. As exceções (RECURRENCE-ID) ficam com a série.
+ */
+export function splitFeed(ics: string): string[] {
+  const text = ics.replace(/\r\n[ \t]/g, '').replace(/\n[ \t]/g, '');
+  const tz = [...text.matchAll(/BEGIN:VTIMEZONE[\s\S]*?END:VTIMEZONE/g)].map((m) => m[0]).join('\r\n');
+  const by = new Map<string, string[]>();
+  for (const m of text.matchAll(/BEGIN:VEVENT[\s\S]*?END:VEVENT/g)) {
+    const uid = m[0].match(/\nUID[^:]*:(.+)/)?.[1]?.trim();
+    if (!uid) continue;
+    by.set(uid, [...(by.get(uid) ?? []), m[0]]);
+  }
+  return [...by.values()].map((evs) => `BEGIN:VCALENDAR\r\nVERSION:2.0\r\n${tz}\r\n${evs.join('\r\n')}\r\nEND:VCALENDAR`);
+}

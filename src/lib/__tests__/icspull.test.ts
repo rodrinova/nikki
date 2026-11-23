@@ -59,3 +59,13 @@ describe('iCloud: reaproveitar o calendário «NIKKI»', () => {
     expect(calendarNamed(xml, 'Trabalho')).toBeNull();
   });
 });
+
+import { splitFeed, parseEvent as pe2 } from '../icspull';
+describe('subscrição .ics (ex.: calendário da universidade)', () => {
+  it('parte o calendário num evento por UID', () => {
+    const ics = 'BEGIN:VCALENDAR\r\nVERSION:2.0\r\nBEGIN:VEVENT\r\nUID:a1\r\nSUMMARY:Finanças\r\nDTSTART:20261124T140000Z\r\nDTEND:20261124T160000Z\r\nEND:VEVENT\r\nBEGIN:VEVENT\r\nUID:b2\r\nSUMMARY:Exame de\r\n  Estatística\r\nDTSTART;VALUE=DATE:20261210\r\nEND:VEVENT\r\nEND:VCALENDAR';
+    const parts = splitFeed(ics).map(pe2);
+    expect(parts.map((p) => p?.title)).toEqual(['Finanças', 'Exame de Estatística']);
+    expect(parts[1]?.all_day).toBe(true);
+  });
+});
