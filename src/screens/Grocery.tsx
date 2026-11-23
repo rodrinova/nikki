@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { readReceipt } from '@/data/receipts';
 import { supabase } from '@/lib/supabase';
 import { useSession } from '@/data/session';
 import { useHouse } from '@/data/house';
@@ -18,6 +19,30 @@ const money = (u: number) => `${eur(u, 0)} €`;
 const per = (q: number, unit: Unit) => (unit === 'un' ? `${Math.max(1, Math.round(q))} ${Math.max(1, Math.round(q)) === 1 ? 'unidade' : 'unidades'}` : `${(Math.round(q * 10) / 10).toString().replace('.', ',')} ${unit}`);
 const CONF = { baixa: 'Poucos dados: uma primeira ideia', media: 'Estimativa razoável', boa: 'Boa estimativa' } as const;
 
+const MON = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+const fmt = (d: string) => `${Number(d.slice(8, 10))} ${MON[Number(d.slice(5, 7)) - 1]}${d.slice(0, 4) !== todayStr().slice(0, 4) ? ` ${d.slice(0, 4)}` : ''}`;
+
+/**
+ * As faturas do supermercado com foto mas ainda por ler (ex.: a leitura esteve em pausa): lê-as sozinho, uma de cada
+ * vez, no máximo uma tentativa por dia neste aparelho (ou já, com «Ler agora»).
+ */
+export function useReadPending(pending: string[]) {
+  const { receiptItems, expenses } = useHouse();
+  const [state, setState] = useState<{ busy: boolean; why: string | null }>({ busy: false, why: null });
+  const ran = useRef(false);
+  const run = async (force = false) => {
+    const k = `nikki_receipts_try_${todayStr()}`;
+    if (!pending.length || state.busy || (!force && store.get(k))) return;
+    store.set(k, '1'); setState({ busy: true, why: null });
+    let why: string | null = null, n = 0;
+    for (const id of pending.slice(0, 12)) { const w = await readReceipt(id); if (w && /pausa|chave/i.test(w)) { why = w; break; } if (!w) n++; }
+    setState({ busy: false, why: why ?? (n ? null : 'Não encontrei produtos nas faturas por ler.') });
+    if (n) { receiptItems.reload(); expenses.reload(); }
+  };
+  useEffect(() => { if (!ran.current && pending.length) { ran.current = true; void run(); } }, [pending.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  return { ...state, run: () => run(true) };
+}
+
 export function GroceryReport() {
   const { house } = useSession();
   const { expenses, receiptItems } = useHouse();
@@ -27,6 +52,7 @@ export function GroceryReport() {
   const [tips, setTips] = useState<Tip[] | null>(() => { try { return JSON.parse(store.get(key) ?? 'null'); } catch { return null; } });
   const [busy, setBusy] = useState(false);
   const [why, setWhy] = useState('');
+  const rp = useReadPending(r?.pending ?? []);
   if (!r) return <p className="s">Ainda sem compras em Supermercado nos últimos 6 meses.</p>;
   const maxM = Math.max(...r.byMonth.map((m) => m.total), 1);
   async function ask() {
@@ -53,6 +79,14 @@ export function GroceryReport() {
         <span className="gr-bar"><i style={{ width: `${Math.round(r.coverage * 100)}%` }} /></span>
         <span className="s"><b>{Math.round(r.coverage * 100)}%</b> das compras com fatura lida ({r.receipts}) · {CONF[r.confidence]}</span>
       </div>
+      <p className="s gr-period">
+        Gasto: de {fmt(r.from)} a {fmt(r.to)}. {r.readFrom ? <>Produtos: das faturas lidas de {fmt(r.readFrom)} a {fmt(r.readTo!)}.</> : 'Produtos: ainda nenhuma fatura lida.'}
+        {r.confidence === 'baixa' && ' Ainda há poucos dados: as médias por mês ficam certas com 2 a 3 meses de faturas.'}
+      </p>
+      {r.pending.length > 0 && <div className="tile card gr-pending">
+        <span className="s">{rp.busy ? `A ler ${r.pending.length} ${r.pending.length === 1 ? 'fatura' : 'faturas'}…` : `${r.pending.length} ${r.pending.length === 1 ? 'fatura guardada ainda por ler' : 'faturas guardadas ainda por ler'}.${rp.why ? ` ${rp.why}` : ''}`}</span>
+        {!rp.busy && <button type="button" className="tb press" onClick={rp.run}>Ler agora</button>}
+      </div>}
 
       <section className="stack" aria-label="Por mês">
         <p className="gr-h">Por mês</p>

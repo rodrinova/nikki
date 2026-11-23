@@ -6,7 +6,7 @@ import { addDays, monthKey, parseDate } from './dates';
 import { toU } from './money';
 import type { Unit } from './pantry';
 
-export interface GExpense { id: string; amount: number | string; spent_on: string; note: string | null; category: string; receipt_read_at?: string | null }
+export interface GExpense { id: string; amount: number | string; spent_on: string; note: string | null; category: string; receipt_read_at?: string | null; receipt_path?: string | null }
 export interface GItem { expense_id: string; product: string; qty: number | string | null; unit: Unit | null; price?: number | string | null; bought_on: string }
 
 export interface GroceryReport {
@@ -14,6 +14,8 @@ export interface GroceryReport {
   total: number; perMonth: number; // todo o gasto em Supermercado (unidades) e a média por mês
   covered: number; coverage: number; receipts: number; // o gasto com fatura lida, a fração e quantas faturas
   confidence: 'baixa' | 'media' | 'boa';
+  /** De quando a quando há faturas lidas (o consumo por produto vem só daí), e as que têm foto mas ainda não foram lidas. */
+  readFrom: string | null; readTo: string | null; pending: string[];
   byMonth: { month: string; total: number }[];
   byStore: { store: string; total: number; share: number; visits: number }[];
   products: { product: string; unit: Unit; perMonth: number; spendMonth: number; buys: number }[]; // estimados por mês
@@ -62,6 +64,9 @@ export function groceryReport(expenses: GExpense[], items: GItem[], today: strin
     perMonth: Math.round((g.qty * factor / months) * 10) / 10, spendMonth: Math.round(g.spend * factor / months),
   })).sort((a, b) => b.spendMonth - a.spendMonth || b.perMonth - a.perMonth);
   return {
+    readFrom: read.length ? read.reduce((m, e) => (e.spent_on < m ? e.spent_on : m), read[0].spent_on) : null,
+    readTo: read.length ? read.reduce((m, e) => (e.spent_on > m ? e.spent_on : m), read[0].spent_on) : null,
+    pending: sup.filter((e) => e.receipt_path && !e.receipt_read_at).map((e) => e.id),
     from, to: today, months: Math.round(months * 10) / 10, total, perMonth: Math.round(total / months), covered, coverage, receipts: read.length, confidence,
     byMonth: [...bm].sort(([a], [b]) => a.localeCompare(b)).map(([month, t]) => ({ month, total: t })),
     byStore: [...bs.values()].sort((a, b) => b.total - a.total).map((g) => ({ ...g, share: total ? g.total / total : 0 })),
