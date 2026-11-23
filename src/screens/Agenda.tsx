@@ -357,6 +357,61 @@ function PhoneSheet() {
         </>}
       </details>
       {DEMO && <p className="s">Na demonstração, as ligações são de exemplo.</p>}
+      <FeedBlock />
     </div>
+  );
+}
+
+/**
+ * Outro calendário teu (ex.: o da universidade no Compass, o do trabalho): o link de subscrição (.ics ou webcal://).
+ * Os eventos entram como teus, com o título, e a casa vê-os; atualizam de 15 em 15 minutos. O link fica encriptado.
+ */
+interface FeedRow { id: string; name: string; status: 'ok' | 'error'; last_sync_at: string | null; last_error: string | null }
+function FeedBlock() {
+  const { house } = useSession();
+  const { events } = useHouse();
+  const { toast } = useOverlays();
+  const [row, setRow] = useState<FeedRow | null | undefined>(undefined);
+  const [name, setName] = useState('NOVA');
+  const [url, setUrl] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const load = async () => { const { data } = await supabase.from('calendar_feeds').select('id, name, status, last_sync_at, last_error').eq('household_id', house!.id).maybeSingle(); setRow((data as FeedRow | null) ?? null); };
+  useEffect(() => { void load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const call = (body: Record<string, unknown>) => supabase.functions.invoke('calendar-feed', { body: { household: house!.id, ...body } });
+  async function add(e: FormEvent) {
+    e.preventDefault(); setErr('');
+    if (!/^(https|webcals?):\/\//i.test(url.trim())) return setErr('O link começa por https:// ou webcal:// (procura «Subscrever», «Exportar» ou «iCal» no Compass).');
+    setBusy(true);
+    const { data, error } = await call({ action: 'add', url: url.trim(), name });
+    setBusy(false);
+    const r = data as { error?: string; new?: number } | null;
+    if (error || r?.error) return setErr(r?.error ?? 'Não deu para ler o calendário. Confirma o link.');
+    setUrl(''); await load(); events.reload();
+    toast(`${name}: ${r?.new ?? 0} eventos na agenda.`, { ok: true });
+  }
+  async function off() {
+    await call({ action: 'remove' }); await load(); events.reload();
+    toast('Desligado. Os eventos desse calendário saíram da agenda.');
+  }
+  if (row === undefined) return null;
+  return (
+    <section className="stack" aria-label="Outro calendário teu">
+      <p className="l" style={{ marginTop: 8 }}>Outro calendário teu</p>
+      {row ? (
+        <div className="tile card rows"><div>
+          <span className="st2"><span>{row.name}</span><span className={`s${row.status === 'error' ? ' warn' : ''}`}>{row.status === 'error' ? `Parou: ${row.last_error ?? 'erro'}` : 'Entra como teu, com o título. Atualiza de 15 em 15 minutos.'}</span></span>
+          <button type="button" className="tb quiet press" onClick={off}>Desligar</button>
+        </div></div>
+      ) : (
+        <form className="form" onSubmit={add} autoComplete="off">
+          <p className="s">O da universidade ou do trabalho: no Compass (ou no Outlook/Google), procura «Subscrever calendário», «iCal» ou «Exportar» e copia o link. Os eventos aparecem como teus, com o título, e a casa vê-os.</p>
+          <label>Nome<input value={name} onChange={(e) => setName(e.target.value)} maxLength={40} /></label>
+          <label>Link do calendário<input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://… ou webcal://…" inputMode="url" autoComplete="off" /></label>
+          {err && <p className="err">{err}</p>}
+          <button className="btn wide press" disabled={busy}>{busy ? 'A ler…' : 'Juntar à agenda'}</button>
+        </form>
+      )}
+    </section>
   );
 }

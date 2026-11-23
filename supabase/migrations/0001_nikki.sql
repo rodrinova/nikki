@@ -2233,3 +2233,35 @@ grant execute on function nikki.admin_check() to authenticated;
 revoke execute on function nikki.default_modules(uuid, uuid) from public, anon, authenticated;
 revoke execute on function nikki.legacy_load_closed(text, text, text, jsonb) from public, anon, authenticated;
 revoke execute on function nikki.income_entry_from_source() from public, anon, authenticated;
+
+-- Calendário: outro calendário da pessoa por subscrição (.ics/webcal, ex.: o da universidade), só leitura. O link fica
+-- encriptado e só a função «calendar-feed» o lê; a app vê o nome, o estado e a hora da última leitura.
+create table if not exists nikki.calendar_feeds (
+  id uuid primary key default gen_random_uuid(),
+  profile_id uuid not null references nikki.profiles (id) on delete cascade,
+  household_id uuid not null references nikki.households (id) on delete cascade,
+  name text not null check (length(trim(name)) between 1 and 40),
+  url_enc text not null,
+  status text not null default 'ok' check (status in ('ok', 'error')),
+  last_sync_at timestamptz,
+  last_error text,
+  created_at timestamptz not null default now(),
+  unique (profile_id, household_id)
+);
+alter table nikki.calendar_feeds enable row level security;
+revoke all on nikki.calendar_feeds from authenticated, anon, public;
+grant select (id, profile_id, household_id, name, status, last_sync_at, last_error, created_at) on nikki.calendar_feeds to authenticated;
+grant all on nikki.calendar_feeds to service_role;
+drop policy if exists calendar_feeds_own on nikki.calendar_feeds;
+create policy calendar_feeds_own on nikki.calendar_feeds for select to authenticated using (profile_id = auth.uid() and nikki.is_member(household_id));
+do $do$ begin
+  if exists (select 1 from pg_extension where extname = 'pg_cron') then
+    perform cron.unschedule('nikki-calendar-feed') where exists (select 1 from cron.job where jobname = 'nikki-calendar-feed');
+    perform cron.schedule('nikki-calendar-feed', '*/15 * * * *', $cron$
+      select net.http_post(
+        url := 'https://imbflvhufvvjcfetljsd.supabase.co/functions/v1/calendar-feed',
+        headers := jsonb_build_object('content-type', 'application/json', 'x-cron-secret', (select cron_secret from nikki.push_config where id)),
+        body := '{}'::jsonb);
+    $cron$);
+  end if;
+end $do$;
