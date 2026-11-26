@@ -111,8 +111,9 @@ export function MonthLines({ spent, expected, today, onPick, pick = null }: { sp
  * Doze meses em colunas: a altura é o gasto do mês; a linha tracejada é o normal. O mês a decorrer a laranja (com a
  * previsão em contorno), o escolhido a branco e com o valor. Tocar numa coluna muda o mês.
  */
-export function MonthBars({ cols, normal, onPick }: { cols: { key: string; label: string; v: number; ghost?: number; cur?: boolean; sel?: boolean; val: string }[]; normal: number | null; onPick: (key: string) => void }) {
-  const max = Math.max(1, normal ?? 0, ...cols.map((c) => Math.max(c.v, c.ghost ?? 0))) * 1.12;
+export function MonthBars({ cols, normal, onPick }: { cols: { key: string; label: string; v: number; ghost?: number; extra?: number; cur?: boolean; sel?: boolean; val: string }[]; normal: number | null; onPick: (key: string) => void }) {
+  // O dia a dia em barra cheia; o que foi à parte (extraordinário) por cima, picotado; a previsão, tracejada.
+  const max = Math.max(1, normal ?? 0, ...cols.map((c) => Math.max(c.v + (c.extra ?? 0), c.ghost ?? 0))) * 1.12;
   return (
     <div className="mbars" role="group" aria-label="Doze meses">
       {normal ? <span className="mb-norm" style={{ bottom: `calc(26px + (100% - 52px) * ${normal / max})` }}><em>normal</em></span> : null}
@@ -122,6 +123,7 @@ export function MonthBars({ cols, normal, onPick }: { cols: { key: string; label
           <span className="mb-col">
             {c.ghost ? <i className="gh" style={{ height: `${(c.ghost / max) * 100}%` }} /> : null}
             <i style={{ height: `${Math.max(1.5, (c.v / max) * 100)}%` }} />
+            {c.extra ? <i className="ex" style={{ bottom: `${(c.v / max) * 100}%`, height: `${(c.extra / max) * 100}%` }} /> : null}
           </span>
           <span className="mb-m">{c.label}</span>
         </button>

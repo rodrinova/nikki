@@ -239,6 +239,8 @@ export function N2Money({ bare }: { bare?: boolean } = {}) {
   const daily = useMemo(() => spendRows.filter((e) => e.category !== INVEST && !e.occasion_id), [spendRows]);
   const catN = useMemo(() => (me ? catNormals(daily, me.id, todayStr()) : {}), [daily, me]);
   const series = useMemo(() => monthlySeries(daily, me?.id ?? '', todayStr(), 12).months, [daily, me?.id]);
+  // O que foi à parte (compras extraordinárias, eventos), por mês: aparece picotado por cima de cada barra.
+  const extras = useMemo(() => new Map(monthlySeries(spendRows.filter((e) => e.category !== INVEST && !!e.occasion_id), me?.id ?? '', todayStr(), 12).months.map((x) => [x.key, x.total])), [spendRows, me?.id]);
   const cats = m.dailyByCat.filter(([, v]) => v > 0).slice(0, 7);
   const fcast = m.current && !m.pace.fresh ? m.pace.forecast : 0;
   const moves = expenses.rows.filter((e) => monthKey(e.spent_on) === key).sort((a, b) => (a.spent_on < b.spent_on ? 1 : -1));
@@ -313,7 +315,8 @@ export function N2Money({ bare }: { bare?: boolean } = {}) {
 
       <section className="cd wide" aria-label="Doze meses">
         <span className="cd-h"><span>12 meses</span>{m.normal ? <span>normal {eur(m.normal, 0)} €</span> : null}</span>
-        <MonthBars normal={m.normal} onPick={setKey} cols={series.map((x) => ({ key: x.key, label: monthName(x.key).slice(0, 3), v: x.total, ghost: x.current && fcast > x.total ? fcast : 0, cur: x.current, sel: x.key === key, val: `${k1(x.total)} €` }))} />
+        <MonthBars normal={m.normal} onPick={setKey} cols={series.map((x) => ({ key: x.key, label: monthName(x.key).slice(0, 3), v: x.total, extra: extras.get(x.key) ?? 0, ghost: x.current && fcast > x.total ? fcast : 0, cur: x.current, sel: x.key === key, val: `${k1(x.total)} €` }))} />
+        {[...extras.values()].some((v) => v > 0) && <div className="m-key"><span><i className="k-ex" />À parte (extraordinárias), por cima de cada mês</span></div>}
       </section>
 
       <GuideOnce k="dinheiro" />
