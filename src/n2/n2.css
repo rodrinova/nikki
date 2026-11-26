@@ -583,3 +583,6 @@ a.lead:hover{text-decoration:underline;text-decoration-thickness:1px;text-underl
 .natal-past li{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:8px;font-size:var(--t-s);color:var(--sub);padding:4px 0;border:0}
 .natal-acts{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .natal-acts .tb{margin-left:auto}
+/* O que foi à parte (extraordinário): por cima da barra do mês, picotado. */
+.mb-col i.ex{background:repeating-linear-gradient(135deg,rgba(255,138,61,.55) 0 2px,transparent 2px 5px);border:1px dotted rgba(255,138,61,.9);border-bottom:0;border-radius:6px 6px 0 0;animation:none}
+.m-key .k-ex{display:inline-block;width:12px;height:9px;margin-right:6px;vertical-align:middle;background:repeating-linear-gradient(135deg,rgba(255,138,61,.6) 0 2px,transparent 2px 5px);border:1px dotted rgba(255,138,61,.9)}
