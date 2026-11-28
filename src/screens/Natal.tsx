@@ -40,7 +40,7 @@ export function useNatal() {
 /** A prenda comprada: liga-se à despesa que bate certo ou pergunta se se regista. */
 export function useBuy() {
   const { expenses, xmas } = useHouse();
-  const { open, close, toast } = useOverlays();
+  const { open, toast } = useOverlays();
   const { year, occ } = useNatal();
   return async (g: XGift, price: number | null) => {
     const linked = new Set(xmas.rows.map((x) => x.expense_id).filter(Boolean) as string[]);
@@ -54,45 +54,56 @@ export function useBuy() {
     await supabase.from('xmas_gifts').update({ bought: true, price }).eq('id', g.id);
     xmas.reload();
     if (!price) return;
-    open(
-      <div className="stack">
-        <p className="l">Registar como despesa?</p>
-        <p className="s">Não encontrei nenhuma despesa de {euro(price)} para esta prenda. {g.secret_for ? 'Fica só tua: a outra pessoa nunca a vê.' : 'Entra nas despesas de Natal (extraordinárias).'}</p>
-        <button type="button" className="btn accent wide press" onClick={() => open(<ExpenseSheet init={{ text: `${String(price).replace('.', ',')} Prenda ${g.to_name}${g.item ? ` ${g.item}` : ''}`.slice(0, 80), occ: occ?.id, split: g.secret_for ? 'mine' : undefined, giftId: g.id }} />)}>Sim, registar</button>
-        <button type="button" className="btn quiet wide press" onClick={close}>Agora não</button>
-      </div>,
-    );
+    // Sem despesa que bata certo: abre já a folha da despesa, preenchida (de quem é, partilhada ou não, confirma-se lá).
+    toast(`Regista a despesa de ${euro(price)}: fica nas despesas de Natal (extraordinárias).`);
+    open(<ExpenseSheet init={{ text: `${String(price).replace('.', ',')} Prenda ${g.to_name}${g.item ? ` ${g.item}` : ''}`.slice(0, 80), occ: occ?.id, split: g.secret_for ? 'mine' : undefined, giftId: g.id }} />);
   };
 }
 
 /** As ideias para uma pessoa: juntar, escolher (passa a ser a prenda e sai da lista) ou apagar. Ficam de ano para ano. */
 function Ideas({ name, secret, onPick }: { name: string; secret: string | null; onPick?: (idea: string) => void }) {
+  // Não é um <form>: está dentro do cartão da pessoa (que é um form) e um form dentro de outro submetia o de fora.
   const { house } = useSession();
   const { ideas } = useHouse();
   const { toast } = useOverlays();
   const [t, setT] = useState('');
+  const [editing, setEditing] = useState<string | null>(null);
+  const [et, setEt] = useState('');
   const list = ideasFor(name, ideas.rows);
-  async function add(e: FormEvent) {
-    e.preventDefault();
+  async function add() {
     if (!t.trim() || !house) return;
-    const { error } = await supabase.from('gift_ideas').insert({ household_id: house.id, to_name: name.trim().slice(0, 60), idea: t.trim().slice(0, 120), secret_for: secret });
+    const v = t.trim().slice(0, 120);
+    setT('');
+    const { error } = await supabase.from('gift_ideas').insert({ household_id: house.id, to_name: name.trim().slice(0, 60), idea: v, secret_for: secret });
+    if (error) { setT(v); return toast(error.message); }
+    ideas.reload();
+  }
+  async function saveEdit(id: string) {
+    const v = et.trim().slice(0, 120);
+    setEditing(null);
+    if (!v) return drop(id);
+    const { error } = await supabase.from('gift_ideas').update({ idea: v }).eq('id', id);
     if (error) return toast(error.message);
-    setT(''); ideas.reload();
+    ideas.reload();
   }
   const drop = async (id: string) => { await supabase.from('gift_ideas').delete().eq('id', id); ideas.reload(); };
+  const enter = (f: () => void) => (e: React.KeyboardEvent<HTMLInputElement>) => { if (e.key === 'Enter') { e.preventDefault(); f(); } };
   return (
     <section className="stack natal-ideas" aria-label={`Ideias para ${name}`}>
       <span className="s">Ideias para {name}{secret ? ' (só tu vês)' : ''}</span>
       {list.length > 0 && <ul>{list.map((i) => (
-        <li key={i.id}><span>{i.idea}</span>
-          {onPick && <button type="button" className="tb press" onClick={async () => { onPick(i.idea); await drop(i.id); }}>Escolher</button>}
-          <button type="button" className="tb quiet press" aria-label={`Apagar a ideia ${i.idea}`} onClick={() => void drop(i.id)}>×</button>
+        <li key={i.id}>
+          {editing === i.id
+            ? <input className="field" autoFocus value={et} onChange={(e) => setEt(e.target.value)} onKeyDown={enter(() => void saveEdit(i.id))} onBlur={() => void saveEdit(i.id)} maxLength={120} aria-label="Editar a ideia" enterKeyHint="done" />
+            : <button type="button" className="natal-idea press" onClick={() => { setEditing(i.id); setEt(i.idea); }} aria-label={`Editar a ideia ${i.idea}`}>{i.idea}</button>}
+          {onPick && editing !== i.id && <button type="button" className="tb press" onClick={async () => { onPick(i.idea); await drop(i.id); }}>Escolher</button>}
+          {editing !== i.id && <button type="button" className="tb quiet press" aria-label={`Apagar a ideia ${i.idea}`} onClick={() => void drop(i.id)}>×</button>}
         </li>
       ))}</ul>}
-      <form className="add-row" onSubmit={add} autoComplete="off">
-        <input className="field" value={t} onChange={(e) => setT(e.target.value)} placeholder="Uma ideia (ex.: luvas de pele)" maxLength={120} aria-label="Nova ideia" />
-        <button className="tb press" aria-label="Juntar ideia"><Icon n="plus" s={18} /></button>
-      </form>
+      <div className="add-row">
+        <input className="field" value={t} onChange={(e) => setT(e.target.value)} onKeyDown={enter(() => void add())} onBlur={() => void add()} placeholder="Uma ideia (ex.: luvas de pele)" maxLength={120} aria-label="Nova ideia" enterKeyHint="done" />
+        <button type="button" className="tb press" aria-label="Juntar ideia" onMouseDown={(e) => e.preventDefault()} onClick={() => void add()}><Icon n="plus" s={18} /></button>
+      </div>
     </section>
   );
 }
@@ -107,30 +118,33 @@ function GiftCard({ g, done }: { g: XGift; done: () => void }) {
   const [item, setItem] = useState(g.item ?? '');
   const [price, setPrice] = useState(g.price === null ? '' : String(g.price).replace('.', ','));
   const past = pastFor(g.to_name, xmas.rows, yearOf, year);
-  async function save(e: FormEvent) {
-    e.preventDefault();
-    if (!name.trim()) return toast('Falta o nome.');
-    const p = price.trim() ? parseAmount(price) : null;
-    const { error } = await supabase.from('xmas_gifts').update({ to_name: name.trim().slice(0, 60), item: item.trim().slice(0, 80) || null, price: p }).eq('id', g.id);
+  // Grava sozinho ao sair de cada campo (e ao escolher uma ideia): não é preciso carregar em nada.
+  async function persist(over: { name?: string; item?: string; price?: string } = {}) {
+    const n = (over.name ?? name).trim(), it = (over.item ?? item).trim(), pr = (over.price ?? price).trim();
+    if (!n) return toast('Falta o nome.');
+    const p = pr ? parseAmount(pr) : null;
+    if (n === g.to_name && (it || null) === (g.item ?? null) && (p === null ? null : Number(p)) === (g.price === null ? null : Number(g.price))) return;
+    const { error } = await supabase.from('xmas_gifts').update({ to_name: n.slice(0, 60), item: it.slice(0, 80) || null, price: p }).eq('id', g.id);
     if (error) return toast(error.message);
-    xmas.reload(); done(); toast('Guardado.', { ok: true });
+    xmas.reload();
   }
+  async function save(e: FormEvent) { e.preventDefault(); await persist(); done(); }
   return (
     <form className="natal-card-open" onSubmit={save} autoComplete="off">
-      {!g.secret_for && <input className="field" value={name} onChange={(e) => setName(e.target.value)} maxLength={60} aria-label="Para quem" placeholder="Para quem" />}
+      {!g.secret_for && <input className="field" value={name} onChange={(e) => setName(e.target.value)} onBlur={() => void persist()} maxLength={60} aria-label="Para quem" placeholder="Para quem" />}
       <div className="natal-two">
-        <input className="field" value={item} onChange={(e) => setItem(e.target.value)} placeholder="O quê" maxLength={80} aria-label="O quê" />
-        <input className="field" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="€" inputMode="decimal" aria-label="Preço" />
+        <input className="field" value={item} onChange={(e) => setItem(e.target.value)} onBlur={() => void persist()} placeholder="O quê" maxLength={80} aria-label="O quê" />
+        <input className="field" value={price} onChange={(e) => setPrice(e.target.value)} onBlur={() => void persist()} placeholder="€" inputMode="decimal" aria-label="Preço" />
       </div>
-      <Ideas name={g.to_name} secret={g.secret_for} onPick={(x) => setItem(x)} />
+      <Ideas name={g.to_name} secret={g.secret_for} onPick={(x) => { setItem(x); void persist({ item: x }); }} />
       {past.length > 0 && <section className="natal-past" aria-label="Anos anteriores">
         <span className="s">Anos anteriores</span>
         <ul>{past.map((x, k) => <li key={k}><span className="num">{x.year}</span><span>{x.item ?? 'prenda'}</span><span className="num">{x.price ? euro(x.price) : ''}</span></li>)}</ul>
       </section>}
       <div className="natal-acts">
-        <button className="btn press">Guardar</button>
+        <button className="btn press">Fechar</button>
         {!g.bought
-          ? <button type="button" className="btn accent press" onClick={async () => { done(); await buy({ ...g, to_name: name.trim() || g.to_name, item: item.trim() || null }, price.trim() ? Number(parseAmount(price)) : null); }}><Icon n="check" s={16} /> Comprada</button>
+          ? <button type="button" className="btn accent press" onClick={async () => { await persist(); done(); await buy({ ...g, to_name: name.trim() || g.to_name, item: item.trim() || null }, price.trim() ? Number(parseAmount(price)) : null); }}><Icon n="check" s={16} /> Comprada</button>
           : <button type="button" className="btn quiet press" onClick={async () => { await supabase.from('xmas_gifts').update({ bought: false, expense_id: null }).eq('id', g.id); xmas.reload(); }}>Ainda não comprada</button>}
         <button type="button" className="tb quiet press" onClick={async () => { await supabase.from('xmas_gifts').delete().eq('id', g.id); xmas.reload(); done(); toast('Apagada.'); }}>Apagar</button>
       </div>
@@ -156,7 +170,7 @@ export function NatalScreen() {
   useN2();
   const { me, members, house } = useSession();
   const { xmas, expenses, ideas } = useHouse();
-  const { open, toast } = useOverlays();
+  const { open, close, toast } = useOverlays();
   const { year, occ, ensure, yearOf } = useNatal();
   const buy = useBuy();
   const [to, setTo] = useState(''), [item, setItem] = useState(''), [price, setPrice] = useState('');
@@ -178,9 +192,18 @@ export function NatalScreen() {
     const id = await ensure();
     if (!id) return toast('Não deu para criar o Natal deste ano.');
     const p = price.trim() ? parseAmount(price) : null;
-    const { error } = await supabase.from('xmas_gifts').insert({ household_id: house.id, occasion_id: id, to_name: name, item: item.trim().slice(0, 80) || null, price: p, secret_for: secret });
+    const { data: row, error } = await supabase.from('xmas_gifts').insert({ household_id: house.id, occasion_id: id, to_name: name, item: item.trim().slice(0, 80) || null, price: p, secret_for: secret }).select('*').single();
     if (error) return toast(error.message);
     setTo(''); setItem(''); setPrice(''); setSecret(null); xmas.reload();
+    // Com preço, pode já estar comprada: se sim, liga à despesa (ou abre a folha da despesa para a registar).
+    if (p && row) open(
+      <div className="stack">
+        <p className="l">Já está comprada?</p>
+        <p className="s">{name}{item.trim() ? ` · ${item.trim()}` : ''} · {euro(Number(p))}. Se sim, passa para as despesas de Natal: escolhes lá se é tua ou partilhada.</p>
+        <button type="button" className="btn accent wide press" onClick={async () => { close(); await buy(row as XGift, Number(p)); }}>Sim, já comprei</button>
+        <button type="button" className="btn quiet wide press" onClick={close}>Ainda não</button>
+      </div>,
+    );
   }
   return (
     <div className="n2-page n2v natal">
